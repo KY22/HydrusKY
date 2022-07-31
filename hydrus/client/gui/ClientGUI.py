@@ -58,7 +58,6 @@ from hydrus.client.gui import ClientGUIImport
 from hydrus.client.gui import ClientGUILogin
 from hydrus.client.gui import ClientGUIMediaControls
 from hydrus.client.gui import ClientGUIMenus
-from hydrus.client.gui import ClientGUIMPV
 from hydrus.client.gui import ClientGUIParsing
 from hydrus.client.gui import ClientGUIPopupMessages
 from hydrus.client.gui import ClientGUIScrolledPanels
@@ -78,6 +77,7 @@ from hydrus.client.gui import ClientGUITopLevelWindowsPanels
 from hydrus.client.gui import QLocator
 from hydrus.client.gui import ClientGUILocatorSearchProviders
 from hydrus.client.gui import QtPorting as QP
+from hydrus.client.gui.canvas import ClientGUIMPV
 from hydrus.client.gui.networking import ClientGUIHydrusNetwork
 from hydrus.client.gui.networking import ClientGUINetwork
 from hydrus.client.gui.pages import ClientGUIManagement
@@ -245,7 +245,7 @@ def THREADUploadPending( service_key ):
         HG.client_controller.pub( 'message', job_key )
         
         no_results_found = result is None
-    
+        
         while result is not None:
             
             time_started_this_loop = HydrusData.GetNowPrecise()
@@ -692,6 +692,8 @@ class FrameGUI( ClientGUITopLevelWindows.MainFrameThatResizes, CAC.ApplicationCo
         
         library_versions.append( ( 'sqlite', sqlite3.sqlite_version ) )
         
+        library_versions.append( ( 'qtpy', qtpy.__version__ ) )
+        
         library_versions.append( ( 'Qt', QC.__version__ ) )
         
         if qtpy.PYSIDE2:
@@ -705,11 +707,27 @@ class FrameGUI( ClientGUITopLevelWindows.MainFrameThatResizes, CAC.ApplicationCo
         elif qtpy.PYQT5:
 
             from PyQt5.Qt import PYQT_VERSION_STR # pylint: disable=E0401,E0611
-            from sip import SIP_VERSION_STR # pylint: disable=E0401
+            from PyQt5.sip import SIP_VERSION_STR # pylint: disable=E0401
 
             library_versions.append( ( 'PyQt5', PYQT_VERSION_STR ) )
             library_versions.append( ( 'sip', SIP_VERSION_STR ) )
             
+        elif QP.WE_ARE_PYSIDE and QP.WE_ARE_QT6:
+            
+            import PySide6
+            import shiboken6
+            
+            library_versions.append( ( 'PySide6', PySide6.__version__ ) )
+            library_versions.append( ( 'shiboken6', shiboken6.__version__ ) )
+
+        elif QP.WE_ARE_PYQT and QP.WE_ARE_QT6:
+
+            from PyQt6.QtCore import PYQT_VERSION_STR # pylint: disable=E0401
+            from PyQt6.sip import SIP_VERSION_STR # pylint: disable=E0401
+
+            library_versions.append( ( 'PyQt6', PYQT_VERSION_STR ) )
+            library_versions.append( ( 'sip', SIP_VERSION_STR ) )
+
         CBOR_AVAILABLE = False
         
         try:
@@ -3315,7 +3333,7 @@ class FrameGUI( ClientGUITopLevelWindows.MainFrameThatResizes, CAC.ApplicationCo
         ClientGUIMenus.AppendMenuItem( data_actions, 'flush log', 'Command the log to write any buffered contents to hard drive.', HydrusData.DebugPrint, 'Flushing log' )
         ClientGUIMenus.AppendMenuItem( data_actions, 'enable truncated image loading', 'Enable the truncated image loading to test out broken jpegs.', self._EnableLoadTruncatedImages )
         ClientGUIMenus.AppendSeparator( data_actions )
-        ClientGUIMenus.AppendMenuItem( data_actions, 'simulate program quit signal', 'Kill the program via a QApplication quit.', QW.QApplication.instance().quit )
+        ClientGUIMenus.AppendMenuItem( data_actions, 'simulate program exit signal', 'Kill the program via a QApplication exit.', QW.QApplication.instance().exit )
         
         ClientGUIMenus.AppendMenu( debug, data_actions, 'data actions' )
         
