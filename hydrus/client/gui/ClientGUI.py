@@ -520,9 +520,6 @@ class FrameGUI( ClientGUITopLevelWindows.MainFrameThatResizes, CAC.ApplicationCo
         
         self._widget_event_filter.EVT_ICONIZE( self.EventIconize )
         
-        self._widget_event_filter.EVT_MOVE( self.EventMove )
-        self._last_move_pub = 0.0
-        
         self._controller.sub( self, 'AddModalMessage', 'modal_message' )
         self._controller.sub( self, 'CreateNewSubscriptionGapDownloader', 'make_new_subscription_gap_downloader' )
         self._controller.sub( self, 'DeleteOldClosedPages', 'delete_old_closed_pages' )
@@ -7038,18 +7035,6 @@ The password is cleartext here but obscured in the entry dialog. Enter a blank p
             
         
     
-    def EventMove( self, event ):
-        
-        if HydrusData.TimeHasPassedFloat( self._last_move_pub + 0.1 ):
-            
-            self._controller.pub( 'top_level_window_move_event' )
-            
-            self._last_move_pub = HydrusData.GetNowPrecise()
-            
-        
-        return True # was: event.ignore()
-        
-    
     def TIMEREventAnimationUpdate( self ):
         
         if self._currently_minimised_to_system_tray:
@@ -7178,7 +7163,7 @@ The password is cleartext here but obscured in the entry dialog. Enter a blank p
         
         if len( self._persistent_mpv_widgets ) == 0:
             
-            mpv_widget = ClientGUIMPV.mpvWidget( parent )
+            mpv_widget = ClientGUIMPV.MPVWidget( parent )
             
             self._persistent_mpv_widgets.append( mpv_widget )
             

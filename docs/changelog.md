@@ -7,6 +7,93 @@ title: Changelog
 !!! note
     This is the new changelog, only the most recent builds. For all versions, see the [old changelog](old_changelog.html).
 
+## [Version 502](https://github.com/hydrusnetwork/hydrus/releases/tag/v502)
+
+### autocomplete dropdown
+* the floating version of the autocomplete dropdown gets the same backend treatment the media hovers and the popup toaster recently received--it is no longer its own window, but now a normal widget floating inside its parent. it should look pretty much the same, but a variety of bugs are eliminated. clients with many search pages open now only have one top level window, rather than potentially hundreds of hidden ones
+* if you have turned off floating a/c windows because of graphical bugs, please try turning them back on today. the checkbox is under _options->search_.
+* as an additional consequence, I have decided to no longer allow 'floating' autocomplete windows in dialogs. I never liked how this worked or looked, overlapping the apply/cancel buttons, and it is not technically possible to make this work with the new tech, so they are always embedded in dialogs now. the related checkbox in _options->search_ is gone as a result
+* if you ok or cancel on the 'OR' buttons, focus is now preserved back to the dropdown
+* a bunch of weird interwindow-focus-juggling and 'what happens if the user's window manager allows them to close a floating a/c dropdown'-style code is cleared out. with simpler logic, some flicker jank is simply eliminated
+* if you move the window around, any displaying floating a/c dropdowns now glide along with them; previously it updated at 10fps
+* the way the client swaps a new thumbnail grid in when results are loaded or dismissed is faster and more atomic. there is less focus-cludge, and as a result the autocomplete is better at retaining focus and staying displayed as changes to the search state occur
+* the way scroll events are caught is also improved, so the floating dropdown should fix its position on scroll more smoothly and capably
+
+### date system predicates
+* _this affects system:import time; :modified time; and :last viewed_
+* updated the system:time UI for time delta so you are choosing 'before', 'since', and '+/- 15% of'
+* updated the system:time UI for calendar date so you are choosing 'before', 'since', 'the day of', and '+/- a month of' rather than the ugly and awkward '<' stuff
+* updated the calendar calculations with calendar time-based system predicates, so '~=' operator now does plus or minus one month to the same calendar day, no matter how many days were in that month (previously it did +/- 30 days)
+* the system predicate parser now reassigns the '=' in a given 'system:time_type = time_delta' to '~='
+
+### misc
+* 'sort files by import time' now sorts files correctly even when two files were imported in the same second. thanks to the user who thought of the solution here!
+* the 'recent' system predicates you see listed in the 'flesh out system pred' dialogs now have a 'X' button that lets you remove them from the recent/favourites
+* fixed the crash that I disabled some code for last week and reactivated the code. the collect-by dropdown is back to refreshing itself whenever you change the settings in _options->sort/collect_. furthermore, this guy now spams less behind the scenes, only reinitialising if there are actual changes to the sort/collect settings
+* brushed up some network content-range checking logic. this data is tracked better, and now any time a given 206 range response has insufficient data for what its header said, this is noted in the log. it doesn't raise an error, and the network job will still try to resume from the truncated point, but let's see how widespread this is. if a server delivers _more_ data than specified, this now does raise an error
+* fixed a tiny bit of logic in how the server calculates changes in sibling and parent petition counts. I am not sure if I fixed the miscount the janitors have seen
+* if a janitor asks for a petition and the current petition count for that type is miscounted, leading to a 404, the server now quickly recalculates that number for the next request
+* updated the system predicate parser to replace all underscores with whitespace, so it can accept system predicates that use_underscores_instead_of_whilespace. I don't _think_ this messes up any of the parsing except in an odd case where a file service might have an underscore'd name, but we'll cross that bridge if and when we get to it
+* added information about 'PRAGMA quick_check;' to 'help my db is broke.txt'
+* patched a unit test that would rarely fail because of random data (issue #1217)
+
+### client api
+* /get_files/search_files:
+* fixed the recent bug where an empty tag input with 'search all' permission would raise an error. entering no search predicates now returns an empty list in all cases, no matter your permissions (issue #1250)
+* entering invalid tags now raises a 400 error
+* improved the tag permissions check. only non-wildcard tags are now tested against the filter
+* updated my unit tests to catch these cases
+* /add_tags/search_tags:
+* a unit test now explicitly tests that empty autocomplete input results in no tags
+* the Client API now responds with Access-Control-Max-Age=86400 on OPTIONS checks, which should reduce some CORS pre-flight spam
+* client api version is now 34
+
+### misc cleanup
+* cleaned up the signalling code in the 'recent system predicate' buttons
+* shuffled some page widget and layout code to make the embedded a/c dropdown work
+* deleted a bunch of a/c event handling and forced layout and other garbage code
+* worked on some linter warnings
+
+## [Version 501](https://github.com/hydrusnetwork/hydrus/releases/tag/v501)
+
+### misc
+* the Linux build gets the same 'cannot boot' setuptools version hotfix as last week's Windows build. sorry if you could not boot v500 on Linux! macOS never got the problem, I think because it uses pyoxidizer instead of pyinstaller
+* fixed the error/crash when clients running with PyQt6 (rather than the default Qt6, PySide6) tried to open file or directory selection dialogs. there was a slight method name discrepancy between the two libraries in Qt6 that we had missed, and it was sufficiently core that it was causing errors and best, crashes at worst
+* fixed a common crash caused after several options-saving events such as pausing/resuming subscriptions, repositories, import/export folders. thank you very much to the users who reported this, I was finally able to reproduce it an hour before the release was due. the collect control was causing the crash--its ability to update itself without a client restart is disabled for now
+* unfortunately, it seems Deviant Art have locked off the API we were using to get nice data, so I am reverting the DA downloader this week to the old html parser, which nonetheless still sems to work well. I expect we'll have to revisit this when we rediscover bad nsfw support or similar--let me know how things go, and you might like to hit your DA subs and 'retry ignored'
+* fixed a bad bug where manage rating dialogs that were launched on multiple files with disagreeing numerical ratings (where it shows the stars in dark grey), if okayed on that 'mixed' rating, rather than leaving them untouched, were resetting all those files back to the minimum allowed star value. I do not know when this bug came in, it is unusual, but I did do some rating state work a few weeks ago, so I am hoping it was then. I regret this and the inconvenience it has caused
+* if you manually navigate while the media viewer slideshow is running, the slideshow timer now resets (e.g. if you go 'back' on an image 7 seconds into a 10 second slideshow, it will show the previous image for 10 seconds, not 3, before moving on again)
+* fixed a type bug in PyQt hydrus when you tried to seek an mpv video when no file was loaded (usually happens when a seek event arrives late)
+* when you drop a hydrus serialised png of assorted objects onto a multi-column list, the little error where it says 'this list does not take objects of type x' now only shows once! previously, if your png was a list of objects, it could make a separate type error for each in turn. it should now all be merged properly
+* this import function also now presents a summary of how many objects were successfully imported
+* updated all ui-level ipfs multihash fetching across the program. this is now a little less laggy and uses no extra db in most cases
+* misc code and linter warning cleanup
+* .
+* tag right-click:
+* the 'edit x' entry in the tag right-click menu is now moved to the 'search' submenu with the other search-changing 'exclude'/'remove' etc.. actions
+* the 'edit x' entry no longer appears when you only select invertible, non-editable predicates
+* if you right-click on a -negated tag, the 'search' menu's action label now says 'require samus aran' instead of the awkward 'exclude -samus aran'. it will also say the neutral 'invert selection' if things get complicated
+
+### notes logic improvements
+* if you set notes to append on conflict and the existing note already contains the new note, now no changes will be made (repeatedly parsing the same conflcting note now won't append it multiple times)
+* if you set notes to rename on conflict and the note already exists on another name, now no changes will be made (i.e. repeatedly parsing the same conflicting note won't create (1), (2), (3)... rename dupes)
+
+### client api
+* /add_tags/search_tags gets a new parameter, 'tag_display_type', which lets you either keep searching the raw 'storage' tags (as you see in edit contexts like the 'manage tags' dialog), or the prettier sibling-processed 'display' tags (as you see in read contexts like a normal file search page)
+* /get_files/file_metadata now returns 'ipfs_multihashes' structure, which gives ipfs service key(s) and multihashes
+* if you run /get_files/search_files with no search predicates, or with only tags that do not parse correctly so you end up with no tags, the search now returns nothing, rather than system:everything. I will likely make this call raise errors on bad tags in future
+* the client api help is updated to talk about these
+* there's also unit tests for them
+* client api version is now 33
+
+### popup messages
+* the background workings of the popup toaster are rewritten. it looks the same, but instead of technically being its own window, it is now embedded into the main gui as a raised widget. this should clear up a whole heap of jank this window has caused over the years. for instance, in some OSes/Window Managers, when a new subscription popup appeared, the main window would activate and steal focus. this annoying thing should, fingers crossed, no longer happen
+* I have significantly rewritten the layout routine of the popup toaster. beyond a general iteration of code cleanup, popup messages should size their width more sensibly, expand to available space, and retract better after needing to grow wide
+* unfortunately, some layout jank does remain, mostly in popup messages that change height significantly, like error tracebacks. they can sometimes take two frames to resize correctly, which can look flickery. I am still doing something 'bad' here, in Qt terms, and have to hack part of the layout update routine. let me know what else breaks for you, and I will revisit this in future
+* the 'BUGFIX: Hide the popup toaster when the main gui is minimised/loses focus' checkboxes under _options->popups_ are retired. since the toaster is now embedded into the main gui just like any search page, these issues no longer apply. I am leaving the two 'freeze the popup toaster' checkboxes in place, just so we can play around with some virtual desktop issues I know some users are having, but they may soon go too
+* the popup toaster components are updated to use Qt signals rather than borked object callables
+* as a side thing, the popup toaster can no longer grow taller than the main window size
+
 ## [Version 500](https://github.com/hydrusnetwork/hydrus/releases/tag/v500)
 
 ### crashes
@@ -328,75 +415,3 @@ _almost all the changes this week are only important to server admins and janito
 * the sort control now only changes sort type on mouse wheel events if the mouse is over that button
 * renamed 'tag search context' to 'tag context' across the program, mirroring a recent change with the location context, and gave it some bells and whistles. in future, the tag context will hold multiple tag services
 * wrote a new button to edit tag contexts
-
-## [Version 491](https://github.com/hydrusnetwork/hydrus/releases/tag/v491)
-
-### system predicates
-* the advanced OR input, where you can type tags in complicated logical expressions, now supports system predicates! most system predicates are supported using their typical display strings. it uses the same engine as the client api, so check the examples here https://hydrusnetwork.github.io/hydrus/developer_api.html#get_files_search_files sorry for the delay here
-* the advanced input also runs tags better through the hydrus tag 'cleaning' process, so things like whitespace between the namespace colon and the subtag are cleaned up correctly, and invalid tags should be excluded
-* it also starts with the keyboard focus in the text input
-* and I think I fixed an issue with '!'', 'not', or '-' negation prefixes not parsing
-* highlighted the example parseable system predicate texts in the Client API help, and added 'last viewed' to it
-
-### misc
-* altering your services in _manage services_ no longer causes a full page refresh for all currently open search pages
-* in a related thing, if you click the file or tag domain of a file search page to be the same as it just was, you no longer get a page refresh
-* the rating widgets now show their current rating value on their tooltips
-* when setting a numerical rating by a drag, it no longer matters if your mouse strays above or below the widget--it will still set
-* the String Processing system has a new 'String Tag Filter' processing step. this applies the normal tag filtering object to your list of strings and also performs the hydrus 'tag cleaning' process on them, making them all lowercase and trimming whitespace and so on
-* the sibling/parent sync is now even more polite when told to do work in 'normal' time. this has been hitting a lot of new users really hard, so it should now really trickle work during normal time, throttling down when it hits a bump to avoid stunlocking you but also responding quickly to recent changes if you are fully synced
-* the database repair code is now better at healing damaged fast-text-search (FTS) tables. previously, in cases of partial damage to the virtual table, the repair code would error out
-* fixed a bug where certain search predicate calendar dates that are acceptable in Linux but not in Windows caused Windows to fail to load the session. if you put in 1965 as a search date, it should now revert to the current time one next load etc...
-* the test to see if a directory is writeable-to is improved and now handles Windows's Program Files directory correctly
-* improved how the boot scripts handle incorrect/bad database directory paths. the error handling works better, and it figures out a fallback location for crash.log better
-* a new button on 'review services' now lets advanced users copy the service key to the clipboard
-* the migrate tags dialog now lists file repositories, ipfs services, and 'all my files' as potential file filter domains
-* when checking it has space for a large transaction like a vacuum, hydrus now tries to check if you are running on a ramdisk or other severely space-limited temp dir and offers more text if this is true
-* updated the '4chan style thread api parser' to handle posts with multiple files, which fixes tvchan.moe and probably anything else running NPFchan
-* some logic testing around showing 'return to inbox' and the actual operation is fixed so it only applies to local files. in some weird advanced situations, you could previously send deleted files to inbox
-
-### new import/export framework
-* started a new modular metadata import/export pipeline. this thing starts out today by doing the work of newline-separated tags in a .txt sidecar file and will expand to do all sorts of metadata in other formats like JSON and XML. it will also, eventually, support arbitrary cross-type conversions like tags to urls or ratings to tags
-* export folders now support '.txt' sidecar tag exporting!
-* the '.txt' sidecar tag importing in import folders or manual imports is now handled by the new pipeline
-* the '.txt' sidecar exporting in the manual export dialog is now handled by the new pipeline
-* please expect the UI around '.txt' sidecar importing and exporting to change significantly in future. you'll be selecting different metadata types to import or export, make string processing steps to alter or filter what you get, and of course be able to compile it all into more complicated filetypes
-
-### cleanup and refactoring
-* mr bones gets two new columns to line up the numbers better
-* a bunch of export code got moved around. created a new module 'exporting', and moved ClientExporting.py to it, renaming to ClientExportingFiles.py
-* removed an old prototype for sidecar exporting and related plans for UI
-* the 'missing file folders on boot' dialog now points users to 'help my media files are broke.txt'
-* brushed up the 'help my x is broke.txt' documents in the database directory a little
-* fixed some surplus double backslashes in the help
-* a secret tiny label change/fix, let's see if anyone notices
-* cleaned up how the rating widgets manage and update rating state. it was ancient bad code
-* updated how different rating values are converted to UI text
-* misc cleanup of some free space checking code
-* fixed some bad quote characters in client api help JSON examples
-* improved some error handling for uploading pending content and sped up file uploads a little
-
-## [Version 490](https://github.com/hydrusnetwork/hydrus/releases/tag/v490)
-
-### misc
-* fixed a stupid bug that meant the image caches were initialising with default values (as under _speed and memory_) until you opened and OKed the options dialog (or did some other options-refresh events). sorry for the trouble, please enjoy some smoother image browsing.
-* mr bones now shows more numbers, and in a neater table. it should be clearer what the percentages are for now, too
-* the _manage->regenerate_ thumbnail menu has additional quick maintenance commands for presence and integrity checks and regenerating data in the similar files system
-* wrote a new 'special duplicate' button for the edit shortcut set dialog. the list on this dialog doesn't allow duplicates (which meant the old 'duplicate' button was doing nothing), so this duplicates the current actions with 'incremented' shortcut keys. 'a' becomes 'b', 'ctrl+5' becomes 'ctrl+6', and so on. it doesn't always work, but if you want to make ten shortcuts for setting rating 1-10, this should help
-* fixed an issue where the thumbnail banner text and the media viewer background text was not changing size or font according to QSS stylesheet rules (issue #1173)
-* SIGTERM should now cause a clean program exit (previously it killed the GUI App but left some daemon threads alive for thirty seconds or more). unlike SIGINT, it will not ask you if you are sure you want to exit or if you would like to do shutdown maintenance--it just closes the client promptly
-* fixed a bug in last week's importer page status improvements--the hard drive import page wasn't showing all the updates it should have
-* brushed up some backup help
-
-### file services
-* fixed a bug where advanced users could set 'all known files'/'all known tags' on a search dropdown. this search domain is not supported
-* in the archive/delete filter, if the current location is 'all my files' and the files being deleted are only in one local file domain, the surplus 'all my files' will no longer appear at the top of the filter's commit dialog
-* the file services in the thumbnail select/remove menu are now sorted in the same order as the file domain button in search dropdowns
-* the thumbnail select/remove menus now exclude 'all my files' and 'all local files' if those choices are redundant (e.g. if you only have files in 'my files', 'all my files' will be hidden)
-* fixed some incorrect 'delete from x' actions appearing in thumbnail right-click menus
-
-### orphan files
-* there's a persistent processing bug some users have where some update files are missing but they won't redownload correctly. I think I fix that this week naturally so existing maintenance routines will now be able to fix it themselves after another round
-* fixed some issues related to deleting files from the repository updates file domain.
-* the 'clear orphan file records' maintenance command now fixes the 'all my files' umbrella services as well as the 'all local files' one. it also has nicer description, does some additional file-removal cleanup, and triggers a file recount if problems are found
-* moved 'clear orphan files' to the 'files' maintenance menu

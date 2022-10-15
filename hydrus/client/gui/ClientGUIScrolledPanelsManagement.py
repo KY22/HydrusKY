@@ -2407,12 +2407,6 @@ class ManageOptionsPanel( ClientGUIScrolledPanels.ManagePanel ):
             self._freeze_message_manager_when_main_gui_minimised = QW.QCheckBox( self._popup_panel )
             self._freeze_message_manager_when_main_gui_minimised.setToolTip( 'This is useful if the popup toaster restores strangely after minimised changes.' )
             
-            self._hide_message_manager_on_gui_iconise = QW.QCheckBox( self._popup_panel )
-            self._hide_message_manager_on_gui_iconise.setToolTip( 'If your message manager does not automatically minimise with your main gui, try this. It can lead to unusual show and positioning behaviour on window managers that do not support it, however.' )
-            
-            self._hide_message_manager_on_gui_deactive = QW.QCheckBox( self._popup_panel )
-            self._hide_message_manager_on_gui_deactive.setToolTip( 'If your message manager stays up after you minimise the program to the system tray using a custom window manager, try this out! It hides the popup messages as soon as the main gui loses focus.' )
-            
             self._notify_client_api_cookies = QW.QCheckBox( self._popup_panel )
             self._notify_client_api_cookies.setToolTip( 'This will make a short-lived popup message every time you get new cookie information over the Client API.' )
             
@@ -2425,9 +2419,6 @@ class ManageOptionsPanel( ClientGUIScrolledPanels.ManagePanel ):
             self._freeze_message_manager_when_mouse_on_other_monitor.setChecked( self._new_options.GetBoolean( 'freeze_message_manager_when_mouse_on_other_monitor' ) )
             self._freeze_message_manager_when_main_gui_minimised.setChecked( self._new_options.GetBoolean( 'freeze_message_manager_when_main_gui_minimised' ) )
             
-            self._hide_message_manager_on_gui_iconise.setChecked( self._new_options.GetBoolean( 'hide_message_manager_on_gui_iconise' ) )
-            self._hide_message_manager_on_gui_deactive.setChecked( self._new_options.GetBoolean( 'hide_message_manager_on_gui_deactive' ) )
-            
             self._notify_client_api_cookies.setChecked( self._new_options.GetBoolean( 'notify_client_api_cookies' ) )
             
             #
@@ -2435,11 +2426,9 @@ class ManageOptionsPanel( ClientGUIScrolledPanels.ManagePanel ):
             rows = []
             
             rows.append( ( 'Approximate max width of popup messages (in characters): ', self._popup_message_character_width ) )
-            rows.append( ( 'BUGFIX: Force this width as the minimum width for all popup messages: ', self._popup_message_force_min_width ) )
+            rows.append( ( 'BUGFIX: Force this width as the fixed width for all popup messages: ', self._popup_message_force_min_width ) )
             rows.append( ( 'Freeze the popup toaster when mouse is on another display: ', self._freeze_message_manager_when_mouse_on_other_monitor ) )
             rows.append( ( 'Freeze the popup toaster when the main gui is minimised: ', self._freeze_message_manager_when_main_gui_minimised ) )
-            rows.append( ( 'BUGFIX: Hide the popup toaster when the main gui is minimised: ', self._hide_message_manager_on_gui_iconise ) )
-            rows.append( ( 'BUGFIX: Hide the popup toaster when the main gui loses focus: ', self._hide_message_manager_on_gui_deactive ) )
             rows.append( ( 'Make a short-lived popup on cookie updates through the Client API: ', self._notify_client_api_cookies ) )
             
             gridbox = ClientGUICommon.WrapInGrid( self._popup_panel, rows )
@@ -2462,9 +2451,6 @@ class ManageOptionsPanel( ClientGUIScrolledPanels.ManagePanel ):
             
             self._new_options.SetBoolean( 'freeze_message_manager_when_mouse_on_other_monitor', self._freeze_message_manager_when_mouse_on_other_monitor.isChecked() )
             self._new_options.SetBoolean( 'freeze_message_manager_when_main_gui_minimised', self._freeze_message_manager_when_main_gui_minimised.isChecked() )
-            
-            self._new_options.SetBoolean( 'hide_message_manager_on_gui_iconise', self._hide_message_manager_on_gui_iconise.isChecked() )
-            self._new_options.SetBoolean( 'hide_message_manager_on_gui_deactive', self._hide_message_manager_on_gui_deactive.isChecked() )
             
             self._new_options.SetBoolean( 'notify_client_api_cookies', self._notify_client_api_cookies.isChecked() )
             
@@ -2512,12 +2498,8 @@ class ManageOptionsPanel( ClientGUIScrolledPanels.ManagePanel ):
             self._default_search_synchronised.setToolTip( tt )
             
             self._autocomplete_float_main_gui = QW.QCheckBox( self._autocomplete_panel )
-            tt = 'The autocomplete dropdown can either \'float\' on top of the main window, or if that does not work well for you, it can embed into the parent panel.'
+            tt = 'The autocomplete dropdown can either \'float\' on top of the main window, or if that does not work well for you, it can embed into the parent page panel.'
             self._autocomplete_float_main_gui.setToolTip( tt )
-            
-            self._autocomplete_float_frames = QW.QCheckBox( self._autocomplete_panel )
-            tt = 'The autocomplete dropdown can either \'float\' on top of dialogs like _manage tags_, or if that does not work well for you (it can sometimes annoyingly overlap the ok/cancel buttons), it can embed into the parent dialog panel.'
-            self._autocomplete_float_frames.setToolTip( tt )
             
             self._ac_read_list_height_num_chars = ClientGUICommon.BetterSpinBox( self._autocomplete_panel, min = 1, max = 128 )
             tt = 'Read autocompletes are those in search pages, where you are looking through existing tags to find your files.'
@@ -2547,7 +2529,6 @@ class ManageOptionsPanel( ClientGUIScrolledPanels.ManagePanel ):
             self._default_search_synchronised.setChecked( self._new_options.GetBoolean( 'default_search_synchronised' ) )
             
             self._autocomplete_float_main_gui.setChecked( self._new_options.GetBoolean( 'autocomplete_float_main_gui' ) )
-            self._autocomplete_float_frames.setChecked( self._new_options.GetBoolean( 'autocomplete_float_frames' ) )
             
             self._ac_read_list_height_num_chars.setValue( self._new_options.GetInteger( 'ac_read_list_height_num_chars' ) )
             self._ac_write_list_height_num_chars.setValue( self._new_options.GetInteger( 'ac_write_list_height_num_chars' ) )
@@ -2573,8 +2554,7 @@ class ManageOptionsPanel( ClientGUIScrolledPanels.ManagePanel ):
             #
             
             rows.append( ( 'Start new search pages in \'searching immediately\': ', self._default_search_synchronised ) )
-            rows.append( ( 'Autocomplete results float in main gui: ', self._autocomplete_float_main_gui ) )
-            rows.append( ( 'Autocomplete results float in other windows: ', self._autocomplete_float_frames ) )
+            rows.append( ( 'Autocomplete results float in file search pages: ', self._autocomplete_float_main_gui ) )
             rows.append( ( '\'Read\' autocomplete list height: ', self._ac_read_list_height_num_chars ) )
             rows.append( ( '\'Write\' autocomplete list height: ', self._ac_write_list_height_num_chars ) )
             rows.append( ( 'show system:everything even if total files is over 10,000: ', self._always_show_system_everything ) )
@@ -2611,7 +2591,6 @@ class ManageOptionsPanel( ClientGUIScrolledPanels.ManagePanel ):
             self._new_options.SetBoolean( 'default_search_synchronised', self._default_search_synchronised.isChecked() )
             
             self._new_options.SetBoolean( 'autocomplete_float_main_gui', self._autocomplete_float_main_gui.isChecked() )
-            self._new_options.SetBoolean( 'autocomplete_float_frames', self._autocomplete_float_frames.isChecked() )
             
             self._new_options.SetInteger( 'ac_read_list_height_num_chars', self._ac_read_list_height_num_chars.value() )
             self._new_options.SetInteger( 'ac_write_list_height_num_chars', self._ac_write_list_height_num_chars.value() )

@@ -2,7 +2,6 @@ import itertools
 import os
 import random
 import time
-import typing
 
 from qtpy import QtCore as QC
 from qtpy import QtWidgets as QW
@@ -44,7 +43,6 @@ from hydrus.client.gui.canvas import ClientGUICanvasFrame
 from hydrus.client.gui.networking import ClientGUIHydrusNetwork
 from hydrus.client.media import ClientMedia
 from hydrus.client.metadata import ClientTags
-from hydrus.client.gui.search import ClientGUILocation
 
 def AddDuplicatesMenu( win: QW.QWidget, menu: QW.QMenu, location_context: ClientLocation.LocationContext, focus_singleton: ClientMedia.Media, num_selected: int, collections_selected: bool ):
     
@@ -62,6 +60,7 @@ def AddDuplicatesMenu( win: QW.QWidget, menu: QW.QMenu, location_context: Client
     if HG.client_controller.DBCurrentlyDoingJob():
         
         file_duplicate_info = {}
+        all_local_files_file_duplicate_info = {}
         
     else:
         
@@ -551,7 +550,12 @@ class MediaPanel( ClientMedia.ListeningMediaList, QW.QScrollArea, CAC.Applicatio
             
             hash = media.GetHash()
             
-            ( filename, ) = HG.client_controller.Read( 'service_filenames', service_key, { hash } )
+            filename = media.GetLocationsManager().GetServiceFilename( service_key )
+            
+            if filename is None:
+                
+                return
+                
             
             service = HG.client_controller.services_manager.GetService( service_key )
             
@@ -577,11 +581,13 @@ class MediaPanel( ClientMedia.ListeningMediaList, QW.QScrollArea, CAC.Applicatio
             prefix = service.GetMultihashPrefix()
             
         
-        hashes = self._GetSelectedHashes( is_in_file_service_key = service_key )
+        flat_media = self._GetSelectedFlatMedia( is_in_file_service_key = service_key )
         
-        if len( hashes ) > 0:
+        if len( flat_media ) > 0:
             
-            filenames = [ prefix + filename for filename in HG.client_controller.Read( 'service_filenames', service_key, hashes ) ]
+            filenames_or_none = [ media.GetLocationsManager().GetServiceFilename( service_key ) for media in flat_media ]
+            
+            filenames = [ prefix + filename for filename in filenames_or_none if filename is not None ]
             
             if len( filenames ) > 0:
                 
@@ -4707,7 +4713,7 @@ def AddRemoveMenu( win: MediaPanel, menu, filter_counts, all_specific_file_domai
         
         selected_count = file_filter_selected.GetCount( win, filter_counts )
         
-        if selected_count > 0 and selected_count < file_filter_all.GetCount( win, filter_counts ):
+        if 0 < selected_count < file_filter_all.GetCount( win, filter_counts ):
             
             ClientGUIMenus.AppendMenuItem( remove_menu, file_filter_selected.ToString( win, filter_counts ), 'Remove all the selected files from the current view.', win._Remove, file_filter_selected )
             

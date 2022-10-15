@@ -136,8 +136,6 @@ class ClientOptions( HydrusSerialisable.SerialisableBase ):
         self._dictionary[ 'booleans' ][ 'show_related_tags' ] = False
         self._dictionary[ 'booleans' ][ 'show_file_lookup_script_tags' ] = False
         
-        self._dictionary[ 'booleans' ][ 'hide_message_manager_on_gui_iconise' ] = HC.PLATFORM_MACOS
-        self._dictionary[ 'booleans' ][ 'hide_message_manager_on_gui_deactive' ] = False
         self._dictionary[ 'booleans' ][ 'freeze_message_manager_when_mouse_on_other_monitor' ] = False
         self._dictionary[ 'booleans' ][ 'freeze_message_manager_when_main_gui_minimised' ] = False
         
@@ -222,7 +220,6 @@ class ClientOptions( HydrusSerialisable.SerialisableBase ):
         
         self._dictionary[ 'booleans' ][ 'default_search_synchronised' ] = True
         self._dictionary[ 'booleans' ][ 'autocomplete_float_main_gui' ] = True
-        self._dictionary[ 'booleans' ][ 'autocomplete_float_frames' ] = False
         
         self._dictionary[ 'booleans' ][ 'global_audio_mute' ] = False
         self._dictionary[ 'booleans' ][ 'media_viewer_audio_mute' ] = False
@@ -311,8 +308,6 @@ class ClientOptions( HydrusSerialisable.SerialisableBase ):
         #
         
         self._dictionary[ 'duplicate_action_options' ] = HydrusSerialisable.SerialisableDictionary()
-        
-        from hydrus.client.metadata import ClientTags
         
         self._dictionary[ 'duplicate_action_options' ][ HC.DUPLICATE_BETTER ] = ClientDuplicates.DuplicateActionOptions(
             tag_service_actions = [ ( CC.DEFAULT_LOCAL_TAG_SERVICE_KEY, HC.CONTENT_MERGE_ACTION_MOVE, HydrusTags.TagFilter() ), ( CC.DEFAULT_LOCAL_DOWNLOADER_TAG_SERVICE_KEY, HC.CONTENT_MERGE_ACTION_MOVE, HydrusTags.TagFilter() ) ],
@@ -1349,6 +1344,24 @@ class ClientOptions( HydrusSerialisable.SerialisableBase ):
                 while len( recent_predicates ) > 5:
                     
                     recent_predicates.pop( 5 )
+                    
+                
+            
+        
+    
+    def RemoveRecentPredicate( self, predicate ):
+        
+        with self._lock:
+            
+            predicate_types_to_recent_predicates = self._dictionary[ 'predicate_types_to_recent_predicates' ]
+            
+            for recent_predicates in predicate_types_to_recent_predicates.values():
+                
+                if predicate in recent_predicates:
+                    
+                    recent_predicates.remove( predicate )
+                    
+                    return
                     
                 
             

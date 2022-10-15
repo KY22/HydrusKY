@@ -915,11 +915,6 @@ class ListBoxTagsMediaManagementPanel( ClientGUIListBoxes.ListBoxTagsMedia ):
             p = inverse_predicates
             permit_remove = False
             
-        elif command == 'remove_inverse_predicates':
-            
-            p = predicates
-            permit_add = False
-            
         elif command == 'add_namespace_predicate':
             
             p = ( namespace_predicate, )
@@ -936,10 +931,6 @@ class ListBoxTagsMediaManagementPanel( ClientGUIListBoxes.ListBoxTagsMedia ):
             HG.client_controller.pub( 'enter_predicates', self._page_key, p, permit_remove = permit_remove, permit_add = permit_add )
             
         
-    
-def managementScrollbarValueChanged( value ):
-    
-    HG.client_controller.pub( 'top_level_window_move_event' )
     
 class ManagementPanel( QW.QScrollArea ):
     
@@ -958,8 +949,6 @@ class ManagementPanel( QW.QScrollArea ):
         #self.setLineWidth( 2 )
         #self.setHorizontalScrollBarPolicy( QC.Qt.ScrollBarAlwaysOff )
         self.setVerticalScrollBarPolicy( QC.Qt.ScrollBarAsNeeded )
-        
-        self.verticalScrollBar().valueChanged.connect( managementScrollbarValueChanged )
         
         self._controller = controller
         self._management_controller = management_controller
