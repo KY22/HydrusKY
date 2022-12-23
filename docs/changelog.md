@@ -7,6 +7,86 @@ title: Changelog
 !!! note
     This is the new changelog, only the most recent builds. For all versions, see the [old changelog](old_changelog.html).
 
+## [Version 511](https://github.com/hydrusnetwork/hydrus/releases/tag/v511)
+
+### thumbnail UI scaling
+
+* thumbnails can finally look good at high UI scales! a new setting in _options->thumbnails_, 'Thumbnail UI scale supersampling %', lets you tell hydrus to generate thumbnails at a particular UI scale. match it to your monitor, and your thumbnails should regenerate to look crisp
+* some users have complicated multi-monitor setups, or they change their UI scale regularly, so I'm not auto-setting this _yet_. let me know how it goes
+* sadly <100% for super-crunchy-mode doesn't work
+
+### unnamespaced search tags
+
+* _I am not really happy with this solution, since it doesn't neatly restore the old behaviour, but it does make things easier in the new system and I've fixed a related bug_
+* a new option in _services->manage tag display and search_, 'Unnamespaced input gives (any namespace) wildcard results', now lets you quickly search `*:sam*` by typing `sam`
+* fixed an issue where an autocomplete input with a total wildcard namespace, like `*:sam` was not matching to unnamespaced tags when preparing the list of tag results
+* wildcards with `*` namespace now have a special `(any namespace)` suffix, and they show with unnamespaced namespace colour
+
+### misc
+
+* fixed the client-server communication problem related to last week's SerialisableDictionary update. I messed up and forgot this object is used in network comms, which meant >=v510 clients couldn't talk to a <=509 server and _vice versa_ version swaps. now the server always kicks out an old SerialisableDictionary serialisation. I plan to remove the patch in 26 weeks, giving us more buffer time for users to update naturally
+* the recent option to turn off mouse-scroll-changes-menu-button-value is improved--now the wheel event is correctly passed up to the parent panel, so you'll scroll right through one of these buttons, not halt on it. the file sort control now also obeys this option
+* if you try to zoom a media in so that its virtual size would be >32,000px on a side, the canvas now zooms to 32k exactly. this is the max allowed zoom for technical reasons atm (I'll fix it in a future rewrite). this also fixes the 'zoom max' command, which previously would make no action if the max zoom created a virtual canvas bigger than this. also, 'zoom max' is now shown on the media viewer right-click menu
+* the 'max zoom' dimension for mpv windows and my native animation window is now 8k. seems like there are smaller technical limits for mpv, and my animation window isn't tiled, so this is to be extra safe for now
+* fixed a bug where it was possible to send the 'undelete file' signal to a file that was physically deleted (and therefore viewed in a special 'deleted files' domain). the file would obediently return to its original local file service and then throw 'missing file' warnings when the thumb tried to show. now these files are discarded from undelete consideration
+* if you are looking at physically deleted files, the thumbnail view now provides a 'clear deletion record' menu action! this is the same command as the button in _services->review services->all local files_, but just on the selection
+* fixed several taglists across the program that were displaying tags in the wrong display context and/or not sorting correctly. this mostly went wrong by setting sorted storage taglists (which normally show sibling/parent flare) as unsorted display taglists
+* file lookup script tag suggestions (as fetched from some external source) are now set to be sorted
+
+### file import options pre-import checking
+
+* _this stuff is advanced users only. normal users can rest assured that the way the client skips downloads for 'already in db/previously deleted' files now has fewer false negatives and false positives_
+* the awkwardly named advanced 'do not check url/hash to see if file already in db/previously deleted' checkboxes in file import options have been overhauled. now they are phrased in the positive ("check x to determine aid/pd?") and offer 'do not check', 'check', and the new 'check - and matches are dispositive'. the tooltip has been updated to talk about what they do. 'dispositive' basically means 'if this one hits, trust it over the other', and by default the 'hash' check remains dispositive over the URLs (this was previously hardcoded, now you can choose urls to rule in some cases).
+* there is also a new checkbox to optionally disable a component of the url checking that looks at neighbouring urls on the same file to determine url-mapping trustworthiness. this will solve or help explore some weird multi-url-mapping situations
+* also, novel SHA256 hashes no longer count as 'matches', just like a novel MD5 hash would not. this helps keep useful dispositive behaviour for known hashes but also automatically defers to urls when a site is being CDN-optimised and transfer hashes are different to api-reported ones. this fixes some watchers that have been using excess bandwidth on repeated downloads
+* fixed several problems with the url-lookup logic, particularly with the method that checks for 'file-neighbour' urls (simply, when a file-url match should be distrusted because that file has multiple urls of the same url class). it was also too aggressive on file/unknown url classes, which can legitimately have tokenised neighbours, and getting confused by http/https dupes
+* the neighbour test now remembers untrustworthy domains across different url checks for a file, which helps some subsequent direct-file-url checks where neighbours aren't a marker of file-url mapping reliability
+* the overall logic behind the hash and url lookup is cleaned up significantly
+* if you are an advanced user who has been working with me on this stuff, let me know how it goes. we erected this rats' nest through years of patches, and now I have cleaned it out. I'm confident it works better overall, but I may have missed one of your complicated situations. at the least, these new options should help us figure out quicker fixes in future
+
+### boring code cleanup
+
+* removed some old 'subject_identifier' arg parsing from various account-modification calls in the server code. as previously planned, for simplicity and security, the only identifier for these actions is now 'subject_account_key', and subject_identifier is only used for account lookups
+* improved the error handling around serialised object loading. the messages explain what happened and state object type and the versions involved
+* cleaned up some tag sort code
+* cleaned up how advanced file delete content updates work
+* fixed yet another duplicate potentials count unit test that was sometimes failing due to complex count perspective
+
+## [Version 510](https://github.com/hydrusnetwork/hydrus/releases/tag/v510)
+
+### notes
+
+* duplicate metadata merge options now supports note merging. you can copy from worse to better or in both directions, with a couple extra conflict-resolution options that are a subset of note import options and have reasonable defaults.
+* the default note merge options are to go from worse to better for 'set as better' and both directions for 'they are the same', renaming notes on conflicts. **your existing duplicate metadata merge options will receive these settings on update, so if you don't want this, update your settings from the duplicate filter page**
+* the manage notes dialog gets copy and paste buttons. these will copy all the current notes and paste them to another instance of the panel, using the default (extend if possible, otherwise rename) conflict resolution rules
+* if an automatic system like a parser gives a note text that already exists on the file, the Note Import Options now discards it in all cases, no matter the names involved. no more automatic dupes!
+* ADVANCED: note import options (and related note add/merge operations that use it) now scan all prefix-matching note names for 'new note is already in file' and 'new note is an extension of a note already in file' tests. this improves a former fix to the 'successive parses of two sites with the same note name but different note text cause one of them to be dupe-added as (2), (3), (4), renames etc...' bug. the initial (1) rename will be scanned and recognised as 'already in file' and ignored or now extended as the settings say, just as if the desired name were hit. thanks to the reports here--I missed the logic the first time around
+* it would be nice to have 'manage notes' for multiple files at once--this is still a future goal
+
+### notes client api
+
+* the `/add_notes/set_notes` now takes some new parameters if you want to apply the adapted Note Import Options merge logic rather than figure out renames and extensions yourself
+* `/add_notes/set_notes` now returns the changes it made, which in the new mode may not be exactly what you instructed
+* added unit tests and help to reflect the above
+* client api version is now 38
+
+### misc
+
+* I fixed up how shift/ctrl/drag selection works on taglists. like with the recent thumbnail selection update, you can now 'undo' a shift-select with subsequent clicks or 'drag undo', and the list remembers what _was_ selected beforehand. ctrl-shift-select is also a more reliable 'deselect range'. both mouse drag selection and ctrl-drag selection use this logic, have fewer index bugs, and the ctrl-drag now chooses at the start whether this drag will be selection or deselection based on your initial click that started the drag. have a play with it--overall it just feels better now
+* the 'file log' menu now shows a 'reverse' command, which reverses all the imports in the log. if you want to import from oldest to newest with a typical booru, just start your downloader with file imports paused (check the cog icon), and then allow the gallery search to fully populate the list as normaly. once done, hit this new reverse and then unpause the files, and you should be good
+* any image files or thumbnails that are completely transparent and have a non-completely-black image now have their alpha channel stripped, just like files that are completely opaque. I believe the instances where this is a mistake outweigh the instances where it is legit, but let me know how we get on--maybe there are some weird mid-gif thumbs or something where this misfires. in the same thing, I reverted the 'psd thumbnails now have no transparency' change from last week. the issue where ffmpeg was sometimes being confused about psd layer masks from earlier should be fixed while letting legit transparency work correctly. the ultimate fix here will be to roll imagemagick into the program, which I am now planning and will start 'running from source' experiments with soon
+* the three 'additional fixed time...' settings in _options->downloading_ now have a max value of 3600, for extreme situation testing
+
+### boring code cleanup
+
+* updated my serialisabledict/list objects again--they can now handle bytes objects in any position. I will slowly migrate my existing hardcoded bytes serialisation and the old serialisablebytesdict to these freshly flexible classes
+* for clarity, across the code, renamed 'duplicate action options' to 'duplicate content merge options'
+* refactored duplicate content merge options initialisation, clearing the stuffed init and totuple to nicer get/set
+* broke apart how NoteImportOptions does its main note filtering for easier low-level access
+* cleaned a ton of note import options code up. the logic here was not great, now it is a bit tidier
+* undid whatever nonsense I was doing with taglist ctrl-drag-selection and cleaned up the main click and drag event handling along with its index calculation and 'what was clicked last time' record
+* fixed numerous weird logical/position index issues with the taglist and clicking/dragging
+
 ## [Version 509](https://github.com/hydrusnetwork/hydrus/releases/tag/v509)
 
 ### misc
@@ -396,96 +476,3 @@ title: Changelog
 * shuffled some page widget and layout code to make the embedded a/c dropdown work
 * deleted a bunch of a/c event handling and forced layout and other garbage code
 * worked on some linter warnings
-
-## [Version 501](https://github.com/hydrusnetwork/hydrus/releases/tag/v501)
-
-### misc
-* the Linux build gets the same 'cannot boot' setuptools version hotfix as last week's Windows build. sorry if you could not boot v500 on Linux! macOS never got the problem, I think because it uses pyoxidizer instead of pyinstaller
-* fixed the error/crash when clients running with PyQt6 (rather than the default Qt6, PySide6) tried to open file or directory selection dialogs. there was a slight method name discrepancy between the two libraries in Qt6 that we had missed, and it was sufficiently core that it was causing errors and best, crashes at worst
-* fixed a common crash caused after several options-saving events such as pausing/resuming subscriptions, repositories, import/export folders. thank you very much to the users who reported this, I was finally able to reproduce it an hour before the release was due. the collect control was causing the crash--its ability to update itself without a client restart is disabled for now
-* unfortunately, it seems Deviant Art have locked off the API we were using to get nice data, so I am reverting the DA downloader this week to the old html parser, which nonetheless still sems to work well. I expect we'll have to revisit this when we rediscover bad nsfw support or similar--let me know how things go, and you might like to hit your DA subs and 'retry ignored'
-* fixed a bad bug where manage rating dialogs that were launched on multiple files with disagreeing numerical ratings (where it shows the stars in dark grey), if okayed on that 'mixed' rating, rather than leaving them untouched, were resetting all those files back to the minimum allowed star value. I do not know when this bug came in, it is unusual, but I did do some rating state work a few weeks ago, so I am hoping it was then. I regret this and the inconvenience it has caused
-* if you manually navigate while the media viewer slideshow is running, the slideshow timer now resets (e.g. if you go 'back' on an image 7 seconds into a 10 second slideshow, it will show the previous image for 10 seconds, not 3, before moving on again)
-* fixed a type bug in PyQt hydrus when you tried to seek an mpv video when no file was loaded (usually happens when a seek event arrives late)
-* when you drop a hydrus serialised png of assorted objects onto a multi-column list, the little error where it says 'this list does not take objects of type x' now only shows once! previously, if your png was a list of objects, it could make a separate type error for each in turn. it should now all be merged properly
-* this import function also now presents a summary of how many objects were successfully imported
-* updated all ui-level ipfs multihash fetching across the program. this is now a little less laggy and uses no extra db in most cases
-* misc code and linter warning cleanup
-* .
-* tag right-click:
-* the 'edit x' entry in the tag right-click menu is now moved to the 'search' submenu with the other search-changing 'exclude'/'remove' etc.. actions
-* the 'edit x' entry no longer appears when you only select invertible, non-editable predicates
-* if you right-click on a -negated tag, the 'search' menu's action label now says 'require samus aran' instead of the awkward 'exclude -samus aran'. it will also say the neutral 'invert selection' if things get complicated
-
-### notes logic improvements
-* if you set notes to append on conflict and the existing note already contains the new note, now no changes will be made (repeatedly parsing the same conflcting note now won't append it multiple times)
-* if you set notes to rename on conflict and the note already exists on another name, now no changes will be made (i.e. repeatedly parsing the same conflicting note won't create (1), (2), (3)... rename dupes)
-
-### client api
-* /add_tags/search_tags gets a new parameter, 'tag_display_type', which lets you either keep searching the raw 'storage' tags (as you see in edit contexts like the 'manage tags' dialog), or the prettier sibling-processed 'display' tags (as you see in read contexts like a normal file search page)
-* /get_files/file_metadata now returns 'ipfs_multihashes' structure, which gives ipfs service key(s) and multihashes
-* if you run /get_files/search_files with no search predicates, or with only tags that do not parse correctly so you end up with no tags, the search now returns nothing, rather than system:everything. I will likely make this call raise errors on bad tags in future
-* the client api help is updated to talk about these
-* there's also unit tests for them
-* client api version is now 33
-
-### popup messages
-* the background workings of the popup toaster are rewritten. it looks the same, but instead of technically being its own window, it is now embedded into the main gui as a raised widget. this should clear up a whole heap of jank this window has caused over the years. for instance, in some OSes/Window Managers, when a new subscription popup appeared, the main window would activate and steal focus. this annoying thing should, fingers crossed, no longer happen
-* I have significantly rewritten the layout routine of the popup toaster. beyond a general iteration of code cleanup, popup messages should size their width more sensibly, expand to available space, and retract better after needing to grow wide
-* unfortunately, some layout jank does remain, mostly in popup messages that change height significantly, like error tracebacks. they can sometimes take two frames to resize correctly, which can look flickery. I am still doing something 'bad' here, in Qt terms, and have to hack part of the layout update routine. let me know what else breaks for you, and I will revisit this in future
-* the 'BUGFIX: Hide the popup toaster when the main gui is minimised/loses focus' checkboxes under _options->popups_ are retired. since the toaster is now embedded into the main gui just like any search page, these issues no longer apply. I am leaving the two 'freeze the popup toaster' checkboxes in place, just so we can play around with some virtual desktop issues I know some users are having, but they may soon go too
-* the popup toaster components are updated to use Qt signals rather than borked object callables
-* as a side thing, the popup toaster can no longer grow taller than the main window size
-
-## [Version 500](https://github.com/hydrusnetwork/hydrus/releases/tag/v500)
-
-### crashes
-* I messed the mpv update up in v499. my golden rule is never to put out bleeding-edge library updates, but without thinking I gave everyone a dll from late august. it turns out this thing was pretty crashy, and many users were getting other unusual behaviour as well. it seems like people on very new versions of Windows were mostly ok, but a little instability, whereas some older-Windows users were unable to start the client or could boot but couldn't load mpv at all. these latter cases were plagued with other problems. thanks to user help, we discovered it was the newer mpv dll causing all the problems, and an older one, from early May, seems to be fine
-* so, I am rolling back the mpv in the windows releases. the 'v3' 2022-08-29 I bundled in 499 was causing several users serious problems, possibly because of the advanced 'v3' chipset instructions or related advanced compiler tech. for the Qt6 release, we are going back to 2022-05-01, which several users report as stable, and for the Qt5 we are rolling back to the 498 version, 2021-02-28, which is back to mpv-1.dll. Since Qt5 users are increasingly going to be Win 7, we'll go super safe. THEREFORE, Qt5 extract users will want to perform a clean install this week: https://hydrusnetwork.github.io/hydrus/getting_started_installing.html#clean_installs
-* (you can alternately just delete the now-surplus mpv-2.dll in your install directory, but a full clean install is good to do from time to time, so may as well)
-* updated the sqlite dll in the windows release to 2022-05, and the exe in the db directory to 2022-09
-* rewrote how some internal MPV events are signalled to Qt. they now have their own clean custom event types rather than piggy-backing on some bad old hydrus pubsub code
-* I either fixed a rare boot crash related to the popup messaging system, maybe exclusively on macOS, or I improved it and we'll get a richer error now
-
-### tag sibling search
-* if you search explicitly for a tag that has a better sibling (one way this can happen is when loading up an old favourite search), the client will now auto-convert that tag to the ideal in the search code and give you results for the siblinged tag
-* this started off as a predicted five minute thing and spilled out into a multi-hour saga of me realising some tag sibling search code was A) wrong in edge cases and B) slow in edge cases. I have subtly reshaped how core file-tag search works in the client so that it consults each tag service in turn based on its siblings and its mappings, rather than mixing them together. this does not matter for 99.98% of cases, but if you have some weird overlapping siblings across different services, you should now get the correct results. also, some optimisations are more effective, so any instance of searching for tags on small tag services on 'all known tags' is now a bit quicker
-* big brain: please note the logic here is complex, and I have not yet updated autocomplete counting to handle this situation. if you type 'cat' and get 'cat (3)' from the three 'cat' tags on 'my tags', but 'cat' is siblinged to 'species:feline' on a big service like the PTR, it will still say (3), rather than (403) or whatever from the auto-corrected PTR results. I have a plan to fix this in a future cleanup round
-
-### tag subtags and namespace wildcards
-* searching for 'samus aran' no longer delivers files that have 'character:samus aran'. the subtag->namespace logic no longer applies. this was a fun idea from the very start of the program, but it was never all that useful as default behaviour and added several headaches, now eliminated. if you wish to perform this search going forward, please enter '*:samus aran', which is now an acceptable wildcard input
-* tag lookup is unaffected. typing 'samus aran' will still provide 'character:samus aran' as a tag to choose from
-* a heap of rinky-dink counting logic went along with this, such as providing tag search results like ('character:samus aran (100)', 'samus aran (100-105)'), where it tried to predict how many results would come with the unnamespaced search. this no longer exists, and a decent bit of CPU is now saved in any large tag search
-* wildcard searching works on similar rules now, so if you enter 'sa*s ar', you will see 'character:samus aran' as a result in the tag list, but searching for it will not give results with 'character:samus aran'. again, enter '*:sa*s ar*' to search for all namespaces (which is now provided as a quick suggestion any time you enter an unnamespaced wildcard), or enter 'character:sa*s ar*' explicitly
-* 'system:tag as number' also now follows similar rules, so if you leave the namespace field blank, it will search unnamespaced numbers. it now supports namespace wildcards, so you can enter '*' to get the old behaviour. the placeholder text on the namespace input now states this
-* 'system:number of tags' now uses the same UI as 'system:tag as number', where you enter '*' as the namespace to mean all namespaces, rather than checking a box
-
-### misc
-* all tag, namespace, and wildcard search predicates are now properly editable from the active search box. shift+double-click or select from the right-click menu, and you now get a simple text input alongside any system predicate panels. previously, this would only offer you a button to invert the tag to -tag and _vice versa_. now, you can add or remove the '-' and '*' characters yourself info to freely convert between tags, namespace:anything, and wildcard search predicates (issue #1235)
-* thanks to a user, you can now add '{#}' to an export filename pattern to get the '#' column in your filename (useful if you want to export files in the order they are currently in on the page)
-* furthermore, if you delete items from the manual file export window, the '#' column now recalculates itself to stay contiguous and in order (previously, it left gaps)
-* fixed a bug when deleting siblings on a local tags service. sorry for the trouble!
-* on manage siblings, when you remove, add, or replace a pair on a local tags service, you will now get a simple 'note' reason informing you more on what is going on. the 'REPLACEMENT:' thing recently added to tag repositories should now work for you too
-* when a downloader or similar adds files to a page, and you have at least one existing file selected, the status bar now updates correctly
-* fixed a critical issue that was affecting some users with damaged similar file search trees. when starting similar file search tree rebalancing maintenence, their client would go into an infinite loop and spool the cyclic branch into an ever-growing journal file in their temp directory until their system drive briefly ran out of space. sorry for the trouble, and thank you for the excellent reports that helped to figure this out (issue #1239)
-* the similar files search tree rebalance maintenance now detects more sorts of damaged trees and handles them gracefully, and the full tree regeneration clears out any damaged maintenance information too
-* fixed another problem with the tree branch maintenance system when the root was accidentally queued for branch rebalance
-* when you right-click->copy a wildcard search tag, it now copies the actual wildcard text, not the display text with (wildcard search) over the top
-* I added ',' to the list of non-decodable characters in the hacky URL Class encoding/decoding routine. sites that use an encoded comma (%_2C) for regular path components or query parameters should now work
-* a user has fixed a regex parsing problem in the predicate parser for system:hash
-* OR search predicates now sort their sub-predicates on construction/editing, meaning the label is always of set order, and they can now compare with and hence reliably nullify each other
-* the manage logins dialog now boots a little taller
-* the main gui tab bar may look a bit nicer/more appropriate in macOS
-* updated the help text on gui pages where it talks about overflowing rows of tabs, which auto-scroll even worse in Qt6, hooray
-
-### client api
-* the  client api now handles request disconnects better. the hydrus server code benefits from the same engine improvements
-* the 'twisted.internet.defer.CancelledError' logspam is cleaned up!
-* if a client disconnects before a client api autocomplete tag search or a file search is complete, that database job is now cancelled quickly just like when you type new characters in the client UI or stop a slow search
-* if you are a client api dev, please let me know how this works out IRL. I'm not 100% sure what a 'disconnect' means in this context, but if you want to develope autocomplete quick lookup as the user types, and you have a way clientside to cancel/kill an ongoing request before it is complete, please give it a go and let me know if this all works. cancelled requests don't make a log record right now, but you should see the client's db lock free up instantly. at the very least, I have the proper infrastructure for this now, so I can add more/better 'cancel' hooks as we need them
-
-### uninteresting code cleanup
-* refactored the file note mapping db code to a new module
-* refactored the file service pathing db code (this does directory structures and multihashes for ipfs) to a new module
-* refactored some tag display, tag filtering, and tag autocomplete calls down to appropriate db modules
-* refactored and extended some tag sibling database methods and names to clarify whether they were working with ids or strings

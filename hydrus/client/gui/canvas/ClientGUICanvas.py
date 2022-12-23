@@ -2417,17 +2417,17 @@ class CanvasFilterDuplicates( CanvasWithHovers ):
         
         if duplicate_type in [ HC.DUPLICATE_BETTER, HC.DUPLICATE_SAME_QUALITY ] or ( new_options.GetBoolean( 'advanced_mode' ) and duplicate_type == HC.DUPLICATE_ALTERNATE ):
             
-            duplicate_action_options = new_options.GetDuplicateActionOptions( duplicate_type )
+            duplicate_content_merge_options = new_options.GetDuplicateContentMergeOptions( duplicate_type )
             
             with ClientGUITopLevelWindowsPanels.DialogEdit( self, 'edit duplicate merge options' ) as dlg_2:
                 
-                panel = ClientGUIScrolledPanelsEdit.EditDuplicateActionOptionsPanel( dlg_2, duplicate_type, duplicate_action_options, for_custom_action = True )
+                panel = ClientGUIScrolledPanelsEdit.EditDuplicateContentMergeOptionsPanel( dlg_2, duplicate_type, duplicate_content_merge_options, for_custom_action = True )
                 
                 dlg_2.SetPanel( panel )
                 
                 if dlg_2.exec() == QW.QDialog.Accepted:
                     
-                    duplicate_action_options = panel.GetValue()
+                    duplicate_content_merge_options = panel.GetValue()
                     
                 else:
                     
@@ -2437,7 +2437,7 @@ class CanvasFilterDuplicates( CanvasWithHovers ):
             
         else:
             
-            duplicate_action_options = None
+            duplicate_content_merge_options = None
             
         
         message = 'Delete any of the files?'
@@ -2475,7 +2475,7 @@ class CanvasFilterDuplicates( CanvasWithHovers ):
             delete_second = True
             
         
-        self._ProcessPair( duplicate_type, delete_first = delete_first, delete_second = delete_second, duplicate_action_options = duplicate_action_options )
+        self._ProcessPair( duplicate_type, delete_first = delete_first, delete_second = delete_second, duplicate_content_merge_options = duplicate_content_merge_options )
         
     
     def _DrawBackgroundDetails( self, painter ):
@@ -2679,24 +2679,24 @@ class CanvasFilterDuplicates( CanvasWithHovers ):
             
         
     
-    def _ProcessPair( self, duplicate_type, delete_first = False, delete_second = False, duplicate_action_options = None ):
+    def _ProcessPair( self, duplicate_type, delete_first = False, delete_second = False, duplicate_content_merge_options = None ):
         
         if self._current_media is None:
             
             return
             
         
-        if duplicate_action_options is None:
+        if duplicate_content_merge_options is None:
             
             if duplicate_type in [ HC.DUPLICATE_BETTER, HC.DUPLICATE_SAME_QUALITY ] or ( HG.client_controller.new_options.GetBoolean( 'advanced_mode' ) and duplicate_type == HC.DUPLICATE_ALTERNATE ):
                 
                 new_options = HG.client_controller.new_options
                 
-                duplicate_action_options = new_options.GetDuplicateActionOptions( duplicate_type )
+                duplicate_content_merge_options = new_options.GetDuplicateContentMergeOptions( duplicate_type )
                 
             else:
                 
-                duplicate_action_options = ClientDuplicates.DuplicateActionOptions()
+                duplicate_content_merge_options = ClientDuplicates.DuplicateContentMergeOptions()
                 
             
         
@@ -2746,7 +2746,7 @@ class CanvasFilterDuplicates( CanvasWithHovers ):
             file_deletion_reason = None
             
         
-        list_of_service_keys_to_content_updates = [ duplicate_action_options.ProcessPairIntoContentUpdates( first_media, second_media, delete_first = delete_first, delete_second = delete_second, file_deletion_reason = file_deletion_reason ) ]
+        list_of_service_keys_to_content_updates = [ duplicate_content_merge_options.ProcessPairIntoContentUpdates( first_media, second_media, delete_first = delete_first, delete_second = delete_second, file_deletion_reason = file_deletion_reason ) ]
         
         process_tuple = ( duplicate_type, first_media, second_media, list_of_service_keys_to_content_updates, was_auto_skipped )
         
@@ -4263,13 +4263,20 @@ class CanvasMediaListBrowser( CanvasMediaListNavigable ):
                 ClientGUIMenus.AppendMenuItem( zoom_menu, 'zoom in', 'Zoom the media in.', self._media_container.ZoomIn )
                 ClientGUIMenus.AppendMenuItem( zoom_menu, 'zoom out', 'Zoom the media out.', self._media_container.ZoomOut )
                 
-                if self._media_container.GetCurrentZoom() != 1.0:
+                current_zoom = self._media_container.GetCurrentZoom()
+                
+                if current_zoom != 1.0:
                     
                     ClientGUIMenus.AppendMenuItem( zoom_menu, 'zoom to 100%', 'Set the zoom to 100%.', self._media_container.ZoomSwitch )
                     
-                elif self._media_container.GetCurrentZoom() != self._media_container.GetCanvasZoom():
+                elif current_zoom != self._media_container.GetCanvasZoom():
                     
                     ClientGUIMenus.AppendMenuItem( zoom_menu, 'zoom fit', 'Set the zoom so the media fits the canvas.', self._media_container.ZoomSwitch )
+                    
+                
+                if not self._media_container.IsAtMaxZoom():
+                    
+                    ClientGUIMenus.AppendMenuItem( zoom_menu, 'zoom to max', 'Set the zoom to the maximum possible.', self._media_container.ZoomMax )
                     
                 
                 ClientGUIMenus.AppendMenu( menu, zoom_menu, 'current zoom: {}'.format( ClientData.ConvertZoomToPercentage( self._media_container.GetCurrentZoom() ) ) )

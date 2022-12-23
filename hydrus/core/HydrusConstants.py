@@ -7,6 +7,9 @@ import yaml
 # old method of getting frozen dir, doesn't work for symlinks looks like:
 # BASE_DIR = getattr( sys, '_MEIPASS', None )
 
+RUNNING_CLIENT = False
+RUNNING_SERVER = False
+
 RUNNING_FROM_FROZEN_BUILD = getattr( sys, 'frozen', False )
 
 if RUNNING_FROM_FROZEN_BUILD:
@@ -80,8 +83,8 @@ options = {}
 # Misc
 
 NETWORK_VERSION = 20
-SOFTWARE_VERSION = 509
-CLIENT_API_VERSION = 37
+SOFTWARE_VERSION = 511
+CLIENT_API_VERSION = 38
 
 SERVER_THUMBNAIL_DIMENSIONS = ( 200, 200 )
 
@@ -109,6 +112,7 @@ bandwidth_type_string_lookup = {
 CONTENT_MERGE_ACTION_COPY = 0
 CONTENT_MERGE_ACTION_MOVE = 1
 CONTENT_MERGE_ACTION_TWO_WAY_MERGE = 2
+CONTENT_MERGE_ACTION_NONE = 3
 
 content_merge_string_lookup = {
     CONTENT_MERGE_ACTION_COPY : 'copy from worse to better',

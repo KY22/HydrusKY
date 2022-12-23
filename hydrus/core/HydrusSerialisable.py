@@ -3,8 +3,13 @@ import json
 import os
 
 from hydrus.core import HydrusCompression
+from hydrus.core import HydrusConstants as HC
 from hydrus.core import HydrusData
 from hydrus.core import HydrusExceptions
+
+META_SERIALISABLE_TYPE_JSON_OK = 0
+META_SERIALISABLE_TYPE_JSON_BYTES = 1
+META_SERIALISABLE_TYPE_HYDRUS_SERIALISABLE = 2
 
 SERIALISABLE_TYPE_BASE = 0
 SERIALISABLE_TYPE_BASE_NAMED = 1
@@ -49,7 +54,7 @@ SERIALISABLE_TYPE_BANDWIDTH_TRACKER = 39
 SERIALISABLE_TYPE_CLIENT_TO_SERVER_UPDATE = 40
 SERIALISABLE_TYPE_SHORTCUT = 41
 SERIALISABLE_TYPE_APPLICATION_COMMAND = 42
-SERIALISABLE_TYPE_DUPLICATE_ACTION_OPTIONS = 43
+SERIALISABLE_TYPE_DUPLICATE_CONTENT_MERGE_OPTIONS = 43
 SERIALISABLE_TYPE_TAG_FILTER = 44
 SERIALISABLE_TYPE_NETWORK_BANDWIDTH_MANAGER_LEGACY = 45
 SERIALISABLE_TYPE_NETWORK_SESSION_MANAGER_LEGACY = 46
@@ -263,34 +268,101 @@ class SerialisableBase( object ):
         return ( self.SERIALISABLE_TYPE, self.SERIALISABLE_VERSION, serialisable_info )
         
     
-    def InitialiseFromSerialisableInfo( self, version, serialisable_info, raise_error_on_future_version = False ):
+    def InitialiseFromSerialisableInfo( self, original_version, serialisable_info, raise_error_on_future_version = False ):
         
-        if version > self.SERIALISABLE_VERSION:
+        object_is_newer = original_version > self.SERIALISABLE_VERSION
+        
+        if object_is_newer:
             
             if raise_error_on_future_version:
                 
-                message = 'Unfortunately, an object of type {} could not be loaded because it was created in a client that uses an updated version of that object! This client supports versions up to {}, but the object was version {}.'.format( self.SERIALISABLE_NAME, self.SERIALISABLE_VERSION, version )
+                message = 'Unfortunately, an object of type {} could not be loaded because it was created in a client/server that uses an updated version of that object! We support up to version {}, but the object was version {}.'.format( self.SERIALISABLE_NAME, self.SERIALISABLE_VERSION, original_version )
                 message += os.linesep * 2
-                message += 'Please update your client to import this object.'
+                message += 'Please update your client/server to import this object.'
                 
                 raise HydrusExceptions.SerialisationException( message )
                 
             else:
                 
-                message = 'An object of type {} was created in a client that uses an updated version of that object! This client supports versions up to {}, but the object was version {}. For now, the client will try to continue work, but things may break. If you know why this has occured, please correct it. If you do not, please let hydrus dev know.'.format( self.SERIALISABLE_NAME, self.SERIALISABLE_VERSION, version )
+                message = 'An object of type {} was created in a client/server that uses an updated version of that object! We support versions up to {}, but the object was version {}. For now, we will try to continue work, but things may break. If you know why this has occured, please correct it. If you do not, please let hydrus dev know.'.format( self.SERIALISABLE_NAME, self.SERIALISABLE_VERSION, original_version )
                 
                 HydrusData.ShowText( message )
                 
             
         
-        while version < self.SERIALISABLE_VERSION:
+        try:
             
-            ( version, serialisable_info ) = self._UpdateSerialisableInfo( version, serialisable_info )
+            current_version = original_version
+            
+            while current_version < self.SERIALISABLE_VERSION:
+                
+                ( current_version, serialisable_info ) = self._UpdateSerialisableInfo( current_version, serialisable_info )
+                
+            
+        except:
+            
+            raise HydrusExceptions.SerialisationException( 'Could not update this object of type {} from version {} to {}!'.format( self.SERIALISABLE_NAME, original_version, self.SERIALISABLE_VERSION ) )
             
         
-        self._InitialiseFromSerialisableInfo( serialisable_info )
+        try:
+            
+            self._InitialiseFromSerialisableInfo( serialisable_info )
+            
+        except:
+            
+            if object_is_newer:
+                
+                raise HydrusExceptions.SerialisationException( 'An object of type {} was created in a client/server that uses an updated version of that object! We support versions up to {}, but the object was version {}. I tried to load it, but the initialisation failed. You probably need to update your client/server.'.format( self.SERIALISABLE_NAME, self.SERIALISABLE_VERSION, original_version ) )
+                
+            else:
+                
+                raise HydrusExceptions.SerialisationException( 'Could not initialise this object of type {}!'.format( self.SERIALISABLE_NAME ) )
+                
+            
         
     
+
+def ConvertObjectToMetaSerialisableTuple( obj ):
+    
+    if isinstance( obj, SerialisableBase ):
+        
+        metatype = META_SERIALISABLE_TYPE_HYDRUS_SERIALISABLE
+        serialisable = obj.GetSerialisableTuple()
+        
+    elif isinstance( obj, bytes ):
+        
+        metatype = META_SERIALISABLE_TYPE_JSON_BYTES
+        serialisable = obj.hex()
+        
+    else:
+        
+        metatype = META_SERIALISABLE_TYPE_JSON_OK
+        serialisable = obj
+        
+    
+    return ( metatype, serialisable )
+    
+
+def ConvertMetaSerialisableTupleToObject( meta_tuple ):
+    
+    ( metatype, serialisable ) = meta_tuple
+    
+    if metatype == META_SERIALISABLE_TYPE_HYDRUS_SERIALISABLE:
+        
+        obj = CreateFromSerialisableTuple( serialisable )
+        
+    elif metatype == META_SERIALISABLE_TYPE_JSON_BYTES:
+        
+        obj = bytes.fromhex( serialisable )
+        
+    else:
+        
+        obj = serialisable
+        
+    
+    return obj
+    
+
 class SerialisableBaseNamed( SerialisableBase ):
     
     SERIALISABLE_TYPE = SERIALISABLE_TYPE_BASE_NAMED
@@ -331,15 +403,14 @@ class SerialisableDictionary( SerialisableBase, dict ):
     
     SERIALISABLE_TYPE = SERIALISABLE_TYPE_DICTIONARY
     SERIALISABLE_NAME = 'Serialisable Dictionary'
-    SERIALISABLE_VERSION = 1
+    SERIALISABLE_VERSION = 2 # this is used in the network, do not update it casually!
     
     def __init__( self, *args, **kwargs ):
         
         dict.__init__( self, *args, **kwargs )
         SerialisableBase.__init__( self )
         
-    
-    def _GetSerialisableInfo( self ):
+    def _GetSerialisableInfoVersion1( self ):
         
         simple_key_simple_value_pairs = []
         simple_key_serialisable_value_pairs = []
@@ -347,17 +418,6 @@ class SerialisableDictionary( SerialisableBase, dict ):
         serialisable_key_serialisable_value_pairs = []
         
         for ( key, value ) in self.items():
-            
-            # after being caught out on a recursive legacy thing here, we now coerce. I'm 99.7% confident it can't hurt
-            # careful not to do it through for SerialisableBase--don't want to coerce a SerialisableBytesDict to a SerialisableDict
-            if isinstance( value, list ) and not isinstance( value, SerialisableBase ):
-                
-                value = SerialisableList( value )
-                
-            elif isinstance( value, dict ) and not isinstance( value, SerialisableBase ):
-                
-                value = SerialisableDictionary( value )
-                
             
             if isinstance( key, SerialisableBase ):
                 
@@ -398,74 +458,50 @@ class SerialisableDictionary( SerialisableBase, dict ):
         return ( simple_key_simple_value_pairs, simple_key_serialisable_value_pairs, serialisable_key_simple_value_pairs, serialisable_key_serialisable_value_pairs )
         
     
+    def _GetSerialisableInfo( self ):
+        
+        meta_keys_and_meta_values = []
+        
+        for ( key, value ) in self.items():
+            
+            # after being caught out on a recursive legacy thing here, we now coerce. I'm 99.7% confident it can't hurt
+            if isinstance( value, list ) and not isinstance( value, SerialisableBase ):
+                
+                value = SerialisableList( value )
+                
+            elif isinstance( value, dict ) and not isinstance( value, SerialisableBase ):
+                
+                value = SerialisableDictionary( value )
+                
+            
+            meta_key = ConvertObjectToMetaSerialisableTuple( key )
+            meta_value = ConvertObjectToMetaSerialisableTuple( value )
+            
+            meta_keys_and_meta_values.append( ( meta_key, meta_value ) )
+            
+        
+        return meta_keys_and_meta_values
+        
+    
     def _InitialiseFromSerialisableInfo( self, serialisable_info ):
         
         have_shown_load_error = False
         
-        ( simple_key_simple_value_pairs, simple_key_serialisable_value_pairs, serialisable_key_simple_value_pairs, serialisable_key_serialisable_value_pairs ) = serialisable_info
+        meta_keys_and_meta_values = serialisable_info
         
-        for ( key, value ) in simple_key_simple_value_pairs:
-            
-            self[ key ] = value
-            
-        
-        for ( key, serialisable_value ) in simple_key_serialisable_value_pairs:
+        for ( meta_key, meta_value ) in meta_keys_and_meta_values:
             
             try:
                 
-                value = CreateFromSerialisableTuple( serialisable_value )
+                key = ConvertMetaSerialisableTupleToObject( meta_key )
+                
+                value = ConvertMetaSerialisableTupleToObject( meta_value )
                 
             except HydrusExceptions.SerialisationException as e:
                 
                 if not have_shown_load_error:
                     
-                    HydrusData.ShowText( 'An object in a dictionary could not load. It has been discarded from the dictionary. More may also have failed to load, but to stop error spam, they will go silently. Your client may be running on code versions behind its database. Depending on the severity of this error, you may need to rollback to a previous backup. If you have no backup, you may want to kill your hydrus process now to stop the cleansed dictionary being saved back to the db.' )
-                    HydrusData.ShowException( e )
-                    
-                    have_shown_load_error = True
-                    
-                
-                continue
-                
-            
-            self[ key ] = value
-            
-        
-        for ( serialisable_key, value ) in serialisable_key_simple_value_pairs:
-            
-            try:
-                
-                key = CreateFromSerialisableTuple( serialisable_key )
-                
-            except HydrusExceptions.SerialisationException as e:
-                
-                if not have_shown_load_error:
-                    
-                    HydrusData.ShowText( 'An object in a dictionary could not load. It has been discarded from the dictionary. More may also have failed to load, but to stop error spam, they will go silently. Your client may be running on code versions behind its database. Depending on the severity of this error, you may need to rollback to a previous backup. If you have no backup, you may want to kill your hydrus process now to stop the cleansed dictionary being saved back to the db.' )
-                    HydrusData.ShowException( e )
-                    
-                    have_shown_load_error = True
-                    
-                
-                continue
-                
-            
-            self[ key ] = value
-            
-        
-        for ( serialisable_key, serialisable_value ) in serialisable_key_serialisable_value_pairs:
-            
-            try:
-                
-                key = CreateFromSerialisableTuple( serialisable_key )
-                
-                value = CreateFromSerialisableTuple( serialisable_value )
-                
-            except HydrusExceptions.SerialisationException as e:
-                
-                if not have_shown_load_error:
-                    
-                    HydrusData.ShowText( 'An object in a dictionary could not load. It has been discarded from the dictionary. More may also have failed to load, but to stop error spam, they will go silently. Your client may be running on code versions behind its database. Depending on the severity of this error, you may need to rollback to a previous backup. If you have no backup, you may want to kill your hydrus process now to stop the cleansed dictionary being saved back to the db.' )
+                    HydrusData.ShowText( 'An object in a dictionary could not load. It has been discarded from the dictionary. More may also have failed to load, but to stop error spam, they will go silently. Your client may be running on code versions behind its database. Depending on the severity of this error, you may need to rollback to a previous backup. If you have no backup, you may want to kill your hydrus process now to stop the cleansed dictionary ever being saved back to the db.' )
                     HydrusData.ShowException( e )
                     
                     have_shown_load_error = True
@@ -478,6 +514,73 @@ class SerialisableDictionary( SerialisableBase, dict ):
             
         
     
+    def _UpdateSerialisableInfo( self, version, old_serialisable_info ):
+        
+        if version == 1:
+            
+            ( simple_key_simple_value_pairs, simple_key_serialisable_value_pairs, serialisable_key_simple_value_pairs, serialisable_key_serialisable_value_pairs ) = old_serialisable_info
+            
+            meta_keys_and_meta_values = []
+            
+            for ( key, value ) in simple_key_simple_value_pairs:
+                
+                meta_keys_and_meta_values.append( ( ( META_SERIALISABLE_TYPE_JSON_OK, key ), ( META_SERIALISABLE_TYPE_JSON_OK, value ) ) )
+                
+            
+            for ( key, serialisable_value ) in simple_key_serialisable_value_pairs:
+                
+                meta_keys_and_meta_values.append( ( ( META_SERIALISABLE_TYPE_JSON_OK, key ), ( META_SERIALISABLE_TYPE_HYDRUS_SERIALISABLE, serialisable_value ) ) )
+                
+            
+            for ( serialisable_key, value ) in serialisable_key_simple_value_pairs:
+                
+                meta_keys_and_meta_values.append( ( ( META_SERIALISABLE_TYPE_HYDRUS_SERIALISABLE, serialisable_key ), ( META_SERIALISABLE_TYPE_JSON_OK, value ) ) )
+                
+            
+            for ( serialisable_key, serialisable_value ) in serialisable_key_serialisable_value_pairs:
+                
+                meta_keys_and_meta_values.append( ( ( META_SERIALISABLE_TYPE_HYDRUS_SERIALISABLE, serialisable_key ), ( META_SERIALISABLE_TYPE_HYDRUS_SERIALISABLE, serialisable_value ) ) )
+                
+            
+            new_serialisable_info = meta_keys_and_meta_values
+            
+            return ( 2, new_serialisable_info )
+            
+        
+    
+    def GetSerialisableTuple( self ):
+        
+        # TODO: delete this around version 537
+        # this is a patch to deal with me foolishly updating SerialisableDictionary without thinking that it is used in network comms
+        # the server suddenly starts giving version 2 Dicts, and old clients can't handle it!
+        # therefore, we are patching this to give a version 1 result if we are the server. we don't transport bytes stuff over network yet, nor store bytes in server services dict, so it is ok
+        # we are doing this for version 511, so let's give lads ~26 weeks to update
+        
+        if HC.RUNNING_SERVER:
+            
+            serialisable_info = self._GetSerialisableInfoVersion1()
+            
+            return ( self.SERIALISABLE_TYPE, 1, serialisable_info )
+            
+        else:
+            
+            if hasattr( self, '_lock' ):
+                
+                with getattr( self, '_lock' ):
+                    
+                    serialisable_info = self._GetSerialisableInfo()
+                    
+                
+            else:
+                
+                serialisable_info = self._GetSerialisableInfo()
+                
+            
+            return ( self.SERIALISABLE_TYPE, self.SERIALISABLE_VERSION, serialisable_info )
+            
+        
+    
+
 SERIALISABLE_TYPES_TO_OBJECT_TYPES[ SERIALISABLE_TYPE_DICTIONARY ] = SerialisableDictionary
 
 class SerialisableBytesDictionary( SerialisableBase, dict ):
@@ -496,7 +599,7 @@ class SerialisableBytesDictionary( SerialisableBase, dict ):
         
         pairs = []
         
-        for ( key, value ) in list(self.items()):
+        for ( key, value ) in self.items():
             
             if isinstance( key, int ):
                 
@@ -562,7 +665,7 @@ class SerialisableList( SerialisableBase, list ):
     
     SERIALISABLE_TYPE = SERIALISABLE_TYPE_LIST
     SERIALISABLE_NAME = 'Serialisable List'
-    SERIALISABLE_VERSION = 2
+    SERIALISABLE_VERSION = 3
     
     def __init__( self, *args, **kwargs ):
         
@@ -572,7 +675,7 @@ class SerialisableList( SerialisableBase, list ):
     
     def _GetSerialisableInfo( self ):
         
-        serialisable_list_result = []
+        meta_tuples = []
         
         for obj in self:
             
@@ -587,62 +690,43 @@ class SerialisableList( SerialisableBase, list ):
                 obj = SerialisableDictionary( obj )
                 
             
-            if isinstance( obj, SerialisableBase ):
-                
-                is_serialised = True
-                
-                obj_data = obj.GetSerialisableTuple()
-                
-            else:
-                
-                is_serialised = False
-                
-                obj_data = obj
-                
+            meta_tuple = ConvertObjectToMetaSerialisableTuple( obj )
             
-            serialisable_list_result.append( ( is_serialised, obj_data ) )
+            meta_tuples.append( meta_tuple )
             
         
-        return serialisable_list_result
+        return meta_tuples
         
     
     def _InitialiseFromSerialisableInfo( self, serialisable_info ):
         
         have_shown_load_error = False
         
-        for ( is_serialised, obj_data ) in serialisable_info:
+        meta_tuples = serialisable_info
+        
+        for meta_tuple in meta_tuples:
             
-            if is_serialised:
+            try:
                 
-                obj_tuple = obj_data
+                obj = ConvertMetaSerialisableTupleToObject( meta_tuple )
                 
-                try:
+            except HydrusExceptions.SerialisationException as e:
+                
+                if not have_shown_load_error:
                     
-                    obj = CreateFromSerialisableTuple( obj_tuple )
+                    HydrusData.ShowText( 'An object in a list could not load. It has been discarded from the list. More may also have failed to load, but to stop error spam, they will go silently. Your client may be running on code versions behind its database. Depending on the severity of this error, you may need to rollback to a previous backup. If you have no backup, you may want to kill your hydrus process now to stop the cleansed list ever being saved back to the db.' )
+                    HydrusData.ShowException( e )
                     
-                except HydrusExceptions.SerialisationException as e:
-                    
-                    if not have_shown_load_error:
-                        
-                        HydrusData.ShowText( 'An object in a list could not load. It has been discarded from the list. More may also have failed to load, but to stop error spam, they will go silently. Your client may be running on code versions behind its database. Depending on the severity of this error, you may need to rollback to a previous backup. If you have no backup, you may want to kill your hydrus process now to stop the cleansed list being saved back to the db.' )
-                        HydrusData.ShowException( e )
-                        
-                        have_shown_load_error = True
-                        
-                    
-                    continue
+                    have_shown_load_error = True
                     
                 
-            else:
-                
-                obj = obj_data
+                continue
                 
             
             self.append( obj )
             
         
     
-
     def _UpdateSerialisableInfo( self, version, old_serialisable_info ):
         
         if version == 1:
@@ -654,6 +738,29 @@ class SerialisableList( SerialisableBase, list ):
             new_serialisable_info = [ ( is_serialised, serialised_object ) for serialised_object in serialised_objects ]
             
             return ( 2, new_serialisable_info )
+            
+        
+        if version == 2:
+            
+            meta_items = []
+            
+            serialised_object_tuples = old_serialisable_info
+            
+            for ( is_serialised, serialised_obj ) in serialised_object_tuples:
+                
+                if is_serialised:
+                    
+                    meta_items.append( ( META_SERIALISABLE_TYPE_HYDRUS_SERIALISABLE, serialised_obj ) )
+                    
+                else:
+                    
+                    meta_items.append( ( META_SERIALISABLE_TYPE_JSON_OK, serialised_obj ) )
+                    
+                
+            
+            new_serialisable_info = meta_items
+            
+            return ( 3, new_serialisable_info )
             
         
     
