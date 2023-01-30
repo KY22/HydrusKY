@@ -7,6 +7,123 @@ title: Changelog
 !!! note
     This is the new changelog, only the most recent builds. For all versions, see the [old changelog](old_changelog.html).
 
+## [Version 514](https://github.com/hydrusnetwork/hydrus/releases/tag/v514)
+
+### downloaders
+
+* twitter took down the API we were using, breaking all our nice twitter downloaders! argh!
+* a user has figured out a basic new downloader that grabs the tweets amongst the first twenty tweets-and-retweets of an account. yes, only the first twenty max, and usually fewer. because this is a big change, the client will ask about it when you update. if you have some complicated situation where you are working on the old default twitter downloaders and don't want them deleted, you can select 'no' on the dialog it throws up, but everyone else wants to say 'yes'. then check your twitter subs: make sure they moved to the new downloader, and you probably want to make them check more frequently too.
+* given the rate of changes at twitter, I think we can expect more changes and blocks in future. I don't know whether nitter will be viable alternative, so if the artists you like end up on a nice simple booru _anywhere_, I strongly recommend just moving there. twitter appears to be explicitly moving to non-third-party-friendly
+* thanks to a user's work, the 'danbooru - get webm ugoira' parser is fixed!
+* thanks to a user's work, the deviant art parser is updated to get the highest res image in more situations!
+* thanks to a user's work, the pixiv downloader now gets the artist note, in japanese (and translated, if there is one), and a 'medium:ai generated' tag!
+
+### sidecars
+
+* I wrote some sidecar help here! https://hydrusnetwork.github.io/hydrus/advanced_sidecars.html
+* when the client parses files for import, the 'does this look like a sidecar?' test now also checks that the base component of the base filename (e.g. 'Image123' from 'Image123.jpg.txt') actually appears in the list of non-txt/json/xml ext files. a random yo.txt file out of nowhere will now be inspected in case it is secretly a jpeg again, for good or ill
+* when you drop some files on the client, the number of files skipped because they looked like sidecars is now stated in the status label
+* fixed a typo bug that meant tags imported from sidecars were not being properly cleaned, despite preview appearance otherwise, for instance ':)', which in hydrus needs to be secretly stored as '::)' was being imported as ')'
+* as a special case, tags that in hydrus are secretly '::)' will be converted to ':)' on export to sidecar too, the inverse of the above problem. there may be some other tag cleaning quirks to undo here, so let me know what you run into
+
+### related tags overhaul
+
+* the 'related tags' suggestion system, turned on under _options->tag suggestions_, has several changes, including some prototype tech I'd love feedback on
+* first off, there are two new search buttons, 'new 1' and 'new 2' ('2' is available on repositories only).. these use an upgraded statistical search and scoring system that a user worked on and sent in. I have butchered his specific namespace searching system to something more general/flexible and easy for me to maintain, but it works better and more comprehensibly than my old method! give it a go and let me know how each button does--the first one will be fast but less useful on the PTR, the second will be slower but generally give richer results (although it cannot do tags with too-high count)
+* the new search routine works on multiple files, so 'related tags' now shows on tag dialogs launched from a selection of thumbnails!
+* also, all the related search buttons now search any selection of tags you make!!! so if you can't remember that character's name, just click on the series or another character they are often with and hit the search, and you should get a whole bunch appear
+* I am going to keep working on this in the future. the new buttons will become the only buttons, I'll try and mitigate the prototype search limitations, add some cancel tech, move to a time-based search length like the current buttons, and I'll add more settings, including for filtering so we aren't looking up related tags for 'page:x' and so on. I'm interested in knowing how you get on with IRL data. are there too many recommendations (is the tolerance too high?)? is the sorting good (is the stuff at the top relevant or often just noise?)?
+
+### misc
+
+* all users can now copy their service keys (which are a technical non-changing hex identifier for your client's services) from the review services window--advanced mode is no longer needed. this may be useful as the client api transitions to service keys
+* when a job in the downloader search log generates new jobs (e.g. fetches the next page), the new job(s) are now inserted after the parent. previously, they were appended to the end of the list. this changes how ngugs operate, converting their searches from interleaved to sequential!
+* restarting search log jobs now also places the new job after the restarted job
+* when you create a new export folder, if you have default metadata export sidecar settings from a previous manual file export, the program now asks if you want those for the new export folder or an empty list. previously, it just assigned the saved default, which could be jarring if it was saved from ages ago
+* added a migration guide to the running from source help. also brushed up some language and fixed a bunch of borked title weights in that document
+* the max initial and periodic file limits in subscriptions is now 50k when in advanced mode. I can't promise that would be nice though!
+* the file history chart no longer says that inbox and delete time tracking are new
+
+### misc fixes
+
+* fixed a cursor type detection test that was stopping the cursor from hiding immediately when you do a media viewer drag in Qt6
+* fixed an issue where 'clear deletion record' calls were not deleting from the newer 'all my files' domain. the erroneous extra records will be searched for and scrubbed on update
+* fixed the issue where if you had the new 'unnamespaced input gives (any namespace) wildcard results' search option on, you couldn't add any novel tags in WRITE autocomplete contexts like 'manage tags'!!! it could only offer the automatically converted wildcard tags as suggested input, which of course aren't appropriate for a WRITE context. the way I ultimately fixed this was horrible; the whole thing needs more work to deal with clever logic like this better, so let me know if you get any more trouble here
+* I think I fixed an infinite hang when trying to add certain siblings in manage tag siblings. I believe this was occuring when the dialog was testing if the new pair would create a loop when the sibling structure already contains a loop. now it throws up a message and breaks the test
+* fixed an issue where certain system:filetype predicates would spawn apparent duplicates of themselves instead of removing on double-click. images+audio+video+swf+pdf was one example. it was a 'all the image types' vs 'list of (all the) image types' conversion/comparison/sorting issue
+
+### client api
+
+* **this is later than I expected, but as was planned last year, I am clearing up several obsolete parameters and data structures this week. mostly it is bad service name-identification that seemed simple or flexible to support but just added maintenance debt, induced bad implementation practises, and hindered future expansions. if you have a custom api script, please read on--and if you have not yet moved to the alternatives, do so before updating!**
+* **all `...service_name...` parameters are officially obsolete! they will still work via some legacy hacks, so old scripts shouldn't break, but they are no longer documented. please move to the `...service_key...` alternates as soon as reasonably possible (check out `/get_services` if you need to learn about service keys)**
+* **`/add_tags/get_tag_services` is removed! use `/get_services` instead!**
+* **`hide_service_names_tags`, previously made default true, is removed and its data structures `service_names_to_statuses_to_...` are also gone! move to the new `tags` structure.**
+* **`hide_service_keys_tags` is now default true. it will be removed in 4 weeks or so. same deal as with `service_names_to_statuses_to_...`--move to `tags`**
+* **`system_inbox` and `system_archive` are removed from `/get_files/search_files`! just use 'system:inbox/archive' in the tags list**
+* **the 'set_file_relationships' command from last week has been reworked to have a nicer Object parameter with a new name. please check the updated help!** normally I wouldn't change something so quick, but we are still in early prototype, so I'm ok shifting it (and the old method still works lmao, but I'll clear that code out in a few weeks, so please move over--the Object will be much nicer to expand in future, which I forgot about in v513)
+### many Client API commands now support modern file domain objects, meaning you can search a UNION of file services and 'deleted-from' file services. affected commands are
+
+* * /add_files/delete_files
+* * /add_files/undelete_files
+* * /add_tags/search_tags
+* * /get_files/search_files
+* * /manage_file_relationships/get_everything
+* a new `/get_service` call now lets you ask about an individual service by service name or service key, basically a parameterised /get_services
+* the `/manage_pages/get_pages` and `/manage_pages/get_page_info` calls now give the `page_state`, a new enum that says if the page is ready, initialised, searching, or search-cancelled
+* to reduce duplicate argument spam, the client api help now specifies the complicated 'these files' and now 'this file domain' arguments into sub-sections, and the commands that use them just point to the subsections. check it out--it makes sense when you look at it.
+* `/add_tags/add_tags` now raises 400 if you give an invalid content action (e.g. pending to a local tag service). previously it skipped these rows silently
+* added and updated unit tests and help for the above changes
+* client api version is now 41
+
+### boring optimisation
+
+* when you are looking at a search log or file log, if entries are added, removed, or moved around, all the log entries that have changed row # now update (previously it just sent a redraw signal for the new rows, not the second-order affected rows that were shuffled up/down. many access routines for these logs are sped up
+* file log status checking is completely rewritten. the ways it searches, caches and optimises the 'which is the next item with x status' queues is faster and requires far less maintenance. large import queues have less overhead, so the in and outs of general download work should scale up much better now
+* the main data cache that stores rendered images, image tiles, and thumbnails now maintains itself far more efficiently. there was a hellish O(n) overhead when adding or removing an item which has been reduced to constant time. this gonk was being spammed every few minutes during normal memory maintenance, when hundreds of thumbs can be purged at once. clients with tens of thousands of thumbnails in memory will maintain that list far more smoothly
+* physical file delete is now more efficient, requiring far fewer hard drive hits to delete a media file. it is also far less aggressive, with a new setting in _options->files and trash_ that sets how long to wait between individual file deletes, default 250ms. before, it was full LFG mode with minor delays every hundred/thousand jobs, and since it takes a write lock, it was lagging out thumbnail load when hitting a lot of work. the daemon here also shuts down faster if caught working during program shut down
+
+### boring code cleanup
+
+* refactored some parsing routines to be more flexible
+* added some more dictionary and enum type testing to the client api parameter parsing routines. error messages should be better!
+* improved how `/add_tags/add_tags` parsing works. ensuring both access methods check all types and report nicer errors
+* cleaned up the `/search_files/file_metadata` call's parsing, moving to the new generalised method and smoothing out some old code flow. it now checks hashes against the last search, too
+* cleaned up `/manage_pages/add_files` similarly
+* cleaned up how tag services are parsed and their errors reported in the client api
+* the client api is better about processing the file identifiers you give it in the same order you gave
+* fixed bad 'potentials_search_type'/'search_type' inconsistency in the client api help examples
+* obviously a bunch of client api unit test and help cleanup to account for the obsolete stuff and various other changes here
+* updated a bunch of the client api unit tests to handle some of the new parsing
+* fixed the remaining 'randomly fail due to complex counting logic' potential count unit tests. turns out there were like seven more of them
+
+## [Version 513](https://github.com/hydrusnetwork/hydrus/releases/tag/v513)
+
+### client api
+
+* the Client API now supports the duplicates system! this is early stages, and what I've exposed is ugly and technical, but if you want to try out some external dupe processing, give it a go and let me know what you think! (issue #347)
+* a new 'manage file relationships' permission gives your api keys access
+* the new GET commands are:
+* - `/manage_file_relationships/get_file_relationships`, which fetches potential dupes, dupes, alternates, false positives, and dupe kings
+* - `/manage_file_relationships/get_potentials_count`, which can take two file searches, a potential dupes search type, a pixel match type, and max hamming distance, and will give the number of potential pairs in that domain
+* - `/manage_file_relationships/get_potential_pairs`, which takes the same params as count and a `max_num_pairs` and gives you a batch of pairs to process, just like the dupe filter
+* - `/manage_file_relationships/get_random_potentials`, which takes the same params as count and gives you some hashes just like the 'show some random potential pairs' button
+* the new POST commands are:
+* - `/manage_file_relationships/set_file_relationships`, which sets potential/dupe/alternate/false positive relationships between file pairs with some optional content merge and file deletes
+* - `/manage_file_relationships/set_kings`, which sets duplicate group kings
+* more commands will be written in the future for various remove/dissolve actions
+* wrote unit tests for all the commands!
+* wrote help for all the commands!
+* fixed an issue in the '/manage_pages/get_pages' call where the response data structure was saying 'focused' instead of 'selected' for 'page of pages'
+* cilent api version is now 40
+
+### boring misc cleanup and refactoring
+
+* cleaned and wrote some more parsing methods for the api to support duplicate search tech and reduce copypasted parsing code
+* renamed the client api permission labels a little, just making it all clearer and line up better. also, the 'edit client permissions' dialog now sorts the permissions
+* reordered and renamed the dev help headers in the same way
+* simple but significant rename-refactoring in file duplicates database module, tearing off the old 'Duplicates' prefixes to every method ha ha
+* updated the advanced Windows 'running from source' help to talk more about VC build tools. some old scripts don't seem to work any more in Win 11, but you also don't really need it any more (I moved to a new dev machine this week so had to set everything up again)
+
 ## [Version 512](https://github.com/hydrusnetwork/hydrus/releases/tag/v512)
 
 ### two searches in duplicates
@@ -402,85 +519,3 @@ title: Changelog
 * cleaned up some edge cases in the 'which account added this file/mapping to the server?' tech, where it might have been possible, when looking up deleted content, to get another janitor account (i.e. who deleted the content), although I am pretty sure this situation was never possible to actually start in UI. if I add 'who deleted this?' tech in future, it'll be a separate specific call
 * cleaned up some specifically 'Qt6' references in the build script. the build requirements.txts and spec files are also collapsed down, with old Qt5 versions removed
 * filled out some incomplete abstract class definitions
-
-## [Version 504](https://github.com/hydrusnetwork/hydrus/releases/tag/v504)
-
-### Qt5
-* as a reminder, I am no longer supporting Qt5 with the official builds. if you are on Windows 7 (and I have heard at least one version of Win 8.1), or a similarly old OS, you likely cannot run the official builds now. if this is you, please check the 'running from source' guide in the help, which will allow you to keep updating the program. this process is now easy in Windows and should be similarly easy on other platforms soon
-
-### misc
-* if you run from source in windows, the program _should_ now have its own taskbar group  and use the correct hydrus icon. if you try and pin it to taskbar, it will revert to the 'python' icon, but you can give a shortcut to a batch file an icon and pin that to start
-* unfortunately, I have to remove the 'deviant art tag search' downloader this week. they killed the old API we were using, and what remaining open date-paginated search results the site offers is obfuscated and tokenised (no permanent links), more than I could quickly unravel. other downloader creators are welcome to give it a go. if you have a subscription for a da tag search, it will likely complain on its next run. please pause it and try to capture the best artists from that search (until DA kill their free artist api, then who knows what will happen). the oauth/phone app menace marches on
-* focus on the thumbnail panel is now preserved whenever it swaps out for another (like when you refresh the search)
-* fixed an issue where cancelling service selection on database->c&r->repopulate truncated would create an empty modal message
-* fixed a stupid typo in the recently changed server petition counting auto-fixing code
-
-### importer/exporter sidecar expansion
-* when you import or export files from/to disk, either manually or automatically, the option to pull or send tags to .txt files is now expanded:
-* - you can now import or export URLs
-* - you can now read or write .json files
-* - you can now import from or export to multiple sidecars, and have multiple separate  pipelines
-* - you can now give sidecar files suffixes, for ".tags.txt" and similar
-* - you can now filter and transform all the strings in this pipeline using the powerful String Processor just like in the parsing system
-* this affects manual imports, manual exports, import folders, and export folders. instead of smart .txt checkboxes, there's now a button leading to some nested dialogs to customise your 'routers' and, in manual imports, a new page tab in the 'add tags before import' window
-* this bones of this system was already working in the background when I introduced it earlier this year, but now all components are exposed
-* new export folders now start with the same default metadata migration as set in the last manual file export dialog
-* this system will expand in future. most important is to add a 'favourites' system so you can easily save/load your different setups. then adding more content types (e.g. ratings) and .xml. I'd also like to add purely internal file-to-itself datatype transformation (e.g. pulling url:(url) tags and converting them to actual known urls, and vice versa)
-
-### importer/exporter sidecar expansion (boring stuff)
-* split the importer/exporter objects into separate importers and exporters. existing router objects will update and split their internal objects safely
-* all objects in this system can now describe themselves
-* all import/export nodes now produce appropriate example texts for string processing and parsing UI test panels
-* Filename Tagging Options objects no longer track neighbouring .txt file importing, and their UI removes it too. Import Folders will suck their old data on update and convert to metadata routers
-* wrote a json sidecar importer that takes a parsing formula
-* wrote a json sidecar exporter that takes a list of dictionary names to export to. it will edit an existing file
-* wrote some ui panels to edit single file metadata migration routers
-* wrote some ui panels to edit single file metadata migration importers
-* wrote some ui panels to edit single file metadata migration exporters
-* updated edit export folder panel to use the new UI. it was already using a full static version of the system behind the scenes; now this is exposed and editable
-* updated the manual file export panel to use the new UI. it was using a half version of the system before--now the default options are updated to the new router object and you can create multiple exports
-* updated import folders to use the new UI. the filename tagging options no longer handles .txt, it is now on a separate button on the import folder
-* updated manual file imports to use the new UI. the 'add tags before import' window now has a 'sidecars' page tab, which lets you edit metadata routers. it updates a path preview list live with what it expects to parse
-* a full suite of new unit tests now checks the router, the four import nodes, and the four export nodes thoroughly
-* renamed ClientExportingMetadata to ClientMetadataMigration and moved to the metadata module. refactored the importers, exporters, and shared methods to their own files in the same module
-* created a gui.metadata module for the new router and metadata import/export widgets and panels
-* created a gui.exporting module for the existing export folder and manual export gui code
-* reworked some of the core importer/exporter objects and inheritance in clientmetadatamigration
-* updated the HDDImport object and creation pipeline to handle metadata routers (as piped from the new sidecars tab)
-* when the hdd import or import folder is set to delete original files, now all defined sidecars are deleted along with the media file
-* cleaned up a bunch of related metadata importer/exporter code
-* cleaned import folder code
-* cleaned hdd importer code
-
-## [Version 503](https://github.com/hydrusnetwork/hydrus/releases/tag/v503)
-
-### misc
-* fixed show/hiding the main gui splitters after a regression in v502. also, keyboard focus after these events should now be less jank
-* thanks to a user, the Deviant Art parser we rolled back to recently now gets video support. I also added artist tag parsing like the api parser used to do
-* if you use the internal client database backup system, it now says in the menu when it was last run. this menu doesn't update often, so I put a bit of buffer in where it says 'did one recently'. let me know if the numbers here are ever confusing
-* fixed a bug where the database menu was not immediately updating the first time you set a backup location
-* if an apng has sub-millisecond frame durations (seems to be jitter-apngs that were created oddly), these are now each rounded up to 1ms. any apngs that previously appeared to have 0 duration now have borked-tiny but valid duration and will now import ok
-* the client now catches 529 error responses from servers (service is overloaded) and treats them like a 429/509 bandwidth problem, waiting for a bit before retrying. more work may be needed here
-* the new popup toaster should restore from minimised better
-* fixed a subtle bug where trashing and untrashing a file when searching the special 'all my files' domain would temporarily sort that file at the front/end of sorting by 'import time'
-* added 'dateutil present' to _help->about_ and reordered all the entries for readability
-* brushed up the network job response-bytes-size counting logic a little more
-* cleaned up the EVT_ICONIZE event processing wx/Qt patch
-
-### running from source is now easy on Windows
-* as I expect to drop Qt5 support in the builds next week, we need an easy way for Windows 7 and other older-OS users to run from source. I am by no means an expert at this, but I have written some easy-setup scripts that can get you running the client in Windows from nothing in a few minutes with no python experience
-* the help is updated to reflect this, with more pointers to 'running from source', and that page now has a new guide that takes you through it all in simple steps
-* there's a client-user.bat you can edit to add your own launch parameters, and a setup_help.bat to build the help too
-* all the requirements.txts across the program have had a full pass. all are now similarly formatted for easy future editing. it is now simple to select whether you want Qt5 or Qt6, and seeing the various differences between the documents is now obvious
-* the .gitignore has been updated to not stomp over your venv, mpv/ffmpeg/sqlite, or client-user.bat
-* feedback on how this works and how to make it better would be appreciated, and once we are happy with the workflow, I will invite Linux and macOS users to generate equivalent .sh and .command scripts so we are multiplatform-easy
-
-### build stuff
-* _this is all wizard nonsense, so you can ignore it. I am mostly just noting it here for my records. tl;dr: I fixed more boot problems, now and in the future_
-* just when I was getting on top of the latest boot problems, we had another one last week, caused by yet another external library that updated unusually, this time just a day after the normal release. it struck some users who run from source (such as AUR), and the macOS hotfix I put out on saturday. it turns out PySide6 6.4.0 is not yet supported by qtpy. since these big libraries' bleeding edge versions are common problems, I have updated all the requirements.txts across the program to set specific versions for qtpy, PySide2/PySide6, opencv-python-headless, requests, python-mpv, and setuptools (issue #1254)
-* updated all the requirements.txts with 'python-dateutil', which has spotty default support and whose absence broke some/all of the macOS and Docker deployments last week
-* added failsafe code in case python-dateutil is not available
-* pylzma is no longer in the main requirements.txt. it doesn't have a wheel (and hence needs compiler tech to pip install), and it is only useful for some weird flash files. UPDATE: with the blessed assistance of stackexchange, I rewrote the 'decompress lzma-compressed flash file' routine to re-munge the flash header into a proper lzma header and use the python default 'lzma' library, so 'pylzma' is no longer needed and removed from all requirements.txts
-* updated most of the actions in the build script to use updated node16 versions. node12 just started getting deprecation warnings. there is more work to do
-* replaced the node12 pip installer action with a manual command on the reworked requirements.txts
-* replaced most of the build script's uses of 'set-output', which just started getting deprecation warnings. there is more work to do
