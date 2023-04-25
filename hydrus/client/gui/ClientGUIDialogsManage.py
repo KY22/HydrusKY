@@ -9,6 +9,7 @@ from hydrus.core import HydrusData
 from hydrus.core import HydrusExceptions
 from hydrus.core import HydrusGlobals as HG
 from hydrus.core.networking import HydrusNATPunch
+from hydrus.core import HydrusTime
 
 from hydrus.client import ClientApplicationCommand as CAC
 from hydrus.client import ClientConstants as CC
@@ -25,7 +26,7 @@ from hydrus.client.metadata import ClientRatings
 
 # Option Enums
 
-class DialogManageRatings( ClientGUIDialogs.Dialog, CAC.ApplicationCommandProcessorMixin ):
+class DialogManageRatings( CAC.ApplicationCommandProcessorMixin, ClientGUIDialogs.Dialog ):
     
     def __init__( self, parent, media ):
         
@@ -36,8 +37,8 @@ class DialogManageRatings( ClientGUIDialogs.Dialog, CAC.ApplicationCommandProces
             self._hashes.update( m.GetHashes() )
             
         
-        CAC.ApplicationCommandProcessorMixin.__init__( self )
         ClientGUIDialogs.Dialog.__init__( self, parent, 'manage ratings for ' + HydrusData.ToHumanInt( len( self._hashes ) ) + ' files', position = 'topleft' )
+        CAC.ApplicationCommandProcessorMixin.__init__( self )
         
         #
         
@@ -714,7 +715,7 @@ class DialogManageUPnP( ClientGUIDialogs.Dialog ):
             
         else:
             
-            pretty_duration = HydrusData.TimeDeltaToPrettyTimeDelta( duration )
+            pretty_duration = HydrusTime.TimeDeltaToPrettyTimeDelta( duration )
             
         
         display_tuple = ( description, internal_ip, str( internal_port ), str( external_port ), protocol, pretty_duration )

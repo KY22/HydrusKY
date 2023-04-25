@@ -18,6 +18,7 @@ from hydrus.core import HydrusGlobals as HG
 from hydrus.core import HydrusSerialisable
 from hydrus.core import HydrusTags
 from hydrus.core import HydrusText
+from hydrus.core import HydrusTime
 from hydrus.core.networking import HydrusNetwork
 
 from hydrus.client import ClientApplicationCommand as CAC
@@ -1904,12 +1905,12 @@ class EditTagFilterPanel( ClientGUIScrolledPanels.EditPanel ):
         self._UpdateStatus()
         
     
-class ManageTagsPanel( ClientGUIScrolledPanels.ManagePanel, CAC.ApplicationCommandProcessorMixin ):
+class ManageTagsPanel( CAC.ApplicationCommandProcessorMixin, ClientGUIScrolledPanels.ManagePanel ):
     
     def __init__( self, parent, location_context: ClientLocation.LocationContext, media, immediate_commit = False, canvas_key = None ):
         
-        CAC.ApplicationCommandProcessorMixin.__init__( self )
         ClientGUIScrolledPanels.ManagePanel.__init__( self, parent )
+        CAC.ApplicationCommandProcessorMixin.__init__( self )
         
         self._location_context = location_context
         
@@ -2168,7 +2169,7 @@ class ManageTagsPanel( ClientGUIScrolledPanels.ManagePanel, CAC.ApplicationComma
         return True
         
     
-    class _Panel( QW.QWidget, CAC.ApplicationCommandProcessorMixin ):
+    class _Panel( CAC.ApplicationCommandProcessorMixin, QW.QWidget ):
         
         okSignal = QC.Signal()
         movePageLeft = QC.Signal()
@@ -2178,8 +2179,8 @@ class ManageTagsPanel( ClientGUIScrolledPanels.ManagePanel, CAC.ApplicationComma
         
         def __init__( self, parent, location_context: ClientLocation.LocationContext, tag_service_key, media, immediate_commit, canvas_key = None ):
             
-            CAC.ApplicationCommandProcessorMixin.__init__( self )
             QW.QWidget.__init__( self, parent )
+            CAC.ApplicationCommandProcessorMixin.__init__( self )
             
             self._location_context = location_context
             self._tag_service_key = tag_service_key

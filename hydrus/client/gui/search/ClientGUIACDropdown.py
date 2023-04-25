@@ -11,8 +11,10 @@ from hydrus.core import HydrusConstants as HC
 from hydrus.core import HydrusData
 from hydrus.core import HydrusExceptions
 from hydrus.core import HydrusGlobals as HG
+from hydrus.core import HydrusLists
 from hydrus.core import HydrusTags
 from hydrus.core import HydrusText
+from hydrus.core import HydrusTime
 
 from hydrus.client import ClientApplicationCommand as CAC
 from hydrus.client import ClientConstants as CC
@@ -322,7 +324,7 @@ def ReadFetch(
                 include_current_tags = tag_context.include_current_tags
                 include_pending_tags = tag_context.include_pending_tags
                 
-                for group_of_tags_managers in HydrusData.SplitListIntoChunks( tags_managers, 1000 ):
+                for group_of_tags_managers in HydrusLists.SplitListIntoChunks( tags_managers, 1000 ):
                     
                     if include_current_tags:
                         
@@ -779,7 +781,7 @@ class ListBoxTagsStringsAC( ClientGUIListBoxes.ListBoxTagsStrings ):
         
     
 
-class AutoCompleteDropdown( QW.QWidget, CAC.ApplicationCommandProcessorMixin ):
+class AutoCompleteDropdown( CAC.ApplicationCommandProcessorMixin, QW.QWidget ):
     
     movePageLeft = QC.Signal()
     movePageRight = QC.Signal()
@@ -788,8 +790,8 @@ class AutoCompleteDropdown( QW.QWidget, CAC.ApplicationCommandProcessorMixin ):
     
     def __init__( self, parent ):
         
-        CAC.ApplicationCommandProcessorMixin.__init__( self )
         QW.QWidget.__init__( self, parent )
+        CAC.ApplicationCommandProcessorMixin.__init__( self )
         
         self._can_intercept_unusual_key_events = True
         

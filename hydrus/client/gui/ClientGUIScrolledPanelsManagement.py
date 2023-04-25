@@ -16,6 +16,7 @@ from hydrus.core import HydrusPaths
 from hydrus.core import HydrusSerialisable
 from hydrus.core import HydrusTags
 from hydrus.core import HydrusText
+from hydrus.core import HydrusTime
 
 from hydrus.client import ClientApplicationCommand as CAC
 from hydrus.client import ClientConstants as CC
@@ -4574,12 +4575,12 @@ class ManageOptionsPanel( ClientGUIScrolledPanels.ManagePanel ):
             
         
     
-class ManageURLsPanel( ClientGUIScrolledPanels.ManagePanel, CAC.ApplicationCommandProcessorMixin ):
+class ManageURLsPanel( CAC.ApplicationCommandProcessorMixin, ClientGUIScrolledPanels.ManagePanel ):
     
     def __init__( self, parent, media ):
         
-        CAC.ApplicationCommandProcessorMixin.__init__( self )
         ClientGUIScrolledPanels.ManagePanel.__init__( self, parent )
+        CAC.ApplicationCommandProcessorMixin.__init__( self )
         
         media = ClientMedia.FlattenMedia( media )
         
