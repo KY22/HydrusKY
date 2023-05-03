@@ -66,11 +66,12 @@ goto :parse_fail
 :question_opencv
 
 ECHO:
-ECHO If you are ^>=Python 3.10, choose n.
-SET /P opencv=Do you want (o)ld OpenCV or (n)ew OpenCV? 
+ECHO If you are Python 3.10, choose n. ^>=3.11 should try the test
+SET /P opencv=Do you want (o)ld OpenCV, (n)ew OpenCV, or (t)est OpenCV?
 
 IF "%opencv%" == "o" goto :create
 IF "%opencv%" == "n" goto :create
+IF "%opencv%" == "t" goto :create
 goto :parse_fail
 
 :create
@@ -104,13 +105,14 @@ IF "%install_type%" == "s" (
 IF "%install_type%" == "d" (
 
 	python -m pip install -r static\requirements\advanced\requirements_core.txt
+	python -m pip install -r static\requirements\advanced\requirements_windows.txt
 	
 	python -m pip install -r static\requirements\advanced\requirements_qt6_test.txt
 	python -m pip install pyside2
 	python -m pip install PyQtChart PyQt5
 	python -m pip install PyQt6-Charts PyQt6
-	python -m pip install -r static\requirements\advanced\requirements_new_mpv.txt
-	python -m pip install -r static\requirements\advanced\requirements_new_opencv.txt
+	python -m pip install -r static\requirements\advanced\requirements_mpv_new.txt
+	python -m pip install -r static\requirements\advanced\requirements_opencv_test.txt
 	python -m pip install -r static\requirements\hydev\requirements_windows_build.txt
 	
 )
@@ -118,16 +120,18 @@ IF "%install_type%" == "d" (
 IF "%install_type%" == "a" (
 	
 	python -m pip install -r static\requirements\advanced\requirements_core.txt
+	python -m pip install -r static\requirements\advanced\requirements_windows.txt
 	
 	IF "%qt%" == "5" python -m pip install -r static\requirements\advanced\requirements_qt5.txt
 	IF "%qt%" == "6" python -m pip install -r static\requirements\advanced\requirements_qt6.txt
 	IF "%qt%" == "t" python -m pip install -r static\requirements\advanced\requirements_qt6_test.txt
 	
-	IF "%mpv%" == "o" python -m pip install -r static\requirements\advanced\requirements_old_mpv.txt
-	IF "%mpv%" == "n" python -m pip install -r static\requirements\advanced\requirements_new_mpv.txt
+	IF "%mpv%" == "o" python -m pip install -r static\requirements\advanced\requirements_mpv_old.txt
+	IF "%mpv%" == "n" python -m pip install -r static\requirements\advanced\requirements_mpv_new.txt
 	
-	IF "%opencv%" == "o" python -m pip install -r static\requirements\advanced\requirements_old_opencv.txt
-	IF "%opencv%" == "n" python -m pip install -r static\requirements\advanced\requirements_new_opencv.txt
+	IF "%opencv%" == "o" python -m pip install -r static\requirements\advanced\requirements_opencv_old.txt
+	IF "%opencv%" == "n" python -m pip install -r static\requirements\advanced\requirements_opencv_new.txt
+	IF "%opencv%" == "t" python -m pip install -r static\requirements\advanced\requirements_opencv_test.txt
 	
 )
 

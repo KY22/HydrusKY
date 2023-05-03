@@ -94,20 +94,6 @@ jobs:
         name: Build docs to /help
         run: mkdocs build -d help
         working-directory: hydrus
-      #- name: Cache Qt
-      #  id: cache-qt
-      #  uses: actions/cache@v1
-      #  with:
-      #    path: Qt
-      #    key: ${{ runner.os }}-QtCache
-      #-
-      #  name: Install Qt
-      #  uses: jurplel/install-qt-action@v2
-      #  with:
-      #    install-deps: true
-      #    setup-python: 'false'
-      #    modules: qtcharts qtwidgets qtgui qtcore
-      #    cached: ${{ steps.cache-qt.outputs.cache-hit }}
       -
         name: Build Hydrus
         run: |
@@ -171,34 +157,19 @@ jobs:
         name: Build docs to /help
         run: mkdocs build -d help
         working-directory: hydrus
-      #-
-      #  name: Cache Qt
-      #  id: cache_qt
-      #  uses: actions/cache@v1
-      #  with:
-      #    path: ../Qt
-      #    key: ${{ runner.os }}-QtCache
-      #-
-      #  name: Install Qt
-      #  uses: jurplel/install-qt-action@v2
-      #  with:
-      #    install-deps: true
-      #    setup-python: 'false'
-      #    modules: qtcharts qtwidgets qtgui qtcore
-      #    cached: ${{ steps.cache_qt.outputs.cache-hit }}
       -
         name: Download mpv-dev
         uses: carlosperate/download-file-action@v1.1.1
         id: download_mpv
         with:
-            file-url: 'https://sourceforge.net/projects/mpv-player-windows/files/libmpv/mpv-dev-x86_64-20220501-git-9ffaa6b.7z'
+            file-url: 'https://sourceforge.net/projects/mpv-player-windows/files/libmpv/mpv-dev-x86_64-20230212-git-a40958c.7z'
             file-name: 'mpv-dev-x86_64.7z'
             location: '.'
       -
         name: Process mpv-dev
         run: |
           7z x ${{ steps.download_mpv.outputs.file-path }}
-          move mpv-2.dll hydrus\
+          move libmpv-2.dll hydrus\mpv-2.dll
       -
         name: Build Hydrus
         run: |
