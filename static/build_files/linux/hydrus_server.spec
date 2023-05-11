@@ -1,9 +1,9 @@
-# -*- mode: python ; coding: utf-8 -*-
+# -*- mode: python -*-
 
 block_cipher = None
 
 
-a = Analysis(['hydrus\\server.py'],
+a = Analysis(['hydrus/hydrus_server.py'],
              pathex=['.'],
              binaries=[],
              datas=[],
@@ -21,18 +21,16 @@ exe = EXE(pyz,
           a.scripts,
           [],
           exclude_binaries=True,
-          name='server',
+          name='hydrus_server',
           debug=False,
           bootloader_ignore_signals=False,
           strip=False,
-          upx=False,
-          console=True,
-          icon='hydrus\\static\\hydrus.ico' )
+          upx=True,
+          console=True )
 coll = COLLECT(exe,
                a.binaries,
                a.zipfiles,
                a.datas,
                strip=False,
-               upx=False,
-               upx_exclude=[],
-               name='server')
+               upx=True,
+               name='hydrus_server')

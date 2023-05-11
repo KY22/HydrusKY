@@ -30,6 +30,7 @@ from hydrus.client.gui import ClientGUIShortcuts
 from hydrus.client.gui import ClientGUITags
 from hydrus.client.gui import ClientGUITime
 from hydrus.client.gui import ClientGUITopLevelWindowsPanels
+from hydrus.client.gui import QtInit
 from hydrus.client.gui import QtPorting as QP
 from hydrus.client.gui.canvas import ClientGUIMPV
 from hydrus.client.gui.importing import ClientGUIImportOptions
@@ -1329,7 +1330,7 @@ class EditDuplicateContentMergeOptionsPanel( ClientGUIScrolledPanels.EditPanel )
         rows = []
         
         rows.append( ( 'sync archived status?: ', self._sync_archive_action ) )
-        rows.append( ( 'sync file modified date?: ', self._sync_file_modified_date_action ) )
+        rows.append( ( 'sync file modified time?: ', self._sync_file_modified_date_action ) )
         rows.append( ( 'sync known urls?: ', self._sync_urls_action ) )
         rows.append( ( 'sync notes?: ', self._sync_notes_action ) )
         rows.append( ( '', self._sync_note_import_options_button ) )
@@ -2713,11 +2714,11 @@ class EditFileTimestampsPanel( CAC.ApplicationCommandProcessorMixin, ClientGUISc
                 
                 if HydrusPaths.FileModifiedTimeIsOk( timestamp_data.timestamp ):
                     
-                    self._file_modified_timestamp_warning_st.setText( 'This will also change the modified date of the file on disk!' )
+                    self._file_modified_timestamp_warning_st.setText( 'This will also change the modified time of the file on disk!' )
                     
                 else:
                     
-                    self._file_modified_timestamp_warning_st.setText( 'File modified date on disk will not be changed--the timestamp is too early.' )
+                    self._file_modified_timestamp_warning_st.setText( 'File modified time on disk will not be changed--the timestamp is too early.' )
                     
                 
                 return
@@ -2911,6 +2912,8 @@ class EditMediaViewOptionsPanel( ClientGUIScrolledPanels.EditPanel ):
         self._preview_start_paused = QW.QCheckBox( self )
         self._preview_start_with_embed = QW.QCheckBox( self )
         
+        advanced_mode = HG.client_controller.new_options.GetBoolean( 'advanced_mode' )
+        
         for action in possible_show_actions:
             
             if action == CC.MEDIA_VIEWER_ACTION_SHOW_WITH_MPV and not ClientGUIMPV.MPV_IS_AVAILABLE:
@@ -2918,11 +2921,25 @@ class EditMediaViewOptionsPanel( ClientGUIScrolledPanels.EditPanel ):
                 continue
                 
             
+            simple_mode = not advanced_mode
+            not_source = not HC.RUNNING_FROM_SOURCE
+            not_qt_6 = not QtInit.WE_ARE_QT6
+            
+            if action == CC.MEDIA_VIEWER_ACTION_SHOW_WITH_QMEDIAPLAYER and ( simple_mode or not_source or not_qt_6 ):
+                
+                continue
+                
+            
             s = CC.media_viewer_action_string_lookup[ action ]
             
-            if action == CC.MEDIA_VIEWER_ACTION_SHOW_WITH_MPV and self._mime in ( HC.IMAGE_GIF, HC.GENERAL_ANIMATION ):
+            if action in ( CC.MEDIA_VIEWER_ACTION_SHOW_WITH_MPV, CC.MEDIA_VIEWER_ACTION_SHOW_WITH_QMEDIAPLAYER ) and self._mime in ( HC.IMAGE_GIF, HC.GENERAL_ANIMATION ):
                 
                 s += ' (will show unanimated gifs with native viewer)'
+                
+            
+            if action == CC.MEDIA_VIEWER_ACTION_SHOW_WITH_NATIVE and self._mime in [ HC.GENERAL_VIDEO ] + list( HC.VIDEO ):
+                
+                s += ' (no audio support)'
                 
             
             self._media_show_action.addItem( s, action )
@@ -3015,7 +3032,7 @@ class EditMediaViewOptionsPanel( ClientGUIScrolledPanels.EditPanel ):
         
         QP.AddToLayout( vbox, gridbox, CC.FLAGS_EXPAND_SIZER_PERPENDICULAR )
         
-        if set( possible_show_actions ).isdisjoint( { CC.MEDIA_VIEWER_ACTION_SHOW_WITH_NATIVE, CC.MEDIA_VIEWER_ACTION_SHOW_WITH_MPV } ):
+        if set( possible_show_actions ).isdisjoint( { CC.MEDIA_VIEWER_ACTION_SHOW_WITH_NATIVE, CC.MEDIA_VIEWER_ACTION_SHOW_WITH_MPV, CC.MEDIA_VIEWER_ACTION_SHOW_WITH_QMEDIAPLAYER } ):
             
             self._media_scale_up.hide()
             self._media_scale_down.hide()

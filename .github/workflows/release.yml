@@ -12,12 +12,6 @@ jobs:
         name: Checkout
         uses: actions/checkout@v3
       -
-        name: Setup FFMPEG
-        uses: FedericoCarboni/setup-ffmpeg@v1.1.0
-        id: setup_ffmpeg
-        with:
-          token: ${{ secrets.GITHUB_TOKEN }}
-      -
         name: Setup Python
         uses: actions/setup-python@v4
         with:
@@ -33,10 +27,22 @@ jobs:
         name: Install PyOxidizer
         run: python3 -m pip install pyoxidizer==0.22.0
       -
+        name: Download ffmpeg
+        uses: carlosperate/download-file-action@v2
+        id: download_ffmpeg
+        with:
+          file-url: 'https://evermeet.cx/ffmpeg/getrelease/ffmpeg/7z'
+          file-name: 'ffmpeg-macos.7z'
+          location: '.'
+      -
+        name: Process ffmpeg
+        run: |
+          cd $GITHUB_WORKSPACE
+          7z e ffmpeg-macos.7z -obin "ffmpeg"
+      -
         name: Build Hydrus
         run: |
           cd $GITHUB_WORKSPACE
-          cp ${{ steps.setup_ffmpeg.outputs.ffmpeg-path }} bin/
           cp static/build_files/macos/pyoxidizer.bzl pyoxidizer.bzl
           cp static/build_files/macos/requirements.txt requirements.txt
           basename $(rustc --print sysroot) | sed -e "s/^stable-//" > triple.txt
@@ -97,29 +103,29 @@ jobs:
       -
         name: Build Hydrus
         run: |
-          cp hydrus/static/build_files/linux/client.spec client.spec
-          cp hydrus/static/build_files/linux/server.spec server.spec
-          pyinstaller server.spec
-          pyinstaller client.spec
+          cp hydrus/static/build_files/linux/hydrus_client.spec hydrus_client.spec
+          cp hydrus/static/build_files/linux/hydrus_server.spec hydrus_server.spec
+          pyinstaller hydrus_server.spec
+          pyinstaller hydrus_client.spec
       -
         name: Remove Chonk
         run: |
-            find dist/client/ -type f -name "*.pyc" -delete
-            while read line; do find dist/client/ -type f -name "${line}" -delete ; done < hydrus/static/build_files/linux/files_to_delete.txt
+            find dist/hydrus_client/ -type f -name "*.pyc" -delete
+            while read line; do find dist/hydrus_client/ -type f -name "${line}" -delete ; done < hydrus/static/build_files/linux/files_to_delete.txt
       -
         name: Remove Surplus File
         run: |
-          rm -f dist/client/libxkbcommon.so*
+          rm -f dist/hydrus_client/libxkbcommon.so*
       -
         name: Set Permissions
         run: |
-            sudo chown --recursive 1000:1000 dist/client
-            sudo find dist/client -type d -exec chmod 0755 {} \;
-            sudo chmod +x dist/client/client dist/client/server dist/client/bin/swfrender_linux
+            sudo chown --recursive 1000:1000 dist/hydrus_client
+            sudo find dist/hydrus_client -type d -exec chmod 0755 {} \;
+            sudo chmod +x dist/hydrus_client/hydrus_client dist/hydrus_client/hydrus_server dist/hydrus_client/bin/swfrender_linux
       -
         name: Compress Client
         run: |
-            mv dist/client "dist/Hydrus Network"
+            mv dist/hydrus_client "dist/Hydrus Network"
             tar -czvf Ubuntu-Extract.tar.gz -C dist "Hydrus Network"
       -
         name: Upload a Build Artifact
@@ -139,12 +145,6 @@ jobs:
         with:
           path: hydrus
       -
-        name: Setup FFMPEG
-        uses: FedericoCarboni/setup-ffmpeg@v1.1.0
-        id: setup_ffmpeg
-        with:
-          token: ${{ secrets.GITHUB_TOKEN }}
-      -
         name: Setup Python
         uses: actions/setup-python@v4
         with:
@@ -159,7 +159,7 @@ jobs:
         working-directory: hydrus
       -
         name: Download mpv-dev
-        uses: carlosperate/download-file-action@v1.1.1
+        uses: carlosperate/download-file-action@v2
         id: download_mpv
         with:
             file-url: 'https://sourceforge.net/projects/mpv-player-windows/files/libmpv/mpv-dev-x86_64-20230212-git-a40958c.7z'
@@ -168,19 +168,32 @@ jobs:
       -
         name: Process mpv-dev
         run: |
-          7z x ${{ steps.download_mpv.outputs.file-path }}
-          move libmpv-2.dll hydrus\mpv-2.dll
+          7z x mpv-dev-x86_64.7z -ompv
+          move mpv\libmpv-2.dll hydrus\mpv-2.dll
+      -
+        name: Download ffmpeg
+        uses: carlosperate/download-file-action@v2
+        id: download_ffmpeg
+        with:
+          file-url: 'https://www.gyan.dev/ffmpeg/builds/ffmpeg-release-full.7z'
+          file-name: 'ffmpeg-release-full.7z'
+          location: '.'
+      -
+        name: Process ffmpeg
+        run: |
+          7z e ffmpeg-release-full.7z -ohydrus/bin "**/bin/ffmpeg.exe"
       -
         name: Build Hydrus
         run: |
-          move ${{ steps.setup_ffmpeg.outputs.ffmpeg-path }} hydrus\bin\
           move hydrus\static\build_files\windows\sqlite3.dll hydrus\
           move hydrus\static\build_files\windows\sqlite3.exe hydrus\db
-          move hydrus\static\build_files\windows\client-win.spec client-win.spec
-          move hydrus\static\build_files\windows\server-win.spec server-win.spec
-          pyinstaller server-win.spec
-          pyinstaller client-win.spec
-          dir -r
+          move hydrus\static\build_files\windows\file_version_info_maker.py file_version_info_maker.py
+          python file_version_info_maker.py ${{ github.ref_name }}
+          move hydrus\static\build_files\windows\hydrus_client.spec hydrus_client.spec
+          move hydrus\static\build_files\windows\hydrus_server.spec hydrus_server.spec
+          pyinstaller hydrus_server.spec
+          pyinstaller hydrus_client.spec
+          move dist\hydrus_client "dist\Hydrus Network"
       -
         # yo pretty sure we'll need to install this manually once we are on windows server 2022
         # https://github.com/actions/virtual-environments/issues/4856
@@ -216,10 +229,7 @@ jobs:
     runs-on: ubuntu-20.04
     needs: [build-windows, build-ubuntu, build-macos]
     steps:
-      - 
-        name: Checkout Code
-        uses: actions/checkout@v3
-      - 
+      -
         name: Get All Artifacts
         uses: actions/download-artifact@v3
       - 

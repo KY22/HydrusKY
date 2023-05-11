@@ -1,31 +1,27 @@
-# -*- mode: python ; coding: utf-8 -*-
+# -*- mode: python -*-
 
 import cloudscraper
 import os
-import glob
 cloudscraper_dir = os.path.dirname( cloudscraper.__file__ )
 
 block_cipher = None
 
 
-a = Analysis(['hydrus\\client.pyw'],
+a = Analysis(['hydrus/hydrus_client.py'],
              pathex=['.'],
              binaries=[],
              datas=[
-               ('hydrus\\bin', 'bin'),
-               ('hydrus\\help', 'help'),
-               ('hydrus\\static', 'static'),
-               ('dist\\server\\server.exe*', '.'),
-               ('hydrus\\license.txt', '.'),
-               ('hydrus\\README.md', '.'),
-               ('hydrus\\help my client will not boot.txt', '.'),
-               ('hydrus\\db', 'db'),
-               ('hydrus\\hydrus', 'hydrus'),
-               ('hydrus\\sqlite3.dll', '.'),
-               ('hydrus\\mpv-2.dll', '.'),
+               ('hydrus/bin', 'bin'),
+               ('hydrus/help', 'help'),
+               ('hydrus/static', 'static'),
+               ('dist/hydrus_server/hydrus_server', '.'),
+               ('hydrus/license.txt', '.'),
+               ('hydrus/README.md', '.'),
+               ('hydrus/help my client will not boot.txt', '.'),
+               ('hydrus/db', 'db'),
                (cloudscraper_dir, 'cloudscraper')
              ],
-             hiddenimports=['hydrus\\server.py', 'cloudscraper'],
+             hiddenimports=['hydrus/hydrus_server.py'],
              hookspath=[],
              runtime_hooks=[],
              excludes=[],
@@ -39,18 +35,17 @@ exe = EXE(pyz,
           a.scripts,
           [],
           exclude_binaries=True,
-          name='client',
+          name='hydrus_client',
           debug=False,
           bootloader_ignore_signals=False,
           strip=False,
           upx=True,
-          console=False, 
-          icon='hydrus\\static\\hydrus.ico' )
+          console=False )
 coll = COLLECT(exe,
                a.binaries,
                a.zipfiles,
                a.datas,
                strip=False,
-               upx=False,
+               upx=True,
                upx_exclude=[],
-               name='Hydrus Network')
+               name='hydrus_client')
