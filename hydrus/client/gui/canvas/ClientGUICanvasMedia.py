@@ -4,8 +4,18 @@ import typing
 from qtpy import QtCore as QC
 from qtpy import QtWidgets as QW
 from qtpy import QtGui as QG
-from qtpy import QtMultimediaWidgets as QMW
-from qtpy import QtMultimedia as QM
+
+try:
+    
+    # this appears to be Python 3.8+ and/or the equivalent Qt versions
+    
+    from qtpy import QtMultimediaWidgets as QMW
+    from qtpy import QtMultimedia as QM
+    
+except:
+    
+    pass
+    
 
 from hydrus.core import HydrusConstants as HC
 from hydrus.core import HydrusData
