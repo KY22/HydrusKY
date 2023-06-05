@@ -254,6 +254,17 @@ def OpenExternally( media ):
     
     HydrusPaths.LaunchFile( path, launch_path )
     
+
+def OpenFileLocation( media ):
+    
+    hash = media.GetHash()
+    mime = media.GetMime()
+    
+    path = HG.client_controller.client_files_manager.GetFilePath( hash, mime )
+    
+    HydrusPaths.OpenFileLocation( path )
+    
+
 def OpenURLs( urls ):
     
     urls = sorted( urls )
@@ -370,5 +381,22 @@ def ShowDuplicatesInNewPage( location_context: ClientLocation.LocationContext, h
     if hashes is not None and len( hashes ) > 1:
         
         HG.client_controller.pub( 'new_page_query', location_context, initial_hashes = hashes )
+        
+    else:
+        
+        location_context = ClientLocation.LocationContext.STATICCreateSimple( CC.COMBINED_FILE_SERVICE_KEY )
+        
+        hashes = HG.client_controller.Read( 'file_duplicate_hashes', location_context, hash, duplicate_type )
+        
+        if hashes is not None and len( hashes ) > 1:
+            
+            HydrusData.ShowText( 'Could not find the members of this group in this location, so searched all known files and found more.' )
+            
+            HG.client_controller.pub( 'new_page_query', location_context, initial_hashes = hashes )
+            
+        else:
+            
+            HydrusData.ShowText( 'Sorry, could not find the members of this group either at the given location or in all known files. There may be a problem here, so let hydev know.' )
+            
         
     

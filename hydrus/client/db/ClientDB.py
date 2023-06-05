@@ -33,7 +33,6 @@ from hydrus.client import ClientDefaults
 from hydrus.client import ClientFiles
 from hydrus.client import ClientLocation
 from hydrus.client import ClientOptions
-from hydrus.client import ClientSearch
 from hydrus.client import ClientServices
 from hydrus.client import ClientThreading
 from hydrus.client import ClientTime
@@ -79,6 +78,7 @@ from hydrus.client.networking import ClientNetworkingBandwidth
 from hydrus.client.networking import ClientNetworkingDomain
 from hydrus.client.networking import ClientNetworkingLogin
 from hydrus.client.networking import ClientNetworkingSessions
+from hydrus.client.search import ClientSearch
 
 from hydrus.client.importing import ClientImportSubscriptionLegacy
 from hydrus.client.networking import ClientNetworkingSessionsLegacy
@@ -5125,7 +5125,7 @@ class DB( HydrusDB.HydrusDB ):
                 
                 media_id = self.modules_files_duplicates.GetMediaId( hash_id )
                 
-                potential_duplicate_media_ids_and_distances = [ ( self.modules_files_duplicates.GetMediaId( duplicate_hash_id ), distance ) for ( duplicate_hash_id, distance ) in self.modules_similar_files.Search( hash_id, search_distance ) if duplicate_hash_id != hash_id ]
+                potential_duplicate_media_ids_and_distances = [ ( self.modules_files_duplicates.GetMediaId( duplicate_hash_id ), distance ) for ( duplicate_hash_id, distance ) in self.modules_similar_files.SearchFile( hash_id, search_distance ) if duplicate_hash_id != hash_id ]
                 
                 self.modules_files_duplicates.AddPotentialDuplicates( media_id, potential_duplicate_media_ids_and_distances )
                 

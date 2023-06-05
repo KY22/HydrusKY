@@ -24,8 +24,6 @@ from hydrus.core import HydrusTime
 from hydrus.client import ClientConstants as CC
 from hydrus.client import ClientAPI
 from hydrus.client import ClientLocation
-from hydrus.client import ClientSearch
-from hydrus.client import ClientSearchParseSystemPredicates
 from hydrus.client import ClientServices
 from hydrus.client.importing import ClientImportFiles
 from hydrus.client.media import ClientMediaManagers
@@ -34,6 +32,8 @@ from hydrus.client.metadata import ClientTags
 from hydrus.client.networking import ClientLocalServer
 from hydrus.client.networking import ClientLocalServerResources
 from hydrus.client.networking import ClientNetworkingContexts
+from hydrus.client.search import ClientSearch
+from hydrus.client.search import ClientSearchParseSystemPredicates
 
 from hydrus.test import HelperFunctions
 
@@ -856,7 +856,8 @@ class TestClientAPI( unittest.TestCase ):
         
         self.assertEqual( response_json[ 'status' ], CC.STATUS_ERROR )
         self.assertEqual( response_json[ 'hash' ], hash.hex() )
-        self.assertIn( 'Traceback', response_json[ 'note' ] )
+        self.assertIn( 'Unknown', response_json[ 'note' ] )
+        self.assertIn( 'Traceback', response_json[ 'traceback' ] )
         
         # success as body
         

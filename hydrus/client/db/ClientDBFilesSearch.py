@@ -12,7 +12,6 @@ from hydrus.core import HydrusTime
 
 from hydrus.client import ClientConstants as CC
 from hydrus.client import ClientLocation
-from hydrus.client import ClientSearch
 from hydrus.client import ClientThreading
 from hydrus.client.db import ClientDBDefinitionsCache
 from hydrus.client.db import ClientDBFilesDuplicates
@@ -32,6 +31,7 @@ from hydrus.client.db import ClientDBTagSearch
 from hydrus.client.db import ClientDBURLMap
 from hydrus.client.media import ClientMedia
 from hydrus.client.metadata import ClientTags
+from hydrus.client.search import ClientSearch
 
 def intersection_update_qhi( query_hash_ids: typing.Optional[ typing.Set[ int ] ], some_hash_ids: typing.Collection[ int ], force_create_new_set = False ) -> typing.Set[ int ]:
     
@@ -1446,9 +1446,48 @@ class ClientDBFilesQuery( ClientDBModule.ClientDBModule ):
                 
             
         
-        if system_predicates.HasSimilarTo():
+        if system_predicates.HasSimilarToData():
             
-            ( similar_to_hashes, max_hamming ) = system_predicates.GetSimilarTo()
+            ( pixel_hashes, perceptual_hashes, max_hamming ) = system_predicates.GetSimilarToData()
+            
+            all_similar_hash_ids = set()
+            
+            pixel_hash_ids = set()
+            
+            for pixel_hash in pixel_hashes:
+                
+                if self.modules_hashes.HasHash( pixel_hash ):
+                    
+                    pixel_hash_id = self.modules_hashes_local_cache.GetHashId( pixel_hash )
+                    
+                    pixel_hash_ids.add( pixel_hash_id )
+                    
+                
+            
+            if len( pixel_hash_ids ) > 0:
+                
+                similar_hash_ids_and_distances = self.modules_similar_files.SearchPixelHashes( pixel_hash_ids )
+                
+                similar_hash_ids = [ similar_hash_id for ( similar_hash_id, distance ) in similar_hash_ids_and_distances ]
+                
+                all_similar_hash_ids.update( similar_hash_ids )
+                
+            
+            if len( perceptual_hashes ) > 0:
+                
+                similar_hash_ids_and_distances = self.modules_similar_files.SearchPerceptualHashes( perceptual_hashes, max_hamming )
+                
+                similar_hash_ids = [ similar_hash_id for ( similar_hash_id, distance ) in similar_hash_ids_and_distances ]
+                
+                all_similar_hash_ids.update( similar_hash_ids )
+                
+            
+            query_hash_ids = intersection_update_qhi( query_hash_ids, all_similar_hash_ids )
+            
+        
+        if system_predicates.HasSimilarToFiles():
+            
+            ( similar_to_hashes, max_hamming ) = system_predicates.GetSimilarToFiles()
             
             all_similar_hash_ids = set()
             
@@ -1456,7 +1495,7 @@ class ClientDBFilesQuery( ClientDBModule.ClientDBModule ):
                 
                 hash_id = self.modules_hashes_local_cache.GetHashId( similar_to_hash )
                 
-                similar_hash_ids_and_distances = self.modules_similar_files.Search( hash_id, max_hamming )
+                similar_hash_ids_and_distances = self.modules_similar_files.SearchFile( hash_id, max_hamming )
                 
                 similar_hash_ids = [ similar_hash_id for ( similar_hash_id, distance ) in similar_hash_ids_and_distances ]
                 

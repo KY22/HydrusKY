@@ -7,6 +7,64 @@ title: Changelog
 !!! note
     This is the new changelog, only the most recent builds. For all versions, see the [old changelog](old_changelog.html).
 
+## [Version 530](https://github.com/hydrusnetwork/hydrus/releases/tag/v530)
+
+### autocomplete and system predicates
+
+* the normal autocomplete text input in file search pages now parses system tags if you type them! For a long time, this cool system has only been awkwardly available, but now it should work straight out of the box. not every predicate is supported, and sometimes what parses is slightly different to what you see, but I am improving things regularly, so let me know what doesn't work
+* the normal autocomplete text input in file search pages now has a paste button! it takes tags in the normal newline-separated hydrus format and is plugged into the system predicate parser too. it should obey the same rules as if you were typing, so if you put in a negated tag, or a wildcard or namespace wildcard, and that's allowed with your current settings, it'll propagate. anything that isn't allowed or won't parse correctly is skipped silently for now
+* the system predicate parser now supports the new 'similar to data' similar files search added last week. there isn't an easy way to generate the pixel and perceptual hashes yet (this will come soon to the Client API), but if you have the hashes, the thing should now parse. same format as the existing 'similar to( files)', but just say 'similar to data' and mix and match the 64- and 16-character hashes and it'll figure it out
+* fixed system predicate parsing for 'system:has note with name xxx', which was parsing as a borked 'system:has note(s)', and the same deal for 'has no note'
+* also made the 'system:has/no notes' and 'system:has a note named xxx' more flexible. they can take more english variants of the phrase, and if you give a note name in "quotes" (e.g. if you copy the system predicate string and paste it back in), it'll strip them
+
+### misc
+
+* highlighting a gallery downloader or thread watcher is now asynchronous! this means if you load up a meaty uncached 3,000-strong downloader, the client will no longer lock up for a few seconds--it'll load the files in the background, in 256-file chunks like a normal search page, and then present them when ready. while in the loading state, the to-be-highlighted downloader will be prepended with `> ` instead of `* `, and its loading is completely cancellable--you can unhighlight it or highlight something else and the ongoing job will promptly cancel and let the new one start. if a loading job takes more than three seconds, it will make a popup window with its ongoing progress, which also has a cancel button
+* when you say to 'open files in a new page', the current file sort and collect is copied to the new page, and if you have a collect set, the new page will collect
+* when parsing URLs and attempting to match relative URLs (''/post/123456') to the original domain ('example.com'), if that join fails, it now just adds the parsed text. this should stop borked errors from halting the whole parse (e.g. mysterious 'Invalid IPv6 URL' error, which was probably an errantly parsed open square bracket) while also helping debugging
+* improved URL-repairing in parsing. it trims gumpf before a recognisable URL (`title - https://example.com/123456`) is now more precise, and instances of weird scheme-spam (`https://http://example.com/123456`) are now fixed for mixes of schemes and replaced with the final scheme
+* the thumbnail duplicate files menu now tries to recognise if the king of a group has been deleted and will say so rather than 'show the best quality file of this file\'s group'
+* if you open some duplicate files from the right-click menu (e.g. show 'king') and the search can't find them, it now searches "all known files" as a backup and tells you in a popup if the backup worked or if it just couldn't find anything
+
+### some boring cleanup
+
+* refactored the media controller (which drives every page in the client) and the media controller panel (the actual UI) code into separate files; now the various other guys that look at the controller have proper typing and inheritance, and all the thumbnail grids are now explicitly told their respective media controllers and have better access to stuff like the current sort
+* the sort widget no longer hangs onto the media controller--it just communicates changes through Qt signals
+* same doubly so for the collect widget, which no longer has a mickey-mouse pubsub chain and just Qt signals its stuff now
+* misc page code and sort/collect code cleanup, multiple orphaned pubsubs removed
+* moved ClientSearch and ClientSearchParseSystemPredicates to a new 'search' module
+* spun off the autocomplete parsing and result caching code into a new ClientSearchAutocomplete
+* added a heap of note system predicates to the system pred parsing unit tests, and some for the new 'similar to data' too
+* updated the `requests` in the requirements.txts up from 2.28.1 to 2.31.0 due to some security vulnerability related to `Proxy-Authorization` headers and in-url user/pass authentication when redirecting to an https destination. I don't think we used that stuff (unless the proxy settings cause it to happen under the hood), but let's update anyway. if you run from source, you might like to run setup_venv again
+
+## [Version 529](https://github.com/hydrusnetwork/hydrus/releases/tag/v529)
+
+### similar files search
+
+* hydrus now supports a 'SauceNAO'-style workflow on its own files, quickly looking up if you have something that looks like the given file, without having to import it, using a new variant of the 'system:similar to' search predicate. just open up the new 'system:similar files' entry, which now has two tabs, and on the first just paste image data or a file path from your clipboard and it'll calculate the data for you
+* similar files also gets a search cache this week. this makes all repeat searches massively faster, helps out successive searches (e.g. the same file at 0, 4, then 8 distance), and should accelerate all maintenance search by a good bit depending on the size and shape of your database (on my test database of only ~10k files, it sped things up 3-4x)
+* 'system:similar to' search predicates are no longer mutually exclusive in the same search--you can now have multiple
+* cleaned up a bunch of the similar files code generally. the main search function is split into pieces and common calls are spun off into their own thing
+
+### misc
+
+* added a new shortcut action, 'open file in file explorer', which opens the file in your file Explorer. if you haven't used this before, it only works on Windows and macOS and can be buggy. on Windows, if the explorer takes too long to open, it won't select the file correctly, so hit it again
+* thanks to a user, the html parsing formula can now search in a sideways direction, either finding the previous or following sibling html tags (as opposed to just search descendants/ancestors)
+* if an export folder is set to 'synchronise' and also needs to delete some symlinks (either it regularly makes symlinks, or it is clearing symlinks from an old run), _and_ those symlinks now point to since-deleted files, the dead symlinks should now delete correctly! thanks for an interesting report here
+* the docker build now has pympler support for memory profiling. note that this does not work very well--it is unfathomably laggy atm for any client of real size, so bear with me
+* the new Qt Media Player experiment is now more careful about how it deletes old windows. old players are handed off to the main gui, which takes ownership and explicitly waits for them to finish current work, then asks them to unload their media, and then, only when they are all clear sends the window delete signal. this should stop some READY/NULL errors people were seeing on unload, and hopefully without causing new stability problems (I've had crash trouble with explicitly unloading media before destroy before, but I'm doing it super safe here, so we'll see)
+* I added some more error reporting to the related area in the mpv player--if it fails to unload a media, it now prints the details to log--let's see if we can improve this too
+* when files fail to import for reasons other than veto or unsupported file, they now say the actual exception type in their first line summary
+
+### client api
+
+* when the api sends a file to be imported and it fails, the response 'note' now just has this human-readable top level line (it used to have the full error trace), and a new entry 'traceback' has the trace
+* the client api version is now 45
+
+### future build
+
+* to improve library update testing, I have set up a second, 'future' build that is the same as a normal release but uses newer library versions, for instance Python 3.10 from 3.9 and Qt 6.5.0 rather than 6.4.1. I am not sure how often I will be making this build--I don't want to spam, so I'm thinking once per month, but maybe we'll ultimately end up incorporating it into the main build and just kick it out every week--but please feel free to test them out as they do happen and let me know if you encounter any problems booting or with anything else. the idea here is to get more user situations, particularly older OSes, testing pending library updates so I can be more confident about pulling the trigger on moving up in the master build (the recent jump to Qt 6.4.1 caused several Win 10 users to have an annoying 2-second delay on opening any new search page, but 6.5.0 doesn't have this, so if you encountered this error, please try this build and let me know how it goes). the build is in the normal github releases stream, marked as a pre-release. v528-future is here: https://github.com/hydrusnetwork/hydrus/releases/tag/v528-future-1
+
 ## [Version 528](https://github.com/hydrusnetwork/hydrus/releases/tag/v528)
 
 ### faster file search cancelling
@@ -335,72 +393,3 @@ title: Changelog
 * reshuffled all the page management objects so they no longer keep an explicit copy of their current file domain--now they always consult their respective sub-objects, whether that is a file search or an importer or what. any time a page needs to consult its file domain, it'll always get the live and sensible version. as above, they also 'realise' default file import options stubs
 * broke the 'getting started with tags' help page into two and straddled the 'getting started with searching' page with them. the intention is to get users typing a few tags into their first import pages, just that, and then playing around with them in search, before moving on to more complicated tag subjects
 * split the 'autocomplete' section of the 'search' options into two, for read/write a/c contexts, and the default file and tag domain options have been moved there from 'files and trash' and 'tags'
-
-## [Version 520](https://github.com/hydrusnetwork/hydrus/releases/tag/v520)
-
-### autocomplete
-
-* in autocomplete dropdowns, the advanced 'all known files' file domain now generally appears as 'all known files with tags'. the way file+tag search works here has been obscure and confusing for a long time; now the label specifically says what's going on
-* to complement 'all known files with tags', all users now see a new 'all files ever imported/deleted', which is what most people actually want when they try 'all known files'. this quick-select entry for 'currently in or deleted from all my files' will run super quick in almost all cases and allows 'all known tags'!
-* the new 'preserve selection between prefetch and full results' behaviour in tag autocomplete no longer applies if you have 'select the first item with count' turned on. these things just don't play well together
-* that 'select the first item with count' option is now available in the manage tags dialog's cog icon too
-* the 'edit' autocomplete tag search should be better about shuffling the top results. it now tries to put 'ideal of what you entered' at the very top (if that differs from what you typed), then what you actually typed (with or without count), and no longer shuffles other siblings to the top--while they are still included in the results, they weren't so helpful being spammed to the top every time!
-* any search predicate that has a wildcard asterisk in its namespace is now coloured by default as the 'namespaced tags' fallback colour. this includes the somewhat new (any namespace) search tags. behind the scenes, the colour I assign is for a namespace of just '\*', so you can set your own colour if you like
-* the different 'edit tags' autocomplete panels that have paste buttons--in manage siblings, manage parents, filename tagging, tag import options, and favourite tag management--are now all 'add only'. if any of the tags you are pasting already exist in the list, they now won't be removed
-
-### misc
-
-* the '(displays as xxx)' sibling suffix is shortened to a simpler unicode arrow, " → ". if you don't like it, you can edit it under _options->tag presentation_!
-* I also went full meme and made the sibling connecting block's background colour a gradient on Qt6 (and lol the unselected text is a gradient too, but you need to alter it to something longer to really see). if you don't like it, you can turn it off in the same place! I also tweaked some of the padding sizes here so the different text blocks line up a little nicer
-* thanks to a user's continued good work, I am rolling in another update to the Deviant Art file downloader that can grab the 'original quality' file from the logged-in-only download button that some artists turn on. furthermore, there are five new 'File URL' classes for the different qualities the file urls represent, which will propagate to all of your existing DA files, be searchable with system:known url, and hence allow you to find the medium/original/whatever quality versions that you have. now, not every 'medium quality' post on the site has the 'original' download button, but if you are an advanced user with a long DA download history, then with a bit of magic wand waving with your file import options, you can set up an url downloader for a one-time rescan that'll check and redownload your favourite mediums' URLs, or the mediums you know will have 'original quality', for that better version--try it in a small batch first, and let me know what you discover!
-* fixed note content update pipeline so it can handle various instances of multiple notes with the same name coming in at once. previously it would pseudorandomly pick one and discard the others, now it does all the normal '(1)' renaming rules (and even note text extension merging, and hopefully in a good reliable order) as it goes through them
-* if you are a madlad, you can now boost the 'prefetch previous/next' options under 'speed and memory' up to 50 either way. a new label complains if you set them too high given your current image cache size
-* the file maintenance system now catches serious IOErrors, which usually suggest big deal hard drive problems, give the user a special popup message, and stops all future file maintenance work that boot
-* the file maintenance system is better at stopping work for program shutdown while in the midst of a larger batch job
-* fixed the second 'current and pending' label on 'migrate tags'--the new action was 'pending only' as intended, the bad label was just a stupid copy/paste typo
-* thanks to a detailed user report, fixed multiple broken internal #anchor links in the help
-
-### repository
-
-* (both server and client need to be updated to get this)
-* last week's 'delete all content' command failed IRL. it locked up the PTR for six hours and then appeared to fail (rollback) on a seemingly normal account. I am not sure what the inefficiency was here, but this job obviously has to be re-thought for real world use, so this week I am altering the command to break the job up into smaller pieces and stop safely after twenty seconds of work. the janitor client will receive a message on whether everything was deleted or not
-* this is not a total solution or a nice solution, but it should be a stopgap that still allows deletion of small accounts' content while not breaking for big accounts. the ultimate answer here is going to look like proper account content-count caching (rather than the '5000 mappings' limit), and an asynchronous 'purge' maintenance system that runs in the background that janitor clients can check up on and even cancel
-
-## [Version 519](https://github.com/hydrusnetwork/hydrus/releases/tag/v519)
-
-### inc/dec ratings service
-
-* I have written a new number 'rating' service type, called 'inc/dec'. it is simply a no-upper-limit positive integer--you left-click to increment, right to decrement. middle-click to edit directly
-* it appears and works like other ratings in the top-right media viewer hover and the manage ratings dialog. there's a section under system:ratings too. the main logical difference is every file is always rated in this system--the default for all files is 0--so there's no searching for 'unrated'
-* the duplicate merge options support this new inc/dec rating by adding/summing in one or both directions. its action labels in the dialog are a little different because of this
-
-### misc
-
-* the manage tag siblings dialog now shows all members of a chain when it filters the current in-view pairs according to the current pertinent tags. previously, it just showed the pairs that included your entered tags; now it chases everything
-* the same is also now broadly true of manage tag parents, but there's a checkbox that sets how crazy it goes. by default it won't pursue 'cousins', since that can make a really overwhelming list (imagine seeing every character nintendo ever created, including every pokemon, when you just wanted to add a samus costume variant). more work can and will be done here, also with sibling-cross referencing
-* the system:ratings panel now lists the groups of rating services in alphabetical order
-* fixed an issue where the hydrus native animation renderer was drawing animations at small size in the top-left with garbled surrounds when the monitor UI scale was >100% (issue #1334)
-* I think I have hacked an ugly fix for the 'this window keeps growing horizontally until it reaches the width of the screen' bug that hits some people. the sizing code is now supposed to recognise when this happens and stop it in place. if you get this problem, let me know if it is fixed or what! (issue #1331)
-* if a file in the duplicate filter (or any other media viewer, if you can wangle it) has a 'show action' of 'do not show in the media viewer' or 'do not show, open externally on thumbnail activate', the media viewer now falls back to 'show open externally button'. previously, it was halting in an ugly state and no longer able to proceed (issue #1329)
-* if repository processing runs into any missing/invalid file trouble, it now queues up a wider array of potential file maintenance jobs, assuming there may be a problem with the file records themselves
-* if, during repository processing, an update file is missing, the error note now asks users to run _database->maintenance->clear orphan file records_. might be that the above fix helps here too, but this will be the sledgehammer solution on top, clearing up unusual cases where one service thinks the files exist when actually they don't
-* fixed the recent 'when ffmpeg can't generate a video thumb, use hydrus thumb' routine to cover more situations
-* thanks to a user, fixed a bunch of unit tests for python 3.11
-
-### misc cleanup
-
-* updated my async updater object to handle some pre-call UI-side argument-construction and cleaned up some related garbage shared memory hacks I had before
-* in a step towards less laggy sibling/parents dialogs, I have moved the 'manage tag siblings' dialog's list-filtering routine to a thread. I'll do parents too, sometime, and plan to eventually move to very fast on-demand existing-pair fetching based on the above lookup rule improvements rather than the super laggy 'load everything on dialog boot' current system. a next big step would obviously be visual graph representation of sibling and parent chains
-* cleaned some ratings code and fixed some weird little bugs like numerical rating tooltips not updating properly after a click
-* added some unit tests for inc/dec ratings
-
-### server admin
-
-* (the server and client both need to be updated to get this)
-* I updated and reinstated the old 'superban' function for janitors! it is now just 'delete all account content' on the account modification dialog, separate from the banning process. note that since the server only remembers account ownership of content through the anonymisation period, it cannot auto-remove content older than that date!
-* the account info you see in the modify account dialog now only shows file count/bytes for file repositories and tag counts for tag repositories. to improve readability, it also shows every key/value pair on a separate line, sorted by keys
-* that account info now shows, for tag repositories, number of current, pending, and petitioned sibling and parent rows, and it shows number of petitioned mapping rows. all this stuff obviously goes to 0 if you hit 'delete all account content'--let me know if any of it doesn't!
-* the modify accounts dialog no longer shows the 'null' account type as a choice to set things to. duh! its yes/no also now confirms the account type you are settting
-* all the commands in the modify accounts dialog now have nicer yes/no dialogs that say the number of accounts being affected and talk more about what is happening
-* fixed up some logical jank in the dialog. adding time to expires no longer tells you about 0 accounts having no expiry, and if circumstances mean 0 accounts are selected/valid for an operation, it no longer says 'want to set expiry for 0 accounts?' etc...
-* when modifying multiple accounts, the current account focus/selection is now preserved through list refreshes after jobs go through

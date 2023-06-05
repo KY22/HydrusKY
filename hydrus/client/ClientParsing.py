@@ -1515,10 +1515,11 @@ class ParseRuleHTML( HydrusSerialisable.SerialisableBase ):
             
             new_serialisable_info = ( rule_type, tag_name, tag_attributes, tag_index, tag_depth, should_test_tag_string, serialisable_tag_string_string_match )
             
-            return ( 3, new_serialisable_info )
+            return ( 2, new_serialisable_info )
+            
         
-        elif version == 2:
-
+        if version == 2:
+            
             return ( 3, old_serialisable_info )
             
         
@@ -1543,17 +1544,17 @@ class ParseRuleHTML( HydrusSerialisable.SerialisableBase ):
                     
                 
                 if self._rule_type == HTML_RULE_TYPE_DESCENDING:
-
+                    
                     found_nodes = node.find_all( **kwargs )
-
+                    
                 elif self._rule_type == HTML_RULE_TYPE_NEXT_SIBLINGS:
-
+                    
                     found_nodes = node.find_next_siblings( **kwargs )
-
+                    
                 elif self._rule_type == HTML_RULE_TYPE_PREV_SIBLINGS:
-
+                    
                     found_nodes = node.find_previous_siblings( **kwargs )
-                
+                    
 
                 if self._tag_index is not None:
                     
@@ -1632,17 +1633,17 @@ class ParseRuleHTML( HydrusSerialisable.SerialisableBase ):
         if self._rule_type in [ HTML_RULE_TYPE_DESCENDING, HTML_RULE_TYPE_NEXT_SIBLINGS, HTML_RULE_TYPE_PREV_SIBLINGS ]:
             
             if self._rule_type == HTML_RULE_TYPE_DESCENDING:
-
+                
                 s = 'search descendants for'
-
+                
             elif self._rule_type == HTML_RULE_TYPE_NEXT_SIBLINGS:
-
+                
                 s = 'search next siblings for'
-
+                
             elif self._rule_type == HTML_RULE_TYPE_PREV_SIBLINGS:
-
-                s = 'search prev siblings for'
-            
+                
+                s = 'search previous siblings for'
+                
             if self._tag_index is None:
                 
                 s += ' every'
@@ -2335,14 +2336,27 @@ class ContentParser( HydrusSerialisable.SerialisableBase ):
                     # ->
                     # http:/www.pixiv.net/member_illust.php?illust_id=48114073&mode=medium
                     
-                    while re.search( r'\shttp', u ) is not None:
+                    gumpf_until_scheme = r'^.*\s(?P<scheme>https?://)'
+                    
+                    result = re.search( gumpf_until_scheme, u )
+                    
+                    if result is not None:
                         
-                        u = re.sub( r'^.*\shttp', 'http', u )
+                        scheme = result.group( 'scheme' )
+                        
+                        u = re.sub( gumpf_until_scheme, scheme, u )
                         
                     
-                    while u.startswith( 'https://https://' ):
+                    # http://http://...
+                    multiple_schemes_pattern = r'^(?:https?://)+(?P<scheme>https?://)'
+                    
+                    result = re.search( multiple_schemes_pattern, u )
+                    
+                    if result is not None:
                         
-                        u = u[8:]
+                        true_scheme = result.group( 'scheme' )
+                        
+                        u = re.sub( multiple_schemes_pattern, true_scheme, u )
                         
                     
                     return u
@@ -2352,7 +2366,7 @@ class ContentParser( HydrusSerialisable.SerialisableBase ):
                 
                 for parsed_text in parsed_texts:
                     
-                    if not parsed_text.startswith( 'http' ) and ( 'http://' in parsed_text or 'https://' in parsed_text ):
+                    if not ClientNetworkingFunctions.LooksLikeAFullURL( parsed_text ) and ( 'http://' in parsed_text or 'https://' in parsed_text ):
                         
                         parsed_text = clean_url( parsed_text )
                         
@@ -2360,9 +2374,21 @@ class ContentParser( HydrusSerialisable.SerialisableBase ):
                     clean_parsed_texts.append( parsed_text )
                     
                 
-                parsed_texts = clean_parsed_texts
+                parsed_texts = []
                 
-                parsed_texts = [ urllib.parse.urljoin( base_url, parsed_text ) for parsed_text in parsed_texts ]
+                for clean_parsed_text in clean_parsed_texts:
+                    
+                    try:
+                        
+                        parsed_text = urllib.parse.urljoin( base_url, clean_parsed_text )
+                        
+                    except:
+                        
+                        parsed_text = clean_parsed_text
+                        
+                    
+                    parsed_texts.append( parsed_text )
+                    
                 
             
         

@@ -38,8 +38,6 @@ from hydrus.core.networking import HydrusServerResources
 from hydrus.client import ClientAPI
 from hydrus.client import ClientConstants as CC
 from hydrus.client import ClientLocation
-from hydrus.client import ClientSearch
-from hydrus.client import ClientSearchParseSystemPredicates
 from hydrus.client import ClientThreading
 from hydrus.client.importing import ClientImportFiles
 from hydrus.client.importing.options import FileImportOptions
@@ -49,6 +47,9 @@ from hydrus.client.metadata import ClientTags
 from hydrus.client.networking import ClientNetworkingContexts
 from hydrus.client.networking import ClientNetworkingDomain
 from hydrus.client.networking import ClientNetworkingFunctions
+from hydrus.client.search import ClientSearch
+from hydrus.client.search import ClientSearchAutocomplete
+from hydrus.client.search import ClientSearchParseSystemPredicates
 
 local_booru_css = FileResource( os.path.join( HC.STATIC_DIR, 'local_booru_style.css' ), defaultType = 'text/css' )
 
@@ -1607,16 +1608,27 @@ class HydrusResourceClientAPIRestrictedAddFilesAddFile( HydrusResourceClientAPIR
         
         file_import_job = ClientImportFiles.FileImportJob( temp_path, file_import_options )
         
+        body_dict = {}
+        
         try:
             
             file_import_status = file_import_job.DoWork()
             
-        except:
+        except Exception as e:
             
-            file_import_status = ClientImportFiles.FileImportStatus( CC.STATUS_ERROR, file_import_job.GetHash(), note = traceback.format_exc() )
+            if isinstance( e, ( HydrusExceptions.VetoException, HydrusExceptions.UnsupportedFileException ) ):
+                
+                note = str( e )
+                
+            else:
+                
+                note = repr( e ).splitlines()[0]
+                
             
-        
-        body_dict = {}
+            file_import_status = ClientImportFiles.FileImportStatus( CC.STATUS_ERROR, file_import_job.GetHash(), note = note )
+            
+            body_dict[ 'traceback' ] = traceback.format_exc()
+            
         
         body_dict[ 'status' ] = file_import_status.status
         body_dict[ 'hash' ] = HydrusData.BytesToNoneOrHex( file_import_status.hash )
@@ -2036,20 +2048,20 @@ class HydrusResourceClientAPIRestrictedAddTagsSearchTags( HydrusResourceClientAP
         request.client_api_permissions.CheckPermission( ClientAPI.CLIENT_API_PERMISSION_SEARCH_FILES )
         
     
-    def _GetParsedAutocompleteText( self, search, tag_service_key ) -> ClientSearch.ParsedAutocompleteText:
+    def _GetParsedAutocompleteText( self, search, tag_service_key ) -> ClientSearchAutocomplete.ParsedAutocompleteText:
         
         tag_autocomplete_options = HG.client_controller.tag_display_manager.GetTagAutocompleteOptions( tag_service_key )
         
         collapse_search_characters = True
         
-        parsed_autocomplete_text = ClientSearch.ParsedAutocompleteText( search, tag_autocomplete_options, collapse_search_characters )
+        parsed_autocomplete_text = ClientSearchAutocomplete.ParsedAutocompleteText( search, tag_autocomplete_options, collapse_search_characters )
         
         parsed_autocomplete_text.SetInclusive( True )
         
         return parsed_autocomplete_text
         
     
-    def _GetTagMatches( self, request: HydrusServerRequest.HydrusRequest, tag_display_type: int, tag_service_key: bytes, parsed_autocomplete_text: ClientSearch.ParsedAutocompleteText ) -> typing.List[ ClientSearch.Predicate ]:
+    def _GetTagMatches( self, request: HydrusServerRequest.HydrusRequest, tag_display_type: int, tag_service_key: bytes, parsed_autocomplete_text: ClientSearchAutocomplete.ParsedAutocompleteText ) -> typing.List[ ClientSearch.Predicate ]:
         
         matches = []
         

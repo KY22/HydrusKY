@@ -5,23 +5,25 @@ import unittest
 from hydrus.core import HydrusConstants as HC
 from hydrus.core import HydrusData
 from hydrus.core import HydrusGlobals as HG
+from hydrus.core import HydrusImageHandling
 from hydrus.core import HydrusSerialisable
 from hydrus.core import HydrusTime
 from hydrus.core.networking import HydrusNetwork
 
 from hydrus.client import ClientConstants as CC
 from hydrus.client import ClientDefaults
+from hydrus.client import ClientImageHandling
 from hydrus.client import ClientLocation
-from hydrus.client import ClientSearch
 from hydrus.client import ClientServices
 from hydrus.client.db import ClientDB
 from hydrus.client.exporting import ClientExportingFiles
-from hydrus.client.gui.pages import ClientGUIManagement
+from hydrus.client.gui.pages import ClientGUIManagementController
 from hydrus.client.gui.pages import ClientGUISession
 from hydrus.client.importing import ClientImportLocal
 from hydrus.client.importing import ClientImportFiles
 from hydrus.client.importing.options import FileImportOptions
 from hydrus.client.metadata import ClientTags
+from hydrus.client.search import ClientSearch
 
 from hydrus.test import TestController
 
@@ -477,8 +479,18 @@ class TestClientDB( unittest.TestCase ):
         tests.append( ( ClientSearch.PREDICATE_TYPE_SYSTEM_RATIO, ( CC.UNICODE_ALMOST_EQUAL_TO, 200, 201 ), 1 ) )
         tests.append( ( ClientSearch.PREDICATE_TYPE_SYSTEM_RATIO, ( CC.UNICODE_ALMOST_EQUAL_TO, 4, 1 ), 0 ) )
         
-        tests.append( ( ClientSearch.PREDICATE_TYPE_SYSTEM_SIMILAR_TO, ( ( hash, ), 5 ), 1 ) )
-        tests.append( ( ClientSearch.PREDICATE_TYPE_SYSTEM_SIMILAR_TO, ( ( bytes.fromhex( '0123456789abcdef' * 4 ), ), 5 ), 0 ) )
+        tests.append( ( ClientSearch.PREDICATE_TYPE_SYSTEM_SIMILAR_TO_FILES, ( ( hash, ), 5 ), 1 ) )
+        tests.append( ( ClientSearch.PREDICATE_TYPE_SYSTEM_SIMILAR_TO_FILES, ( ( bytes.fromhex( '0123456789abcdef' * 4 ), ), 5 ), 0 ) )
+        
+        pixel_hash = HydrusImageHandling.GetImagePixelHash( path, HC.IMAGE_PNG )
+        
+        tests.append( ( ClientSearch.PREDICATE_TYPE_SYSTEM_SIMILAR_TO_DATA, ( ( pixel_hash, ), (), 0 ), 1 ) )
+        tests.append( ( ClientSearch.PREDICATE_TYPE_SYSTEM_SIMILAR_TO_DATA, ( ( os.urandom( 32 ), ), (), 0 ), 0 ) )
+        
+        perceptual_hashes = ClientImageHandling.GenerateShapePerceptualHashes( path, HC.IMAGE_PNG )
+        
+        tests.append( ( ClientSearch.PREDICATE_TYPE_SYSTEM_SIMILAR_TO_DATA, ( (), tuple( perceptual_hashes ), 0 ), 1 ) )
+        tests.append( ( ClientSearch.PREDICATE_TYPE_SYSTEM_SIMILAR_TO_DATA, ( (), ( os.urandom( 32 ), ), 0 ), 0 ) )
         
         tests.append( ( ClientSearch.PREDICATE_TYPE_SYSTEM_SIZE, ( '<', 0, HydrusData.ConvertUnitToInt( 'B' ) ), 0 ) )
         tests.append( ( ClientSearch.PREDICATE_TYPE_SYSTEM_SIZE, ( '<', 5270, HydrusData.ConvertUnitToInt( 'B' ) ), 0 ) )
@@ -1032,7 +1044,7 @@ class TestClientDB( unittest.TestCase ):
         
         #
         
-        management_controller = ClientGUIManagement.CreateManagementControllerImportGallery()
+        management_controller = ClientGUIManagementController.CreateManagementControllerImportGallery()
         
         page_name = management_controller.GetPageName()
         
@@ -1048,7 +1060,7 @@ class TestClientDB( unittest.TestCase ):
         
         #
         
-        management_controller = ClientGUIManagement.CreateManagementControllerImportMultipleWatcher()
+        management_controller = ClientGUIManagementController.CreateManagementControllerImportMultipleWatcher()
         
         page_name = management_controller.GetPageName()
         
@@ -1066,7 +1078,7 @@ class TestClientDB( unittest.TestCase ):
         
         service_keys_to_tags = ClientTags.ServiceKeysToTags( { HydrusData.GenerateKey() : [ 'some', 'tags' ] } )
         
-        management_controller = ClientGUIManagement.CreateManagementControllerImportHDD( [ 'some', 'paths' ], FileImportOptions.FileImportOptions(), [], { 'paths' : service_keys_to_tags }, True )
+        management_controller = ClientGUIManagementController.CreateManagementControllerImportHDD( [ 'some', 'paths' ], FileImportOptions.FileImportOptions(), [], { 'paths' : service_keys_to_tags }, True )
         
         management_controller.GetVariable( 'hdd_import' ).PausePlay() # to stop trying to import 'some' 'paths'
         
@@ -1084,7 +1096,7 @@ class TestClientDB( unittest.TestCase ):
         
         #
         
-        management_controller = ClientGUIManagement.CreateManagementControllerImportSimpleDownloader()
+        management_controller = ClientGUIManagementController.CreateManagementControllerImportSimpleDownloader()
         
         page_name = management_controller.GetPageName()
         
@@ -1100,7 +1112,7 @@ class TestClientDB( unittest.TestCase ):
         
         #
         
-        management_controller = ClientGUIManagement.CreateManagementControllerPetitions( HG.test_controller.example_tag_repo_service_key )
+        management_controller = ClientGUIManagementController.CreateManagementControllerPetitions( HG.test_controller.example_tag_repo_service_key )
         
         page_name = management_controller.GetPageName()
         
@@ -1120,7 +1132,7 @@ class TestClientDB( unittest.TestCase ):
         
         fsc = ClientSearch.FileSearchContext( location_context = location_context, predicates = [] )
         
-        management_controller = ClientGUIManagement.CreateManagementControllerQuery( 'search', fsc, True )
+        management_controller = ClientGUIManagementController.CreateManagementControllerQuery( 'search', fsc, True )
         
         page_name = management_controller.GetPageName()
         
@@ -1142,7 +1154,7 @@ class TestClientDB( unittest.TestCase ):
         
         fsc = ClientSearch.FileSearchContext( location_context = location_context, tag_context = tag_context, predicates = [] )
         
-        management_controller = ClientGUIManagement.CreateManagementControllerQuery( 'search', fsc, False )
+        management_controller = ClientGUIManagementController.CreateManagementControllerQuery( 'search', fsc, False )
         
         page_name = management_controller.GetPageName()
         
@@ -1162,7 +1174,7 @@ class TestClientDB( unittest.TestCase ):
         
         fsc = ClientSearch.FileSearchContext( location_context = location_context, predicates = [ ClientSearch.SYSTEM_PREDICATE_ARCHIVE ] )
         
-        management_controller = ClientGUIManagement.CreateManagementControllerQuery( 'files', fsc, True )
+        management_controller = ClientGUIManagementController.CreateManagementControllerQuery( 'files', fsc, True )
         
         page_name = management_controller.GetPageName()
         
@@ -1182,7 +1194,7 @@ class TestClientDB( unittest.TestCase ):
         
         fsc = ClientSearch.FileSearchContext( location_context = location_context, predicates = [ ClientSearch.Predicate( ClientSearch.PREDICATE_TYPE_TAG, 'tag', count = ClientSearch.PredicateCount.STATICCreateStaticCount( 1, 3 ) ) ] )
         
-        management_controller = ClientGUIManagement.CreateManagementControllerQuery( 'wew lad', fsc, True )
+        management_controller = ClientGUIManagementController.CreateManagementControllerQuery( 'wew lad', fsc, True )
         
         page_name = management_controller.GetPageName()
         
@@ -1202,7 +1214,7 @@ class TestClientDB( unittest.TestCase ):
         
         fsc = ClientSearch.FileSearchContext( location_context = location_context, predicates = [ ClientSearch.Predicate( ClientSearch.PREDICATE_TYPE_SYSTEM_RATING, ( '>', 0.2, TestController.LOCAL_RATING_NUMERICAL_SERVICE_KEY ) ), ClientSearch.Predicate( ClientSearch.PREDICATE_TYPE_SYSTEM_FILE_SERVICE, ( True, HC.CONTENT_STATUS_CURRENT, CC.LOCAL_FILE_SERVICE_KEY ) ) ] )
         
-        management_controller = ClientGUIManagement.CreateManagementControllerQuery( 'files', fsc, True )
+        management_controller = ClientGUIManagementController.CreateManagementControllerQuery( 'files', fsc, True )
         
         page_name = management_controller.GetPageName()
         
