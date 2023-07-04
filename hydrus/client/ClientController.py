@@ -27,7 +27,6 @@ from hydrus.core.networking import HydrusNetwork
 from hydrus.core.networking import HydrusNetworking
 
 from hydrus.client import ClientAPI
-from hydrus.client import ClientCaches
 from hydrus.client import ClientConstants as CC
 from hydrus.client import ClientDaemons
 from hydrus.client import ClientDefaults
@@ -38,6 +37,7 @@ from hydrus.client import ClientOptions
 from hydrus.client import ClientServices
 from hydrus.client import ClientThreading
 from hydrus.client import ClientTime
+from hydrus.client.caches import ClientCaches
 from hydrus.client.db import ClientDB
 from hydrus.client.gui import ClientGUI
 from hydrus.client.gui import ClientGUIDialogs
@@ -83,14 +83,23 @@ class PubSubEventCatcher( QC.QObject ):
     
     def eventFilter( self, watched, event ):
         
-        if event.type() == PubSubEventType and isinstance( event, PubSubEvent ):
+        try:
             
-            if self._pubsub.WorkToDo():
+            if event.type() == PubSubEventType and isinstance( event, PubSubEvent ):
                 
-                self._pubsub.Process()
+                if self._pubsub.WorkToDo():
+                    
+                    self._pubsub.Process()
+                    
+                
+                event.accept()
+                
+                return True
                 
             
-            event.accept()
+        except Exception as e:
+            
+            HydrusData.ShowException( e )
             
             return True
             
@@ -812,6 +821,8 @@ class Controller( HydrusController.HydrusController ):
                 
             
             if self.gui is not None and QP.isValid( self.gui ):
+                
+                self.frame_splash_status.SetTitleText( 'saving and hiding gui\u2026' )
                 
                 self.gui.SaveAndHide()
                 
@@ -2272,14 +2283,23 @@ class Controller( HydrusController.HydrusController ):
             
         elif data_type == 'bmp':
             
-            media = data
+            ( media, optional_target_resolution_tuple ) = data
             
             image_renderer = self.GetCache( 'images' ).GetImageRenderer( media )
             
             def CopyToClipboard():
                 
+                if optional_target_resolution_tuple is None:
+                    
+                    target_resolution = None
+                    
+                else:
+                    
+                    target_resolution = QC.QSize( optional_target_resolution_tuple[0], optional_target_resolution_tuple[1] )
+                    
+                
                 # this is faster than qpixmap, which converts to a qimage anyway
-                qt_image = image_renderer.GetQtImage().copy()
+                qt_image = image_renderer.GetQtImage( target_resolution = target_resolution ).copy()
                 
                 QW.QApplication.clipboard().setImage( qt_image )
                 

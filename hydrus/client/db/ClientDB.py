@@ -8733,7 +8733,7 @@ class DB( HydrusDB.HydrusDB ):
                 
                 self.modules_serialisable.SetJSONDump( new_options )
                 
-            except:
+            except Exception as e:
                 
                 HydrusData.PrintException( e )
                 
@@ -9029,7 +9029,7 @@ class DB( HydrusDB.HydrusDB ):
                     self._ExecuteMany( 'UPDATE service_info SET info = info + ? WHERE service_id = ? AND info_type = ?;', ( ( -num_cleared, clear_service_id, HC.SERVICE_INFO_NUM_DELETED_FILES ) for ( clear_service_id, num_cleared ) in service_ids_to_nums_cleared.items() ) )
                     
                 
-            except:
+            except Exception as e:
                 
                 HydrusData.PrintException( e )
                 
@@ -9358,6 +9358,120 @@ class DB( HydrusDB.HydrusDB ):
             
             # when I brought these services in, I forgot to clear their ratings on service deletion! cleaning up here
             self._Execute( 'DELETE FROM local_incdec_ratings WHERE service_id NOT IN ( SELECT service_id FROM services );' )
+            
+        
+        if version == 530:
+            
+            try:
+                
+                domain_manager = self.modules_serialisable.GetJSONDump( HydrusSerialisable.SERIALISABLE_TYPE_NETWORK_DOMAIN_MANAGER )
+                
+                domain_manager.Initialise()
+                
+                #
+                
+                domain_manager.OverwriteDefaultParsers( [
+                    'pixiv file page api parser'
+                ] )
+                
+                #
+                
+                domain_manager.TryToLinkURLClassesAndParsers()
+                
+                #
+                
+                self.modules_serialisable.SetJSONDump( domain_manager )
+                
+            except Exception as e:
+                
+                HydrusData.PrintException( e )
+                
+                message = 'Trying to update some downloader objects failed! Please let hydrus dev know!'
+                
+                self.pub_initial_message( message )
+                
+            
+        
+        if version == 531:
+            
+            try:
+                
+                domain_manager = self.modules_serialisable.GetJSONDump( HydrusSerialisable.SERIALISABLE_TYPE_NETWORK_DOMAIN_MANAGER )
+                
+                domain_manager.Initialise()
+                
+                #
+                
+                domain_manager.OverwriteDefaultParsers( [
+                    'pixiv file page api parser',
+                    'pixiv file page api parser (gets lower quality image if not logged in)'
+                ] )
+                
+                domain_manager.OverwriteDefaultURLClasses( [
+                    'pixiv file page'
+                ] )
+                
+                domain_manager.DeleteParsers( [
+                    'pixiv manga page parser',
+                    'pixiv manga_big page parser',
+                    'pixiv single file page parser - new layout',
+                    'pixiv tag search gallery page parser'
+                ] )
+                
+                domain_manager.DeleteURLClasses( [
+                    'pixiv manga page',
+                    'pixiv manga_big page',
+                    'pixiv tag search gallery page'
+                ] )
+                
+                #
+                
+                domain_manager.TryToLinkURLClassesAndParsers()
+                
+                #
+                
+                self.modules_serialisable.SetJSONDump( domain_manager )
+                
+            except Exception as e:
+                
+                HydrusData.PrintException( e )
+                
+                message = 'Trying to update some downloader objects failed! Please let hydrus dev know!'
+                
+                self.pub_initial_message( message )
+                
+            
+        
+        if version == 532:
+            
+            try:
+                
+                domain_manager = self.modules_serialisable.GetJSONDump( HydrusSerialisable.SERIALISABLE_TYPE_NETWORK_DOMAIN_MANAGER )
+                
+                domain_manager.Initialise()
+                
+                #
+                
+                domain_manager.OverwriteDefaultParsers( [
+                    'pixiv file page api parser'
+                ] )
+                
+                #
+                
+                domain_manager.TryToLinkURLClassesAndParsers()
+                
+                #
+                
+                self.modules_serialisable.SetJSONDump( domain_manager )
+                
+            except Exception as e:
+                
+                HydrusData.PrintException( e )
+                
+                message = 'Trying to update some downloader objects failed! Please let hydrus dev know!'
+                
+                self.pub_initial_message( message )
+                
             
         
         self._controller.frame_splash_status.SetTitleText( 'updated db to v{}'.format( HydrusData.ToHumanInt( version + 1 ) ) )

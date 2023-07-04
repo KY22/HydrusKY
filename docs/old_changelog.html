@@ -35,6 +35,99 @@
             <h1 id="changelog"><a href="#changelog">changelog</a></h1>
             <ul>
                 <li>
+                    <h2 id="version_533"><a href="#version_533">version 533</a></h2>
+                    <ul>
+                        <li><h3>macOS App crashes</h3></li>
+                        <li>unfortunately, last week's eventFilter work did not fix the macOS build's crashing--however, thanks to user help, we figured out that it was some half-hidden auxiliary Qt library that updated in the background starting v530 (the excellently named `PyQt6-Qt6` package). the build script is updated to roll back this version and it seems like things are fixed. this particular issue shouldn't happen again. sorry for the trouble, and let me know if there are any new issues! (issue #1379)</li>
+                        <li><h3>misc</h3></li>
+                        <li>the download panels in subscription popup windows are now significantly more responsive. ever since the popup manager was embedded into the gui, popup messages were not doing the 'should I update myself?' test correctly, and their network UI was not being updated without other events like surrounding widgets resizing. I was wondering what was going on here for ages--turns out it was regular stupidity</li>
+                        <li>if an image has width or height > 1024, the 'share->copy' menu now shows a second, 'source lookup' bitmap, with the resolution clipped to 1024x1024</li>
+                        <li>'sort files by hash' can now be sorted asc or desc. this also fixes a bug where it was secretly either sorting asc or desc based on the previous selection. well done to the user who noticed and tested this</li>
+                        <li>if system:limit=0 is in a search, the search is no longer run--it comes back immediately empty. also, the system:limit edit panel now has a minimum value of 1 to dissuade this state</li>
+                        <li>the experimental QtMediaPlayer now initialises with the correct volume/mute and updates on volume/mute events. the scanbar and volume control UI are still hidden behind the OpenGL frame for now, but one step forward</li>
+                        <li>the system that caches media results now hangs on to the most recent 2048 files aggressively for two minutes after initial load. previously, if you refreshed a page of unique files, or did some repeated client api work on files that were not loaded somewhere as thumbs, in the interim periods those media objects were not strictly in non-weak memory anywhere in the client and could have been eligible for clearing out of the cache. now they are a bit more sticky</li>
+                        <li>added some info on editing predicates and the various undocumented click shortcuts the taglist supports (e.g. ctrl+double-left-click) to the 'getting started with searching and sorting' help page</li>
+                        <li>added a link to the Client API help for 'Hydrus Video Deduplicator' (https://github.com/appleappleapplenanner/hydrus-video-deduplicator), which neatly discovers duplicate videos in your client and queues them up in the duplicate filter by marking them as 'potential dupes'</li>
+                        <li><h3>sub-gallery url network parsing gubbins</h3></li>
+                        <li>sub-gallery import objects now get the tags and custom headers that are parsed with them. if the sub-gallery urls are parsed in 'posts' using a subsidiary parser, they only inherit the metadata within their post</li>
+                        <li>sub-gallery import objects now use their parent gallery urls as referral header</li>
+                        <li>sub-gallery import objects now inherit the 'can generate more pages' state of their parents (previously it was always 'yes')</li>
+                        <li>'next page' gallery urls do not get the tags they are parsed with. this behaviour makes a little less sense, and I suspect it _could_ cause various troubles, so I'll wait for more input, bug reports, and a larger cleanup and overhaul of how metadata is managed and passed down from one item to the next in the downloader system</li>
+                        <li>generally speaking, when file and gallery import objects have the opportunity to acquire tags or headers, they'll now add to the existing store rather than replace it. this should mean if they both inherit and parse stuff, it won't all overwrite each other. this is all a giant mess so I have a cleanup overhaul planned</li>
+                        <li><h3>boring stuff</h3></li>
+                        <li>if a critical drive error occurs (e.g. running out of space on a storage drive), the popup message saying 'hey everything just got mega-paused' is now a little clearer about what has happened and how to fix it</li>
+                        <li>similarly, the specific 'all watchers are paused'-style messages now specifically state 'network->pause to resume!' to point users to this menu to fix this tricky issue. this has frustrated a couple of newer users before</li>
+                        <li>to reduce confusion, the 'clear orphan files' pre-job now only presents the user one combined dialog</li>
+                        <li>improved how pages test and recognise that they have changes and thus should be saved--it works faster, and a bunch of false negatives should be removed</li>
+                        <li>improved the safety routine that ensures multiple-column list data is read-only</li>
+                        <li>fixed .txt sidecar importers' description labels, which were missing extra text munging</li>
+                        <li>to relieve some latency stress on session load, pages that are loading their initial files in the background now do so in batches of 64 rather than 256</li>
+                        <li>fixed some bad error handling in the master client db update routine</li>
+                        <li>fixed a scatter of linting problems a user found</li>
+                        <li>last week's pixiv parser hotfix is reinforced this week for anyone who got the early 532 release</li>
+                        <li>made some primitive interfaces for the main controller and schedulable job classes and ensured the main hydrusglobals has type hinting for these--now everything that talks to the controller has a _bit_ of an idea what it is actually doing, and as I continue to work on this, we'll get better linting</li>
+                        <li>moved the client DataCache object and its friends to a new 'caches' module and cleaned some of the code</li>
+                    </ul>
+                </li>
+                <li>
+                    <h2 id="version_532"><a href="#version_532">version 532</a></h2>
+                    <ul>
+                        <li><h3>misc</h3></li>
+                        <li>whenever you say 'show these files in a new page', the new page now has a search interface. it starts with a 'system:hash' pre-populated with the files' hashes, so you can now easily narrow down or return to the stuff you are playing with! original file sort order is preserved until you alter or refresh the search</li>
+                        <li>tags' `right-click->search` menu now has a 'open in a new duplicate filter' for quick spawning of duplicate filters for specific searches</li>
+                        <li>the duplicate filter no longer flicks to the 'preparation' tab if there is work to do on the first numbers fetch. this thing has been driving me nuts, I don't know why I wrote it that way to begin with</li>
+                        <li>improved the reliability of certain session object saving--I believe some situations where the 'searching immediately' and 'this search was completed' status where not being saved for some page queries. this _may_ solve a long time bug where some pages would refresh on load</li>
+                        <li>all search pages that load with files now explicitly reaffirm internally that they are starting with a completed search, which should reduce some related edge case buggy behaviour here</li>
+                        <li>the 'string to string' edit control now tries to compensate if it is incorrectly given non-string data. somewhere in the html parsing formula UI this happened, an integer sneaking in the key/value of the tag rule, maybe by manual human JSON editing, but I'm not really sure. should be handled correctly now though. let me know if you are into this and discover anything</li>
+                        <li>every 'eventFilter' in the program now catches Exceptions ruthlessly. it turns out Qt can't handle an Exception escaping one of these, and this _may_ be the cause of some >=v530 crashing on macOS related to multi-column list interaction under issue #1379. it is probably the cause of some other crashes that I haven't been able to figure out--these will now give normal popup errors, so let me know if you see anything. if you have had crazy crashes in macOS recently and these changes don't fix you, reverting back to v529 is apparently ok! there have been no big database updates in that time, so you should be able to just install v529 on your existing install and be off</li>
+                        <li>the routine that purges files from the trash now uses fewer database queries to find eligable files. some Linux guys have been working with me on memory explosions possibly in this area--let me know if you notice any difference</li>
+                        <li>the 'clear trash' command in review services is politer to your database, breaking up a large amount of trash into smaller groups</li>
+                        <li>the program no longer moans to the log when it physically deletes a file and files no accompanying thumbnail to delete--this is true for several situations, and not worth the logspam</li>
+                        <li>fixed a typo error in the `url class links` 'try to fill in the gaps' command</li>
+                        <li><h3>pixiv downloader</h3></li>
+                        <li>I reworked the pixiv parser changes from a couple weeks ago. as background, what happened is pixiv said if you aren't logged in, you can't get the 'original' quality of the file any more. my first fix was to say 'ok, if the user is not logged in, get the lower quality', but this was the wrong decision. the parser now vetoes, causing an 'ignored' result and telling you the problem in the import note. if you _do_ want to get the lower quality image and not log in, this is now selectable as an alternate parser under _network->downloader components->manage url class links_</li>
+                        <li>also, a variety of old pixiv objects and other experiments are deleted and merged today. the parsers that worked on the old html format, `pixiv manga page parser`, `pixiv manga_big page parser`, `pixiv single file page parser - new layout`, and `pixiv tag search gallery page parser` will be deleted from your client, and the old gallery url class, `pixiv tag search gallery page` meets a similar fate. `pixiv manga_big page` and `pixiv manga page` are removed and their urls merged into a more accomodating `pixiv file page`, which stays to hold all the legacy pixiv URLs, which on the site are automatically redirected to the new format. thanks to a user for helping me with what here was cruft (issue #947)</li>
+                        <li><h3>mpv logging and emergency halt</h3></li>
+                        <li>a user sent me a cool truncated twitter video download that, when loaded into mpv, would crash the program after a click or two around the player. this sent me on an odyssey into the mpv logging system and event loop and some really bizarre behaviour under the hood, and, long story short, mpv will notice this particular problem class in future and immediately unload the file and present the user with a dialog explaining the issue. it also won't let you load that file again that boot</li>
+                        <li>to recognise this error class, I broaden what is logged and scan the lines as they come in. I've been careful in how I filter, but it may produce some false positives. let me know if this thing triggers for any files that seem fine in an external player</li>
+                        <li>errors of unknown severity are now printed silently to the log with a little intro text saying which file it was and so on. there are a bunch of these with the sorts of files we deal with, stuff like missing chapter marks or borked header data. I expect I'll work on silencing the ones we confirm are no big deal, but if you encounter a ton of them, particularly if you know some cause crashes, please now check your log and let me know what you see</li>
+                        <li>if you have two mpv players playing media at the same time, this reporting system will report the info for both files--sorry, I had to hack this gubbins! future versions of mpv or python-mpv may open some doors here</li>
+                        <li><h3>client api</h3></li>
+                        <li>the `/get_files/file` command now has a `download=true` parameter which converts the `Content-Disposition` from `inline` (show the file) to `attachment` (auto-download or open save-as dialog) (issue #1375)</li>
+                        <li>added help and a unit test for the above</li>
+                        <li>client api version is now 47</li>
+                    </ul>
+                </li>
+                <li>
+                    <h2 id="version_531"><a href="#version_531">version 531</a></h2>
+                    <ul>
+                        <li><h3>misc</h3></li>
+                        <li>fixed editing favourite searches, which I accidentally broke last week with the collect-by updates</li>
+                        <li>when you right-click a tag and get the siblings/parents menus, the list of copyable siblings, parents, and children is now truncated to 10 items each per service. stuff like pokemon has hundreds of children and for a very long time has been spamming giganto 11-column menus that cover the entire screen</li>
+                        <li>same menu truncation for the open/copy URLs menu. if there's a file that has 600 URLs for interesting technical reasons, it won't nuke you any more (issue #1037)</li>
+                        <li>updated the default pixiv file page parser, which recently broke for users who were not logged in. they seem to hide original size behind the login now, so if you do a lot of pixiv work, get Hydrus Companion or figure out a cookies.txt solution and get yourself logged in</li>
+                        <li>the downloader progress panels have a couple of status text improvements: first, they will stop saying 'waiting for a work slot' when the actual error is something unusual such as the gallery search hitting the file limit. second, when there is an unusual status and the downloader is in the paused state, it can now properly differentiate between 'paused' and 'pausing'</li>
+                        <li>some invalid URL strings now raise the correct error in the downloader system, causing them to be properly filtered away instead of sticking around and being unhelpful</li>
+                        <li>if there is a connection error because of an SSL issue, the network job is now retried like any other connection error. I originally thought these were all non-retryable like cert validation errors, but it seems some of them are just write timeouts etc.. during the negotiation, so let's see how it goes</li>
+                        <li>I believe I have fixed an error when selecting a tag in a list when that list had been previously shift-selected and then cleared and repopulated</li>
+                        <li>manage siblings and parents should be better about focusing the correct text input after they boot and load</li>
+                        <li>in future, if a taglist tries to deselect something it no longer has, it'll do an emergency 'deselect all' to exorcise the ghosts fully</li>
+                        <li>reworded the text around 'reset potential duplicates' action in the duplicates page to be more clear on what it does</li>
+                        <li>I tinkered with some of the shutdown code hoping to catch an odd issue of the exit 'last session' not saving correctly, but I don't think I figured the issue out. if you have noticed you boot up and get a session that missed up to the last 15 minutes of changes before you last shut down, please let me know you your details</li>
+                        <li>added a link to `tagrank`, a new Client API project at https://github.com/matjojo/tagrank, to the Client API help. it shows you pairs of comparison images over and over and uses `trueskill` ranking algorithm to figure out which tags are your favourite</li>
+                        <li>added a link to 'Send to Hydrus', a Client API project at https://github.com/Wyrrrd/send-to-hydrus, to the Client API help. it sends URLs from an Android device to your client</li>
+                        <li><h3>client api</h3></li>
+                        <li>as part of a plan to migrate to service_key indexing everywhere and reduce file_metadata bloat, the client api has a new `services` structure, a service information Object where `service_key` is the key. this is now in the `/get_services` call and `/get_files/file_metadata`, under `services` under the root. the old type-based structure in `/get_services` and the in-file embedding of service info in `/get_files/file_metadata` are still in place, so nothing breaks today, but I am officially declaring them deprecated, to be deleted in 2024, and recommend all Client API devs move to the new system before the new year</li>
+                        <li>the new service object also includes info on the local rating services. I'd like to add ratings to file_metadata fairly soon</li>
+                        <li>if you don't want the services object in `/get_files/file_metadata`, there's a new `include_services_object` param you can set to false to hide it</li>
+                        <li>updated the unit tests and client api help to reflect all this. main new section: https://hydrusnetwork.github.io/hydrus/developer_api.html#services_object</li>
+                        <li>the client api version is now 46</li>
+                        <li><h3>update woes</h3></li>
+                        <li>I somewhat successfully pounded my head against an issue where the first tab (usually 'my tags') was disappearing in the _manage tags/siblings/parents_ dialogs for some users. this bug, for real, seems to be the combination of (Python 3.11 + PyQt6 6.5.x + two tabs + total tab text characters > ~12 + tab selection is set to 1 during init event). Change any of those things and it doesn't happen. This is so weird a problem to otherwise normal code that I won't pivot all my 50-odd instances of tab selection to handle it and instead have hacked an answer for the three tag dialogs and filename tagging. Sorry for the trouble if you got this! Let me know if you see any more</li>
+                        <li>in a similar-but-different thing, PySide6 6.5.1 has a bug related to certain Signal connections. don't use it with hydrus, it messes up all my menus! their dev notes suggest they are going to have a fix/revert for 6.5.1.1</li>
+                    </ul>
+                </li>
+                <li>
                     <h2 id="version_530"><a href="#version_530">version 530</a></h2>
                     <ul>
                         <li><h3>autocomplete and system predicates</h3></li>

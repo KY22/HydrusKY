@@ -100,6 +100,7 @@ from hydrus.client.gui.services import ClientGUIServersideServices
 from hydrus.client.gui.widgets import ClientGUICommon
 from hydrus.client.media import ClientMediaResult
 from hydrus.client.metadata import ClientTags
+from hydrus.client.search import ClientSearch
 
 MENU_ORDER = [ 'file', 'undo', 'pages', 'database', 'network', 'services', 'tags', 'pending', 'help' ]
 
@@ -504,7 +505,7 @@ class FrameGUI( CAC.ApplicationCommandProcessorMixin, ClientGUITopLevelWindows.M
         
         self._first_session_loaded = False
         
-        self._done_save_and_close = False
+        self._done_save_and_hide = False
         
         self._did_a_backup_this_session = False
         
@@ -533,6 +534,7 @@ class FrameGUI( CAC.ApplicationCommandProcessorMixin, ClientGUITopLevelWindows.M
         self._controller.sub( self, 'DeleteOldClosedPages', 'delete_old_closed_pages' )
         self._controller.sub( self, 'DoFileStorageRebalance', 'do_file_storage_rebalance' )
         self._controller.sub( self, 'MaintainMemory', 'memory_maintenance_pulse' )
+        self._controller.sub( self, 'NewPageDuplicates', 'new_page_duplicates' )
         self._controller.sub( self, 'NewPageImportHDD', 'new_hdd_import' )
         self._controller.sub( self, 'NewPageQuery', 'new_page_query' )
         self._controller.sub( self, 'NotifyAdvancedMode', 'notify_advanced_mode' )
@@ -1152,41 +1154,43 @@ class FrameGUI( CAC.ApplicationCommandProcessorMixin, ClientGUITopLevelWindows.M
     
     def _ClearOrphanFiles( self ):
         
-        text = 'This job will iterate through every file in your database\'s file storage, removing any it does not expect to be there. It may take some time.'
+        text = 'This job will iterate through every file in your database\'s file storage, extracting any it does not expect to be there. This is particularly useful for \'re-syncing\' your file storage to what it should be, and is particularly useful if you are marrying an older/newer database with a newer/older file storage.'
         text += os.linesep * 2
-        text += 'Files and thumbnails will be inaccessible while this occurs, so it is best to leave the client alone until it is done.'
+        text += 'You can choose to move the orphans in your file directories somewhere or delete them. Orphans in your thumbnail directories will always be deleted.'
+        text += os.linesep * 2
+        text += 'Files and thumbnails will be inaccessible while this runs, so it is best to leave the client alone until it is done. It may take some time.'
         
-        result = ClientGUIDialogsQuick.GetYesNo( self, text, yes_label = 'get started', no_label = 'forget it' )
+        yes_tuples = []
         
-        if result == QW.QDialog.Accepted:
+        yes_tuples.append( ( 'move them somewhere', 'move' ) )
+        yes_tuples.append( ( 'delete them', 'delete' ) )
+        
+        try:
             
-            text = 'What would you like to do with the orphaned files? Note that all orphaned thumbnails will be deleted.'
+            result = ClientGUIDialogsQuick.GetYesYesNo( self, text, yes_tuples = yes_tuples, no_label = 'forget it' )
             
-            client_files_manager = self._controller.client_files_manager
+        except HydrusExceptions.CancelledException:
             
-            ( result, was_cancelled ) = ClientGUIDialogsQuick.GetYesNo( self, text, title = 'Choose what do to with the orphans.', yes_label = 'move them somewhere', no_label = 'delete them', check_for_cancelled = True )
+            return
             
-            if was_cancelled:
+        
+        client_files_manager = self._controller.client_files_manager
+        
+        if result == 'move':
+            
+            with QP.DirDialog( self, 'Select location.' ) as dlg_3:
                 
-                return
-                
-            
-            if result == QW.QDialog.Accepted:
-                
-                with QP.DirDialog( self, 'Select location.' ) as dlg_3:
+                if dlg_3.exec() == QW.QDialog.Accepted:
                     
-                    if dlg_3.exec() == QW.QDialog.Accepted:
-                        
-                        path = dlg_3.GetPath()
-                        
-                        self._controller.CallToThread( client_files_manager.ClearOrphans, path )
-                        
+                    path = dlg_3.GetPath()
+                    
+                    self._controller.CallToThread( client_files_manager.ClearOrphans, path )
                     
                 
-            elif result == QW.QDialog.Rejected:
-                
-                self._controller.CallToThread( client_files_manager.ClearOrphans )
-                
+            
+        elif result == 'delete':
+            
+            self._controller.CallToThread( client_files_manager.ClearOrphans )
             
         
     
@@ -3208,16 +3212,16 @@ class FrameGUI( CAC.ApplicationCommandProcessorMixin, ClientGUITopLevelWindows.M
         
         links = ClientGUIMenus.GenerateMenu( menu )
         
-        site = ClientGUIMenus.AppendMenuBitmapItem( links, 'site', 'Open hydrus\'s website, which is a mirror of the local help.', CC.global_pixmaps().file_repository, ClientPaths.LaunchURLInWebBrowser, 'https://hydrusnetwork.github.io/hydrus/' )
-        site = ClientGUIMenus.AppendMenuBitmapItem( links, 'github repository', 'Open the hydrus github repository.', CC.global_pixmaps().github, ClientPaths.LaunchURLInWebBrowser, 'https://github.com/hydrusnetwork/hydrus' )
-        site = ClientGUIMenus.AppendMenuBitmapItem( links, 'latest build', 'Open the latest build on the hydrus github repository.', CC.global_pixmaps().github, ClientPaths.LaunchURLInWebBrowser, 'https://github.com/hydrusnetwork/hydrus/releases/latest' )
-        site = ClientGUIMenus.AppendMenuBitmapItem( links, 'issue tracker', 'Open the github issue tracker, which is run by users.', CC.global_pixmaps().github, ClientPaths.LaunchURLInWebBrowser, 'https://github.com/hydrusnetwork/hydrus/issues' )
+        site = ClientGUIMenus.AppendMenuIconItem( links, 'site', 'Open hydrus\'s website, which is a mirror of the local help.', CC.global_icons().hydrus, ClientPaths.LaunchURLInWebBrowser, 'https://hydrusnetwork.github.io/hydrus/' )
+        site = ClientGUIMenus.AppendMenuIconItem( links, 'github repository', 'Open the hydrus github repository.', CC.global_icons().github, ClientPaths.LaunchURLInWebBrowser, 'https://github.com/hydrusnetwork/hydrus' )
+        site = ClientGUIMenus.AppendMenuIconItem( links, 'latest build', 'Open the latest build on the hydrus github repository.', CC.global_icons().github, ClientPaths.LaunchURLInWebBrowser, 'https://github.com/hydrusnetwork/hydrus/releases/latest' )
+        site = ClientGUIMenus.AppendMenuIconItem( links, 'issue tracker', 'Open the github issue tracker, which is run by users.', CC.global_icons().github, ClientPaths.LaunchURLInWebBrowser, 'https://github.com/hydrusnetwork/hydrus/issues' )
         site = ClientGUIMenus.AppendMenuBitmapItem( links, '8chan.moe /t/ (Hydrus Network General)', 'Open the 8chan.moe /t/ board, where a Hydrus Network General should exist with release posts and other status updates.', CC.global_pixmaps().eight_chan, ClientPaths.LaunchURLInWebBrowser, 'https://8chan.moe/t/catalog.html' )
         site = ClientGUIMenus.AppendMenuItem( links, 'Endchan board bunker', 'Open hydrus dev\'s Endchan board, the bunker for the case when 8chan.moe is unavailable. Try .org if .net is unavailable.', ClientPaths.LaunchURLInWebBrowser, 'https://endchan.net/hydrus/index.html' )
-        site = ClientGUIMenus.AppendMenuBitmapItem( links, 'twitter', 'Open hydrus dev\'s twitter, where he makes general progress updates and emergency notifications.', CC.global_pixmaps().twitter, ClientPaths.LaunchURLInWebBrowser, 'https://twitter.com/hydrusnetwork' )
-        site = ClientGUIMenus.AppendMenuBitmapItem( links, 'tumblr', 'Open hydrus dev\'s tumblr, where he makes release posts and other status updates.', CC.global_pixmaps().tumblr, ClientPaths.LaunchURLInWebBrowser, 'https://hydrus.tumblr.com/' )
-        site = ClientGUIMenus.AppendMenuBitmapItem( links, 'discord', 'Open a discord channel where many hydrus users congregate. Hydrus dev visits regularly.', CC.global_pixmaps().discord, ClientPaths.LaunchURLInWebBrowser, 'https://discord.gg/wPHPCUZ' )
-        site = ClientGUIMenus.AppendMenuBitmapItem( links, 'patreon', 'Open hydrus dev\'s patreon, which lets you support development.', CC.global_pixmaps().patreon, ClientPaths.LaunchURLInWebBrowser, 'https://www.patreon.com/hydrus_dev' )
+        site = ClientGUIMenus.AppendMenuIconItem( links, 'twitter', 'Open hydrus dev\'s twitter, where he makes general progress updates and emergency notifications.', CC.global_icons().twitter, ClientPaths.LaunchURLInWebBrowser, 'https://twitter.com/hydrusnetwork' )
+        site = ClientGUIMenus.AppendMenuIconItem( links, 'tumblr', 'Open hydrus dev\'s tumblr, where he makes release posts and other status updates.', CC.global_icons().tumblr, ClientPaths.LaunchURLInWebBrowser, 'https://hydrus.tumblr.com/' )
+        site = ClientGUIMenus.AppendMenuIconItem( links, 'discord', 'Open a discord channel where many hydrus users congregate. Hydrus dev visits regularly.', CC.global_icons().discord, ClientPaths.LaunchURLInWebBrowser, 'https://discord.gg/wPHPCUZ' )
+        site = ClientGUIMenus.AppendMenuIconItem( links, 'patreon', 'Open hydrus dev\'s patreon, which lets you support development.', CC.global_icons().patreon, ClientPaths.LaunchURLInWebBrowser, 'https://www.patreon.com/hydrus_dev' )
         
         ClientGUIMenus.AppendMenu( menu, links, 'links' )
         
@@ -7099,31 +7103,40 @@ The password is cleartext here but obscured in the entry dialog. Enter a blank p
     
     def eventFilter( self, watched, event ):
         
-        if watched == self:
+        try:
             
-            if event.type() == QC.QEvent.WindowStateChange:
+            if watched == self:
                 
-                was_minimised = event.oldState() == QC.Qt.WindowMinimized
-                is_minimised = self.isMinimized()
-                
-                if was_minimised != is_minimised:
+                if event.type() == QC.QEvent.WindowStateChange:
                     
-                    if self._have_system_tray_icon:
-                        
-                        self._system_tray_icon.SetUIIsCurrentlyMinimised( is_minimised )
-                        
+                    was_minimised = event.oldState() == QC.Qt.WindowMinimized
+                    is_minimised = self.isMinimized()
                     
-                    if is_minimised:
+                    if was_minimised != is_minimised:
                         
-                        self._was_maximised = event.oldState() == QC.Qt.WindowMaximized
-                        
-                        if not self._currently_minimised_to_system_tray and self._controller.new_options.GetBoolean( 'minimise_client_to_system_tray' ):
+                        if self._have_system_tray_icon:
                             
-                            self._FlipShowHideWholeUI()
+                            self._system_tray_icon.SetUIIsCurrentlyMinimised( is_minimised )
                             
                         
+                        if is_minimised:
+                            
+                            self._was_maximised = event.oldState() == QC.Qt.WindowMaximized
+                            
+                            if not self._currently_minimised_to_system_tray and self._controller.new_options.GetBoolean( 'minimise_client_to_system_tray' ):
+                                
+                                self._FlipShowHideWholeUI()
+                                
+                            
+                        
                     
                 
+            
+        except Exception as e:
+            
+            HydrusData.ShowException( e )
+            
+            return True
             
         
         return False
@@ -7437,6 +7450,29 @@ The password is cleartext here but obscured in the entry dialog. Enter a blank p
         self._menu_updater_database.update()
         
     
+    def NewPageDuplicates(
+        self,
+        location_context: ClientLocation.LocationContext,
+        initial_predicates = None,
+        page_name = None,
+        select_page = True,
+        activate_window = False
+    ):
+        
+        self._notebook.NewPageDuplicateFilter(
+            location_context,
+            initial_predicates = initial_predicates,
+            page_name = page_name,
+            on_deepest_notebook = True,
+            select_page = select_page
+        )
+        
+        if activate_window and not self.isActiveWindow():
+            
+            self.activateWindow()
+            
+        
+    
     def NewPageImportHDD( self, paths, file_import_options, metadata_routers, paths_to_additional_service_keys_to_tags, delete_after_success ):
         
         management_controller = ClientGUIManagementController.CreateManagementControllerImportHDD( paths, file_import_options, metadata_routers, paths_to_additional_service_keys_to_tags, delete_after_success )
@@ -7456,16 +7492,6 @@ The password is cleartext here but obscured in the entry dialog. Enter a blank p
         select_page = True,
         activate_window = False
     ):
-        
-        if initial_hashes is None:
-            
-            initial_hashes = []
-            
-        
-        if initial_predicates is None:
-            
-            initial_predicates = []
-            
         
         self._notebook.NewPageQuery(
             location_context,
@@ -8192,7 +8218,7 @@ The password is cleartext here but obscured in the entry dialog. Enter a blank p
     
     def SaveAndHide( self ):
         
-        if self._done_save_and_close:
+        if self._done_save_and_hide:
             
             return
             
@@ -8201,11 +8227,14 @@ The password is cleartext here but obscured in the entry dialog. Enter a blank p
         
         try:
             
+            if self._have_system_tray_icon:
+                
+                self._system_tray_icon.hide()
+                
+            
             if QP.isValid( self._message_manager ):
                 
                 self._message_manager.CleanBeforeDestroy()
-                
-                self._message_manager.hide()
                 
             
             #
@@ -8226,11 +8255,6 @@ The password is cleartext here but obscured in the entry dialog. Enter a blank p
                     
                     tlw.hide()
                     
-                
-            
-            if self._have_system_tray_icon:
-                
-                self._system_tray_icon.hide()
                 
             
             #
@@ -8263,7 +8287,7 @@ The password is cleartext here but obscured in the entry dialog. Enter a blank p
             
             self._controller.WriteSynchronous( 'serialisable', self._new_options )
             
-            self._done_save_and_close = True
+            self._done_save_and_hide = True
             
         except Exception as e:
             

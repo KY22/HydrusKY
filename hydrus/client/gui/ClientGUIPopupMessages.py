@@ -129,6 +129,7 @@ class PopupMessage( PopupWindow ):
         self._no.hide()
         
         self._network_job_ctrl = ClientGUINetworkJobControl.NetworkJobControl( self )
+        self._network_job_ctrl.SetShouldUpdateFreely( True )
         self._network_job_ctrl.hide()
         self._time_network_job_disappeared = 0
         
@@ -1047,15 +1048,24 @@ class PopupMessageManager( QW.QFrame ):
     
     def eventFilter( self, watched, event ):
         
-        if watched == self.parentWidget():
+        try:
             
-            if event.type() in ( QC.QEvent.Resize, QC.QEvent.Move, QC.QEvent.WindowStateChange ):
+            if watched == self.parentWidget():
                 
-                if self._OKToAlterUI():
+                if event.type() in ( QC.QEvent.Resize, QC.QEvent.Move, QC.QEvent.WindowStateChange ):
                     
-                    self._SizeAndPositionAndShow()
+                    if self._OKToAlterUI():
+                        
+                        self._SizeAndPositionAndShow()
+                        
                     
                 
+            
+        except Exception as e:
+            
+            HydrusData.ShowException( e )
+            
+            return True
             
         
         return False

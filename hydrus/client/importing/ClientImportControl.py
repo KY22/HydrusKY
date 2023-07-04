@@ -18,7 +18,7 @@ def CheckImporterCanDoFileWorkBecausePaused( paused: bool, file_seed_cache: Clie
     
     if HG.client_controller.new_options.GetBoolean( 'pause_all_file_queues' ):
         
-        raise HydrusExceptions.VetoException( 'all file import queues are paused!' )
+        raise HydrusExceptions.VetoException( 'all file import queues are paused! network->pause to resume!' )
         
     
     work_pending = file_seed_cache.WorkToDo()
@@ -55,7 +55,7 @@ def CheckImporterCanDoGalleryWorkBecausePaused( paused: bool, gallery_seed_log: 
     
     if HG.client_controller.new_options.GetBoolean( 'pause_all_gallery_searches' ):
         
-        raise HydrusExceptions.VetoException( 'all gallery searches are paused!' )
+        raise HydrusExceptions.VetoException( 'all gallery searches are paused! network->pause to resume!' )
         
     
     if gallery_seed_log is not None:
@@ -92,7 +92,7 @@ def CheckImporterCanDoWorkBecauseStopped( page_key: bytes ):
         
     
 
-def GenerateLiveStatusText( text: str, paused: bool, no_work_until: int, no_work_until_reason: str ) -> str:
+def GenerateLiveStatusText( text: str, paused: bool, currently_working: bool, no_work_until: int, no_work_until_reason: str ) -> str:
     
     if not HydrusTime.TimeHasPassed( no_work_until ):
         
@@ -101,14 +101,16 @@ def GenerateLiveStatusText( text: str, paused: bool, no_work_until: int, no_work
     
     if paused and text != 'paused':
         
-        if text == '':
+        if currently_working:
             
-            text = 'pausing'
+            pause_text = 'pausing'
             
         else:
             
-            text = 'pausing - {}'.format( text )
+            pause_text = 'paused'
             
+        
+        text = f'{pause_text} - {text}'
         
     
     return text

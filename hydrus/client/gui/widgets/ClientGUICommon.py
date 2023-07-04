@@ -1,8 +1,9 @@
+import collections.abc
 import os
 import re
 import typing
 
-from qtpy import QtCore as QC, QtWidgets as QW
+from qtpy import QtCore as QC
 from qtpy import QtWidgets as QW
 from qtpy import QtGui as QG
 
@@ -49,7 +50,7 @@ def WrapInGrid( parent, rows, expand_text = False, add_stretch_at_end = True ):
     
     for row in rows:
         
-        if isinstance( row, typing.Collection ) and len( row ) == 2:
+        if HydrusData.IsAListLikeCollection( row ) and len( row ) == 2:
             
             ( text, control ) = row
             
@@ -583,11 +584,20 @@ class ButtonWithMenuArrow( QW.QToolButton ):
     
     def eventFilter( self, watched, event ):
         
-        if event.type() == QC.QEvent.Show and watched == self._menu:
+        try:
             
-            pos = QG.QCursor.pos()
+            if event.type() == QC.QEvent.Show and watched == self._menu:
+                
+                pos = QG.QCursor.pos()
+                
+                self._menu.move( pos )
+                
+                return True
+                
             
-            self._menu.move( pos )
+        except Exception as e:
+            
+            HydrusData.ShowException( e )
             
             return True
             
@@ -1929,11 +1939,20 @@ class TextCatchEnterEventFilter( QC.QObject ):
     
     def eventFilter( self, watched, event ):
         
-        if event.type() == QC.QEvent.KeyPress and event.key() in ( QC.Qt.Key_Enter, QC.Qt.Key_Return ):
+        try:
             
-            self._callable()
+            if event.type() == QC.QEvent.KeyPress and event.key() in ( QC.Qt.Key_Enter, QC.Qt.Key_Return ):
+                
+                self._callable()
+                
+                event.accept()
+                
+                return True
+                
             
-            event.accept()
+        except Exception as e:
+            
+            HydrusData.ShowException( e )
             
             return True
             

@@ -553,8 +553,13 @@ class SimpleDownloaderImport( HydrusSerialisable.SerialisableBase ):
         
         with self._lock:
             
-            gallery_text = ClientImportControl.GenerateLiveStatusText( self._gallery_status, self._gallery_paused, self._no_work_until, self._no_work_until_reason )
-            file_text = ClientImportControl.GenerateLiveStatusText( self._files_status, self._files_paused, self._no_work_until, self._no_work_until_reason )
+            currently_working = self._gallery_repeating_job is not None and self._gallery_repeating_job.CurrentlyWorking()
+            
+            gallery_text = ClientImportControl.GenerateLiveStatusText( self._gallery_status, self._gallery_paused, currently_working, self._no_work_until, self._no_work_until_reason )
+            
+            currently_working = self._files_repeating_job is not None and self._files_repeating_job.CurrentlyWorking()
+            
+            file_text = ClientImportControl.GenerateLiveStatusText( self._files_status, self._files_paused, currently_working, self._no_work_until, self._no_work_until_reason )
             
             return ( list( self._pending_jobs ), gallery_text, file_text, self._gallery_paused, self._files_paused )
             
@@ -1273,8 +1278,8 @@ class URLsImport( HydrusSerialisable.SerialisableBase ):
                     
                     file_seed = ClientImportFileSeeds.FileSeed( ClientImportFileSeeds.FILE_SEED_TYPE_URL, url )
                     
-                    file_seed.SetExternalFilterableTags( filterable_tags )
-                    file_seed.SetExternalAdditionalServiceKeysToTags( additional_service_keys_to_tags )
+                    file_seed.AddExternalFilterableTags( filterable_tags )
+                    file_seed.AddExternalAdditionalServiceKeysToTags( additional_service_keys_to_tags )
                     
                     file_seeds.append( file_seed )
                     
@@ -1284,8 +1289,8 @@ class URLsImport( HydrusSerialisable.SerialisableBase ):
                     
                     gallery_seed = ClientImportGallerySeeds.GallerySeed( url, can_generate_more_pages = can_generate_more_pages )
                     
-                    gallery_seed.SetExternalFilterableTags( filterable_tags )
-                    gallery_seed.SetExternalAdditionalServiceKeysToTags( additional_service_keys_to_tags )
+                    gallery_seed.AddExternalFilterableTags( filterable_tags )
+                    gallery_seed.AddExternalAdditionalServiceKeysToTags( additional_service_keys_to_tags )
                     
                     gallery_seeds.append( gallery_seed )
                     

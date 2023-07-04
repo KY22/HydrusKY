@@ -82,7 +82,7 @@ class HDDImport( HydrusSerialisable.SerialisableBase ):
                 
                 if path in paths_to_additional_service_keys_to_tags:
                     
-                    file_seed.SetExternalAdditionalServiceKeysToTags( paths_to_additional_service_keys_to_tags[ path ] )
+                    file_seed.AddExternalAdditionalServiceKeysToTags( paths_to_additional_service_keys_to_tags[ path ] )
                     
                 
                 file_seeds.append( file_seed )
@@ -149,7 +149,7 @@ class HDDImport( HydrusSerialisable.SerialisableBase ):
                 
                 if path in paths_to_additional_service_keys_to_tags:
                     
-                    file_seed.SetExternalAdditionalServiceKeysToTags( paths_to_additional_service_keys_to_tags[ path ] )
+                    file_seed.AddExternalAdditionalServiceKeysToTags( paths_to_additional_service_keys_to_tags[ path ] )
                     
                 
             
@@ -322,7 +322,9 @@ class HDDImport( HydrusSerialisable.SerialisableBase ):
         
         with self._lock:
             
-            text = ClientImportControl.GenerateLiveStatusText( self._files_status, self._paused, 0, '' )
+            currently_working = self._files_repeating_job is not None and self._files_repeating_job.CurrentlyWorking()
+            
+            text = ClientImportControl.GenerateLiveStatusText( self._files_status, self._paused, currently_working, 0, '' )
             
             return ( text, self._paused )
             

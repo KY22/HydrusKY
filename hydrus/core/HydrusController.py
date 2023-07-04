@@ -14,11 +14,14 @@ from hydrus.core import HydrusPubSub
 from hydrus.core import HydrusThreading
 from hydrus.core import HydrusTemp
 from hydrus.core import HydrusTime
+from hydrus.core.interfaces import HydrusControllerInterface
 from hydrus.core.networking import HydrusNATPunch
 
-class HydrusController( object ):
+class HydrusController( HydrusControllerInterface.HydrusControllerInterface ):
     
     def __init__( self, db_dir ):
+        
+        HydrusControllerInterface.HydrusControllerInterface.__init__( self )
         
         HG.controller = self
         
@@ -287,6 +290,21 @@ class HydrusController( object ):
                 
                 return False
                 
+            
+        
+    
+    def ThreadSlotsAreAvailable( self, thread_type ) -> bool:
+        
+        with self._thread_slot_lock:
+            
+            if thread_type not in self._thread_slots:
+                
+                return True # assume no max if no max set
+                
+            
+            ( current_threads, max_threads ) = self._thread_slots[ thread_type ]
+            
+            return current_threads < max_threads
             
         
     

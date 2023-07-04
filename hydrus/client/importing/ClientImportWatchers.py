@@ -263,12 +263,12 @@ class MultipleWatcherImport( HydrusSerialisable.SerialisableBase ):
             
             if filterable_tags is not None:
                 
-                watcher.SetExternalFilterableTags( filterable_tags )
+                watcher.AddExternalFilterableTags( filterable_tags )
                 
             
             if additional_service_keys_to_tags is not None:
                 
-                watcher.SetExternalAdditionalServiceKeysToTags( additional_service_keys_to_tags )
+                watcher.AddExternalAdditionalServiceKeysToTags( additional_service_keys_to_tags )
                 
             
             watcher.SetCheckerOptions( self._checker_options )
@@ -799,8 +799,8 @@ class WatcherImport( HydrusSerialisable.SerialisableBase ):
         
         gallery_seed = ClientImportGallerySeeds.GallerySeed( self._url, can_generate_more_pages = False )
         
-        gallery_seed.SetExternalFilterableTags( self._external_filterable_tags )
-        gallery_seed.SetExternalAdditionalServiceKeysToTags( self._external_additional_service_keys_to_tags )
+        gallery_seed.AddExternalFilterableTags( self._external_filterable_tags )
+        gallery_seed.AddExternalAdditionalServiceKeysToTags( self._external_additional_service_keys_to_tags )
         
         self._gallery_seed_log.AddGallerySeeds( ( gallery_seed, ) )
         
@@ -1194,6 +1194,36 @@ class WatcherImport( HydrusSerialisable.SerialisableBase ):
             
         
     
+    def AddExternalAdditionalServiceKeysToTags( self, service_keys_to_tags ):
+        
+        with self._lock:
+            
+            external_additional_service_keys_to_tags = ClientTags.ServiceKeysToTags( service_keys_to_tags )
+            
+            if external_additional_service_keys_to_tags.DumpToString() != self._external_additional_service_keys_to_tags.DumpToString():
+                
+                self._external_additional_service_keys_to_tags.update( service_keys_to_tags )
+                
+                self._SerialisableChangeMade()
+                
+            
+        
+    
+    def AddExternalFilterableTags( self, tags ):
+        
+        with self._lock:
+            
+            tags_set = set( tags )
+            
+            if tags_set != self._external_filterable_tags:
+                
+                self._external_filterable_tags.update( tags )
+                
+                self._SerialisableChangeMade()
+                
+            
+        
+    
     def GetAPIInfoDict( self, simple ):
         
         with self._lock:
@@ -1488,18 +1518,23 @@ class WatcherImport( HydrusSerialisable.SerialisableBase ):
                 checker_go = HydrusTime.TimeHasPassed( self._next_check_time ) and not self._checking_paused
                 files_go = files_work_to_do and not self._files_paused
                 
-                if checker_go and not self._checker_working_lock.locked():
+                if checker_go and not self._checker_working_lock.locked() and self._checker_repeating_job is not None and self._checker_repeating_job.WaitingOnWorkSlot():
                     
                     self._watcher_status = 'waiting for a work slot'
                     
                 
-                if files_go and not self._files_working_lock.locked():
+                if files_go and not self._files_working_lock.locked() and self._files_repeating_job is not None and self._files_repeating_job.WaitingOnWorkSlot():
                     
                     self._files_status = 'waiting for a work slot'
                     
                 
-                files_status = ClientImportControl.GenerateLiveStatusText( self._files_status, self._files_paused, self._no_work_until, self._no_work_until_reason )
-                watcher_status = ClientImportControl.GenerateLiveStatusText( self._watcher_status, self._checking_paused, self._no_work_until, self._no_work_until_reason )
+                currently_working = self._files_repeating_job is not None and self._files_repeating_job.CurrentlyWorking()
+                
+                files_status = ClientImportControl.GenerateLiveStatusText( self._files_status, self._files_paused, currently_working, self._no_work_until, self._no_work_until_reason )
+                
+                currently_working = self._checker_repeating_job is not None and self._checker_repeating_job.CurrentlyWorking()
+                
+                watcher_status = ClientImportControl.GenerateLiveStatusText( self._watcher_status, self._checking_paused, currently_working, self._no_work_until, self._no_work_until_reason )
                 
             
             return ( files_status, self._files_paused, self._file_velocity_status, self._next_check_time, watcher_status, self._subject, self._checking_status, self._check_now, self._checking_paused )
@@ -1682,36 +1717,6 @@ class WatcherImport( HydrusSerialisable.SerialisableBase ):
             if file_import_options.DumpToString() != self._file_import_options.DumpToString():
                 
                 self._file_import_options = file_import_options
-                
-                self._SerialisableChangeMade()
-                
-            
-        
-    
-    def SetExternalAdditionalServiceKeysToTags( self, service_keys_to_tags ):
-        
-        with self._lock:
-            
-            external_additional_service_keys_to_tags = ClientTags.ServiceKeysToTags( service_keys_to_tags )
-            
-            if external_additional_service_keys_to_tags.DumpToString() != self._external_additional_service_keys_to_tags.DumpToString():
-                
-                self._external_additional_service_keys_to_tags = external_additional_service_keys_to_tags
-                
-                self._SerialisableChangeMade()
-                
-            
-        
-    
-    def SetExternalFilterableTags( self, tags ):
-        
-        with self._lock:
-            
-            tags_set = set( tags )
-            
-            if tags_set != self._external_filterable_tags:
-                
-                self._external_filterable_tags = tags_set
                 
                 self._SerialisableChangeMade()
                 
@@ -1916,7 +1921,7 @@ class WatcherImport( HydrusSerialisable.SerialisableBase ):
             
             if HG.client_controller.new_options.GetBoolean( 'pause_all_watcher_checkers' ):
                 
-                raise HydrusExceptions.VetoException( 'all checkers are paused!' )
+                raise HydrusExceptions.VetoException( 'all checkers are paused! network->pause to resume!' )
                 
             
             if not self._HasURL():

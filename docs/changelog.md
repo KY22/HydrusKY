@@ -7,6 +7,112 @@ title: Changelog
 !!! note
     This is the new changelog, only the most recent builds. For all versions, see the [old changelog](old_changelog.html).
 
+## [Version 533](https://github.com/hydrusnetwork/hydrus/releases/tag/v533)
+
+### macOS App crashes
+
+* unfortunately, last week's eventFilter work did not fix the macOS build's crashing--however, thanks to user help, we figured out that it was some half-hidden auxiliary Qt library that updated in the background starting v530 (the excellently named `PyQt6-Qt6` package). the build script is updated to roll back this version and it seems like things are fixed. this particular issue shouldn't happen again. sorry for the trouble, and let me know if there are any new issues! (issue #1379)
+
+### misc
+
+* the download panels in subscription popup windows are now significantly more responsive. ever since the popup manager was embedded into the gui, popup messages were not doing the 'should I update myself?' test correctly, and their network UI was not being updated without other events like surrounding widgets resizing. I was wondering what was going on here for ages--turns out it was regular stupidity
+* if an image has width or height > 1024, the 'share->copy' menu now shows a second, 'source lookup' bitmap, with the resolution clipped to 1024x1024
+* 'sort files by hash' can now be sorted asc or desc. this also fixes a bug where it was secretly either sorting asc or desc based on the previous selection. well done to the user who noticed and tested this
+* if system:limit=0 is in a search, the search is no longer run--it comes back immediately empty. also, the system:limit edit panel now has a minimum value of 1 to dissuade this state
+* the experimental QtMediaPlayer now initialises with the correct volume/mute and updates on volume/mute events. the scanbar and volume control UI are still hidden behind the OpenGL frame for now, but one step forward
+* the system that caches media results now hangs on to the most recent 2048 files aggressively for two minutes after initial load. previously, if you refreshed a page of unique files, or did some repeated client api work on files that were not loaded somewhere as thumbs, in the interim periods those media objects were not strictly in non-weak memory anywhere in the client and could have been eligible for clearing out of the cache. now they are a bit more sticky
+* added some info on editing predicates and the various undocumented click shortcuts the taglist supports (e.g. ctrl+double-left-click) to the 'getting started with searching and sorting' help page
+* added a link to the Client API help for 'Hydrus Video Deduplicator' (https://github.com/appleappleapplenanner/hydrus-video-deduplicator), which neatly discovers duplicate videos in your client and queues them up in the duplicate filter by marking them as 'potential dupes'
+
+### sub-gallery url network parsing gubbins
+
+* sub-gallery import objects now get the tags and custom headers that are parsed with them. if the sub-gallery urls are parsed in 'posts' using a subsidiary parser, they only inherit the metadata within their post
+* sub-gallery import objects now use their parent gallery urls as referral header
+* sub-gallery import objects now inherit the 'can generate more pages' state of their parents (previously it was always 'yes')
+* 'next page' gallery urls do not get the tags they are parsed with. this behaviour makes a little less sense, and I suspect it _could_ cause various troubles, so I'll wait for more input, bug reports, and a larger cleanup and overhaul of how metadata is managed and passed down from one item to the next in the downloader system
+* generally speaking, when file and gallery import objects have the opportunity to acquire tags or headers, they'll now add to the existing store rather than replace it. this should mean if they both inherit and parse stuff, it won't all overwrite each other. this is all a giant mess so I have a cleanup overhaul planned
+
+### boring stuff
+
+* if a critical drive error occurs (e.g. running out of space on a storage drive), the popup message saying 'hey everything just got mega-paused' is now a little clearer about what has happened and how to fix it
+* similarly, the specific 'all watchers are paused'-style messages now specifically state 'network->pause to resume!' to point users to this menu to fix this tricky issue. this has frustrated a couple of newer users before
+* to reduce confusion, the 'clear orphan files' pre-job now only presents the user one combined dialog
+* improved how pages test and recognise that they have changes and thus should be saved--it works faster, and a bunch of false negatives should be removed
+* improved the safety routine that ensures multiple-column list data is read-only
+* fixed .txt sidecar importers' description labels, which were missing extra text munging
+* to relieve some latency stress on session load, pages that are loading their initial files in the background now do so in batches of 64 rather than 256
+* fixed some bad error handling in the master client db update routine
+* fixed a scatter of linting problems a user found
+* last week's pixiv parser hotfix is reinforced this week for anyone who got the early 532 release
+* made some primitive interfaces for the main controller and schedulable job classes and ensured the main hydrusglobals has type hinting for these--now everything that talks to the controller has a _bit_ of an idea what it is actually doing, and as I continue to work on this, we'll get better linting
+* moved the client DataCache object and its friends to a new 'caches' module and cleaned some of the code
+
+## [Version 532](https://github.com/hydrusnetwork/hydrus/releases/tag/v532)
+
+### misc
+
+* whenever you say 'show these files in a new page', the new page now has a search interface. it starts with a 'system:hash' pre-populated with the files' hashes, so you can now easily narrow down or return to the stuff you are playing with! original file sort order is preserved until you alter or refresh the search
+* tags' `right-click->search` menu now has a 'open in a new duplicate filter' for quick spawning of duplicate filters for specific searches
+* the duplicate filter no longer flicks to the 'preparation' tab if there is work to do on the first numbers fetch. this thing has been driving me nuts, I don't know why I wrote it that way to begin with
+* improved the reliability of certain session object saving--I believe some situations where the 'searching immediately' and 'this search was completed' status where not being saved for some page queries. this _may_ solve a long time bug where some pages would refresh on load
+* all search pages that load with files now explicitly reaffirm internally that they are starting with a completed search, which should reduce some related edge case buggy behaviour here
+* the 'string to string' edit control now tries to compensate if it is incorrectly given non-string data. somewhere in the html parsing formula UI this happened, an integer sneaking in the key/value of the tag rule, maybe by manual human JSON editing, but I'm not really sure. should be handled correctly now though. let me know if you are into this and discover anything
+* every 'eventFilter' in the program now catches Exceptions ruthlessly. it turns out Qt can't handle an Exception escaping one of these, and this _may_ be the cause of some >=v530 crashing on macOS related to multi-column list interaction under issue #1379. it is probably the cause of some other crashes that I haven't been able to figure out--these will now give normal popup errors, so let me know if you see anything. if you have had crazy crashes in macOS recently and these changes don't fix you, reverting back to v529 is apparently ok! there have been no big database updates in that time, so you should be able to just install v529 on your existing install and be off
+* the routine that purges files from the trash now uses fewer database queries to find eligable files. some Linux guys have been working with me on memory explosions possibly in this area--let me know if you notice any difference
+* the 'clear trash' command in review services is politer to your database, breaking up a large amount of trash into smaller groups
+* the program no longer moans to the log when it physically deletes a file and files no accompanying thumbnail to delete--this is true for several situations, and not worth the logspam
+* fixed a typo error in the `url class links` 'try to fill in the gaps' command
+
+### pixiv downloader
+
+* I reworked the pixiv parser changes from a couple weeks ago. as background, what happened is pixiv said if you aren't logged in, you can't get the 'original' quality of the file any more. my first fix was to say 'ok, if the user is not logged in, get the lower quality', but this was the wrong decision. the parser now vetoes, causing an 'ignored' result and telling you the problem in the import note. if you _do_ want to get the lower quality image and not log in, this is now selectable as an alternate parser under _network->downloader components->manage url class links_
+* also, a variety of old pixiv objects and other experiments are deleted and merged today. the parsers that worked on the old html format, `pixiv manga page parser`, `pixiv manga_big page parser`, `pixiv single file page parser - new layout`, and `pixiv tag search gallery page parser` will be deleted from your client, and the old gallery url class, `pixiv tag search gallery page` meets a similar fate. `pixiv manga_big page` and `pixiv manga page` are removed and their urls merged into a more accomodating `pixiv file page`, which stays to hold all the legacy pixiv URLs, which on the site are automatically redirected to the new format. thanks to a user for helping me with what here was cruft (issue #947)
+
+### mpv logging and emergency halt
+
+* a user sent me a cool truncated twitter video download that, when loaded into mpv, would crash the program after a click or two around the player. this sent me on an odyssey into the mpv logging system and event loop and some really bizarre behaviour under the hood, and, long story short, mpv will notice this particular problem class in future and immediately unload the file and present the user with a dialog explaining the issue. it also won't let you load that file again that boot
+* to recognise this error class, I broaden what is logged and scan the lines as they come in. I've been careful in how I filter, but it may produce some false positives. let me know if this thing triggers for any files that seem fine in an external player
+* errors of unknown severity are now printed silently to the log with a little intro text saying which file it was and so on. there are a bunch of these with the sorts of files we deal with, stuff like missing chapter marks or borked header data. I expect I'll work on silencing the ones we confirm are no big deal, but if you encounter a ton of them, particularly if you know some cause crashes, please now check your log and let me know what you see
+* if you have two mpv players playing media at the same time, this reporting system will report the info for both files--sorry, I had to hack this gubbins! future versions of mpv or python-mpv may open some doors here
+
+### client api
+
+* the `/get_files/file` command now has a `download=true` parameter which converts the `Content-Disposition` from `inline` (show the file) to `attachment` (auto-download or open save-as dialog) (issue #1375)
+* added help and a unit test for the above
+* client api version is now 47
+
+## [Version 531](https://github.com/hydrusnetwork/hydrus/releases/tag/v531)
+
+### misc
+
+* fixed editing favourite searches, which I accidentally broke last week with the collect-by updates
+* when you right-click a tag and get the siblings/parents menus, the list of copyable siblings, parents, and children is now truncated to 10 items each per service. stuff like pokemon has hundreds of children and for a very long time has been spamming giganto 11-column menus that cover the entire screen
+* same menu truncation for the open/copy URLs menu. if there's a file that has 600 URLs for interesting technical reasons, it won't nuke you any more (issue #1037)
+* updated the default pixiv file page parser, which recently broke for users who were not logged in. they seem to hide original size behind the login now, so if you do a lot of pixiv work, get Hydrus Companion or figure out a cookies.txt solution and get yourself logged in
+* the downloader progress panels have a couple of status text improvements: first, they will stop saying 'waiting for a work slot' when the actual error is something unusual such as the gallery search hitting the file limit. second, when there is an unusual status and the downloader is in the paused state, it can now properly differentiate between 'paused' and 'pausing'
+* some invalid URL strings now raise the correct error in the downloader system, causing them to be properly filtered away instead of sticking around and being unhelpful
+* if there is a connection error because of an SSL issue, the network job is now retried like any other connection error. I originally thought these were all non-retryable like cert validation errors, but it seems some of them are just write timeouts etc.. during the negotiation, so let's see how it goes
+* I believe I have fixed an error when selecting a tag in a list when that list had been previously shift-selected and then cleared and repopulated
+* manage siblings and parents should be better about focusing the correct text input after they boot and load
+* in future, if a taglist tries to deselect something it no longer has, it'll do an emergency 'deselect all' to exorcise the ghosts fully
+* reworded the text around 'reset potential duplicates' action in the duplicates page to be more clear on what it does
+* I tinkered with some of the shutdown code hoping to catch an odd issue of the exit 'last session' not saving correctly, but I don't think I figured the issue out. if you have noticed you boot up and get a session that missed up to the last 15 minutes of changes before you last shut down, please let me know you your details
+* added a link to `tagrank`, a new Client API project at https://github.com/matjojo/tagrank, to the Client API help. it shows you pairs of comparison images over and over and uses `trueskill` ranking algorithm to figure out which tags are your favourite
+* added a link to 'Send to Hydrus', a Client API project at https://github.com/Wyrrrd/send-to-hydrus, to the Client API help. it sends URLs from an Android device to your client
+
+### client api
+
+* as part of a plan to migrate to service_key indexing everywhere and reduce file_metadata bloat, the client api has a new `services` structure, a service information Object where `service_key` is the key. this is now in the `/get_services` call and `/get_files/file_metadata`, under `services` under the root. the old type-based structure in `/get_services` and the in-file embedding of service info in `/get_files/file_metadata` are still in place, so nothing breaks today, but I am officially declaring them deprecated, to be deleted in 2024, and recommend all Client API devs move to the new system before the new year
+* the new service object also includes info on the local rating services. I'd like to add ratings to file_metadata fairly soon
+* if you don't want the services object in `/get_files/file_metadata`, there's a new `include_services_object` param you can set to false to hide it
+* updated the unit tests and client api help to reflect all this. main new section: https://hydrusnetwork.github.io/hydrus/developer_api.html#services_object
+* the client api version is now 46
+
+### update woes
+
+* I somewhat successfully pounded my head against an issue where the first tab (usually 'my tags') was disappearing in the _manage tags/siblings/parents_ dialogs for some users. this bug, for real, seems to be the combination of (Python 3.11 + PyQt6 6.5.x + two tabs + total tab text characters > ~12 + tab selection is set to 1 during init event). Change any of those things and it doesn't happen. This is so weird a problem to otherwise normal code that I won't pivot all my 50-odd instances of tab selection to handle it and instead have hacked an answer for the three tag dialogs and filename tagging. Sorry for the trouble if you got this! Let me know if you see any more
+* in a similar-but-different thing, PySide6 6.5.1 has a bug related to certain Signal connections. don't use it with hydrus, it messes up all my menus! their dev notes suggest they are going to have a fix/revert for 6.5.1.1
+
 ## [Version 530](https://github.com/hydrusnetwork/hydrus/releases/tag/v530)
 
 ### autocomplete and system predicates
@@ -258,138 +364,3 @@ title: Changelog
 * fixed an error popup that still said 'run repair invalid tags' instead of 'run fix invalid tags'
 * the FILE_SERVICES constant now holds the 'all deleted files' virtual domain. this domain keeps slipping my logic, so fingers crossed this helps. also means you can select it in 'system:file service' and stuff now
 * misc cleaning and linting work
-
-## [Version 523](https://github.com/hydrusnetwork/hydrus/releases/tag/v523)
-
-### timestamp editing
-
-* you can now _right-click->manage->times_ on any file to edit its archived, imported, deleted, previously imported (for undelete), file modified, domain modified, and last viewed times. there's a whole new dialog with new datetime buttons and everything. it only works on single files atm, so it is currently only appropriate for little fixes, and there's a couple advanced things like setting a currently missing deletion time that it can't do yet, but I expect to expand it in future (also ideally with some kind of 'cascade' option for multi-files so you can set a timestamp iteratively (e.g. +1 second per file) over a series of thumbs to force a certain import order sort etc...)
-* I added a new shortcut action 'manage file times', for this dialog. like the other media 'manage' shortcuts, you can hit it on the dialog to ok it, too
-* when you edit a saved file modified date, I have made it to update the actual file modified date on your disk too. a statement is printed to the log with old/new timestamps, just in case you ever need to recover this
-* added system:archived time search predicate! it is under the system:time stub like the other time-based search preds. it works in the system predicate parser too
-
-### misc
-
-* fixed a stupid logical typo from 521's overhaul that was causing the advanced file deletion dialog to always set the default file deletion reason! sorry for the trouble, this one slipped through due to a tricky test situation (this data is actually calculated twice on dialog ok, and on the first run it was correct -\_-)
-* in the edit system predicate dialogs, when you have a list of 'recent' preds and static useful preds, if one of the recent is supposed to also appear in the statics, it now won't be duped
-* fixed a bug in the media object's file locations manager's deletion routine, which wasn't adding and removing the special 'all deleted files' domain at the UI level--not that this shows up in UI much, but the new timestamps UI revealed this
-* in the janitorial 'petitions processing' page, the add and delete checkbox lists now no longer have horizontal scrollbars in any situation. previously, either list, but particularly the 'delete', at height 1, could be deceptively obscured by a pop-in scrollbar
-* when you change your internal backup location, the dialog now states your current location beforehand. this information was previously not viewable! also, if you select the same location again, the process notes this and exits with no changes made
-* all multi-column lists across the program now show a ▲ or ▼ on the column they are currently sorted on! this is one of those things I meant to do for ages; now it is done.
-* also, you can now right-click any multi-column list's header for a stub menu. for now it just says the thing's identifier name, but I'll start hanging things off here like individual section-size reset and, in time, finally play around with 'select columns' tech
-* all menus across the program now send their longer description text to the main window status bar. until now (at least in Qt, I forget wx), this has only been true for the menubar menus
-* all menus across the program now have tooltips turned on. any command with description text, which is I think pretty much all of them, will present its full written description on hover. this may end up being annoying, so let me know what you think
-
-### client api
-
-* fixed an issue in the client api where it wasn't returning `file_metadata` results in the same file order you asked for. sorry for the trouble--this was softly intended, previously, but I forgot to make sure it stayed true. it also now folds in 'missing' hashes with null ids in the same position you asked for
-* a new suite of unit tests check this explicitly for all the typical parameter/response types, and the new missing-hash insertion order--it shouldn't happen again!
-* just to be safe, since this is a new feature, client api version is now 44
-
-### boring code updates/cleanup
-
-* wrote a new serialisable 'timestamp data' object to hold the various hydrus timestamps: archived, imported, deleted, previously imported, file modified, domain modified, aggregate modified, and last viewed time
-* rewrote the timestamp content update pipeline to use 'timestamp data' object
-* wrote a new database module for timestamp management off the file metadata module and migrated the domain-based modified timestamp code to it
-* migrated the 'archive time' timestamp-handling from the inbox module to the new timestamp module
-* migrated the media result timestamp-manager construction routine all down to the new timestamp module
-* migrated the aggregate modified time file search code to the new timestamp module and added archived time search too
-* wrote some UI for timestamp editing, whacked some copy/paste buttons on it too
-* moved all current/deleted timestamp handling down from the locations manager to the timestamp manager and split off 'previously imported' time, which is used to preserve import timestamp for undelete events, into its own thing rather than a tacked-on hack for deleted timestamps
-* moved all the location manager location timestamp tracking down to the timestamp manager
-* the media result is now initialised with and handles an explicit copy of the timestamp manager, which is now shared to both location manager and file viewing stats manager, with duplication and merging code updated to handle this shared situation
-* moved all the media/preview 'last view time' tracking down from the file viewing stats manager to the timestamp manager, which FVS now received on initialisation
-* all media-based timestamp inspection now goes through the timestamp manager
-* collections now track some aggregate timestamps a bit better, and they now calculate a archived time--not sure if it is useful, but they know it now
-* updated all parts of the timestamp system to use the same shared enums
-* cleaned the timestamp code generally
-* cleaned some file service update code generally
-* moved the main file viewing stats fetching routine for MediaResult building down to the file viewing stats module
-* updated the old custom gridbox layout to handle multiple-column-spanning controls
-* went through all the bash scripts and fixed some issues my IDE linter was moaning about. -r on reads, quotes around variable names, 4-space indenting, and neater testing of program return states
-
-## [Version 522](https://github.com/hydrusnetwork/hydrus/releases/tag/v522)
-
-### notes in sidecars
-
-* the sidecars system now supports notes!
-* my sidecars only support univariate rows atm (a list of strings, rather than, say, a list of pairs of strings), so I had to make a decision how to handle note names. if I reworked the pipeline to handle multivariate data, it would take weeks; if I incorporated explicit names into the sidecar object, it would have made 'get/export all my notes' awkward or impossible and not solved the storage problem; so I have compromised in this first version by choosing to import/export everything and merging the name and text into the same row. it expects/says 'name: text' for input and output. let me know what you think. I may revisit this, depending on how it goes
-* I added a note to the sidecars help about this special 'name: text' rule along with a couple ideas for tricky situations
-
-### misc
-
-* added 'system:framerate' and 'system:number of frames' to the system predicate parser!
-* I am undoing two changes to tag logic from last week: you can now have as many colons at the start of a tag as you like, and the content parser no longer tries to stop double-stacked namespaces. both of these were more trouble than they were worth. in related news, '::' is now a valid tag again, displaying as ':', and you can create ':blush:'-style tags by typing '::blush:'. I'm pretty sure these tags will autocomplete search awfully, so if you end up using something like this legit, let me know how it goes
-* if you change the 'media/preview viewer uses its own volume' setting, the client now updates the UI sliders for this immediately, it doesn't need a client restart. the actual volume on the video also changes immediately
-* when an mpv window is called to play media that has 'no audio', the mpv window is now explicitly muted. we'll see if this fixes an interesting issue where on one system, videos that have an audio channel with no sound, which hydrus detects as 'no audio', were causing cracks and pops and bursts of hellnoise in mpv (we suspect some sort of normalisation gain error)
-
-### file safety with duplicate symlinked directory entries
-
-* the main hydrus function that merges/mirrors files and directories now checks if the source and destination are the same location but with two different representations (e.g. a mapped drive and its network location). if so, to act as a final safety backstop, the mirror skips work and the merge throws an error. previously, if you wangled two entries for the same location into 'migrate database' and started a migration, it could cause file deletions!
-* I've also updated my database migration routines to recognise and handle this situation explicitly. it now skips all file operations and just updates the location record instantly. it is now safe to have the same location twice in the dialog using different names, and to migrate from one to the other. the only bizzaro thing is if you look in the directory, it of course has boths' contents. as always though, I'll say make backups regularly, and sync them before you do any big changes like a migration--then if something goes wrong, you always have an up-to-date backup to roll back to
-* the 'migrate database' dialog no longer chases the real path of what you give it. if you want to give it the mapped drive Z:, it'll take and remember it
-* some related 'this is in the wrong place' recovery code handles these symlink situations better as well
-
-### advanced new parsing tricks
-
-* thanks to a clever user doing the heavy lifting, there are two neat but advanced additions to the downloader system
-* first, the parsing system has a new content parser type, 'http headers', which lets you parse http headers to be used on subsequent downloads created by the parsing downloader object (e.g. next gallery page urls, file downloads from post pages, multi-file posts that split off to single post page urls). should be possible to wangle tokenized gallery searches and file downloads and some hacky login systems
-* second, the string converter system now lets you calculate the normal hydrus hashes--md5, sha1, sha256, sha512--of any string (decoding it by utf-8), outputting hexadecimal
-
-### http headers on the client api
-
-* the client api now lets you see and edit the http headers (as under _network->data->review http headers_) for the global network context and specific domains. the commands are `/manage_headers/get_headers` and `/manage_headers/set_headers`
-* if you have the 'Make a short-lived popup on cookie updates through the Client API' option set (under 'popups' options page), this now applies to these header changes too
-* also debuting on the side is a 'network context' object in the `get_headers` response, confirming the domain you set for. this is an internal object that does domain location stuff all over. it isn't important here, but as we do more network domain setting editing, I expect we'll see more of this guy
-* I added some some documentation for all this, as normal, to the client api help
-* the labels and help around 'manage cookies' permission are now 'manage cookies and headers'
-* the client api version is now 43
-* the old `/manage_headers/set_user_agent` still works. ideally, please move to `set_headers`, since it isn't that complex, but no rush. I've made a job to delete it in a year
-* while I was doing this, I realised get/set_cookies is pretty bad. I hate their old 'just spam tuples' approach. I've slowly been replacing this stuff with nicer named JSON Objects as is more typical in APIs and is easier to update, so I expect I'll overhaul them at some point
-
-### boring cleanup
-
-* gave the about window a pass. it now runs on the newer scrolling panel system using my hydrus UI objects (so e.g. the hyperlink now opens on a custom browser command, if you need it), says what platform you are on and whether you are source/build/app, and the version info lines are cleaned a little
-* fixed/cleaned some bad code all around http header management
-* wrote some unit tests for http headers in the client api
-* wrote some unit tests for notes in sidecars
-
-## [Version 521](https://github.com/hydrusnetwork/hydrus/releases/tag/v521)
-
-### some tag presentation
-
-* building on last week's custom sibling connector, if you don't like the fade you can now override the 'namespace' colour of the sibling connector if you like
-* you can also set the ' OR ' connector text
-* and you can set the OR connector's 'namespace' colour. it was 'system' before
-* also turned off the new namespace colour fading for OR predicates, where it was unintentionally kicking in and looking horrible lol
-
-### misc
-
-* added a checkbox to 'file viewing statistcs' to turn off tracking for the archive/delete filter, if you don't like that
-* file viewing statistics now maxes out at five times a duration-having media's duration, if that is more than your max view time
-* the simple version of the file delete dialog will now never overwrite a file deletion reason if all of the to-be-deleted files already have deletion reasons (e.g. when physically deleting trash)	
-* the advanced version of the dialog now always selects 'keep existing reason' or 'do not alter existing reasons' when they exist, regardless of your 'remember previous reason' action. also, the 'remember previous reason' saved reason no longer updates if 'keep existing reason' or 'do not alter existing reasons' is set--it will stick on whatever it was before
-* I might have fixed a height-layout bug in the petition management page
-
-### advanced change to unnamespaced tags and their parsing
-
-* the rule that allows ':p' as a tag (by secretly storing it as '::p') has been expanded--now any unnamespaced tag can include a colon as long as it starts with an explicit colon, which in hydrus rendering contexts is usually hidden. you can now type these in simply by beginning your tag with ':'--the secret character will be quickly swallowed
-* for the parsing system, content parsers that get tags can now decide whether to set an explicit namespace or not. from now on, content parsers that are set to get unnamespaced tags will force all tags they get to be unnamespaced! this stops some site that has incidental colons in their 'subtags' from spamming twenty different new namespaces to hydrus. to preserve old parser behaviour, all existing content parsers that were left blank (no namespace) will be updated to not set an explicit namespace. if you are a parser maker, please consider whether you want to go with 'unnamespaced' or 'any namespace' going forward in your parsers--since most places don't use the hydrus 'namespace:subtag' format, I suspect when we want to make the decision, we'll want 'unnamespaced'
-* I updated the pixiv parser to specifically ask for unnamespaced tags when parsing regular user tags, since it has some of these colon-having tags
-* as a side thing, extra colons are now collapsed at the start of a tag--anything that starts with four colons will be collapsed down to two, with one displaying to humans
-* also, during parsing, if a content parser gets a tag and the subtag already starts with its namespace, it will no longer double the namespace. parse 'character:dave' with namespace set to 'character', it will no longer produce 'character:character:dave'
-
-### advanced file domain and file import options stuff
-
-* all import pages that need to consult their file domain now do so on a 'realised' version of 'default file import options', so if you are set to import to 'my imports', and you open a new page from a tag or some thumbs on that import page, the new file page will be set to 'my imports', not some weird 'my files' stub value (in clients that deleted 'my files', this would be 'initialising...' forever)
-* more stages of the file import process 'realise' default file import options stubs, just in case more of these problems slip through in future (e.g. in my file import unit tests, which I just discovered were all broken)
-* the 'default' file import options stub is now initialised with your first local file domain rather than 'my files', so if this thing is ever still consulted anywhere, it should serve as a better last resort
-* also fixed the file domain button getting stuck on 'initialising' if it starts with an empty file domain
-* when you open the edit file import options dialog on a 'default' FIO and switch to a non-default, it now fills in all the details with the current LOUD FIO
-
-### boring cleanup
-
-* extracted the master file search method (~1800 lines of code) from the monolithic database object and into its own module. then broke several sub-pieces like rating or note searching code out into that module and cleaned misc stuff along the way. not done by any means, but this was a big db-cleanup hump
-* reshuffled all the page management objects so they no longer keep an explicit copy of their current file domain--now they always consult their respective sub-objects, whether that is a file search or an importer or what. any time a page needs to consult its file domain, it'll always get the live and sensible version. as above, they also 'realise' default file import options stubs
-* broke the 'getting started with tags' help page into two and straddled the 'getting started with searching' page with them. the intention is to get users typing a few tags into their first import pages, just that, and then playing around with them in search, before moving on to more complicated tag subjects
-* split the 'autocomplete' section of the 'search' options into two, for read/write a/c contexts, and the default file and tag domain options have been moved there from 'files and trash' and 'tags'

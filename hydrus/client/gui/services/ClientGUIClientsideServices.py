@@ -2993,17 +2993,17 @@ class ReviewServiceRepositorySubPanel( QW.QWidget ):
             
             if self._service.GetServiceType() == HC.TAG_REPOSITORY:
                 
-                l = HC.TAG_REPOSITORY_SERVICE_INFO_TYPES
+                service_info_types = HC.TAG_REPOSITORY_SERVICE_INFO_TYPES
                 
             else:
                 
-                l = HC.FILE_REPOSITORY_SERVICE_INFO_TYPES
+                service_info_types = HC.FILE_REPOSITORY_SERVICE_INFO_TYPES
                 
             
             message = 'Note that num file hashes and tags here include deleted content so will likely not line up with your review services value, which is only for current content.'
             message += os.linesep * 2
             
-            tuples = [ ( HC.service_info_enum_str_lookup[ info_type ], HydrusData.ToHumanInt( service_info_dict[ info_type ] ) ) for info_type in l if info_type in service_info_dict ]
+            tuples = [ ( HC.service_info_enum_str_lookup[ info_type ], HydrusData.ToHumanInt( service_info_dict[ info_type ] ) ) for info_type in service_info_types if info_type in service_info_dict ]
             string_rows = [ '{}: {}'.format( info_type, info ) for ( info_type, info ) in tuples ]
             
             message += os.linesep.join( string_rows )
@@ -4147,11 +4147,16 @@ class ReviewServiceTrashSubPanel( ClientGUICommon.StaticBox ):
                 
                 hashes = HG.client_controller.Read( 'trash_hashes' )
                 
-                content_update = HydrusData.ContentUpdate( HC.CONTENT_TYPE_FILES, HC.CONTENT_UPDATE_DELETE, hashes )
-                
-                service_keys_to_content_updates = { CC.COMBINED_LOCAL_FILE_SERVICE_KEY : [ content_update ] }
-                
-                HG.client_controller.WriteSynchronous( 'content_updates', service_keys_to_content_updates )
+                for group_of_hashes in HydrusData.SplitIteratorIntoChunks( hashes, 16 ):
+                    
+                    content_update = HydrusData.ContentUpdate( HC.CONTENT_TYPE_FILES, HC.CONTENT_UPDATE_DELETE, group_of_hashes )
+                    
+                    service_keys_to_content_updates = { CC.COMBINED_LOCAL_FILE_SERVICE_KEY : [ content_update ] }
+                    
+                    HG.client_controller.WriteSynchronous( 'content_updates', service_keys_to_content_updates )
+                    
+                    time.sleep( 0.01 )
+                    
                 
                 HG.client_controller.pub( 'service_updated', service )
                 

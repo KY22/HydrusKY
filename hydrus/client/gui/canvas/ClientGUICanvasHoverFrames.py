@@ -462,11 +462,20 @@ class CanvasHoverFrame( QW.QFrame ):
             
         
     
-    def eventFilter( self, object, event ):
+    def eventFilter( self, watched, event ):
         
-        if event.type() == QC.QEvent.Resize:
+        try:
             
-            self._SizeAndPosition()
+            if event.type() == QC.QEvent.Resize:
+                
+                self._SizeAndPosition()
+                
+            
+        except Exception as e:
+            
+            HydrusData.ShowException( e )
+            
+            return True
             
         
         return False
@@ -1490,20 +1499,29 @@ class NotePanel( QW.QWidget ):
         self._note_text.installEventFilter( self )
         
     
-    def eventFilter( self, object, event ):
+    def eventFilter( self, watched, event ):
         
-        if event.type() == QC.QEvent.MouseButtonPress:
+        try:
             
-            if event.button() == QC.Qt.LeftButton:
+            if event.type() == QC.QEvent.MouseButtonPress:
                 
-                self.editNote.emit( self._name )
+                if event.button() == QC.Qt.LeftButton:
+                    
+                    self.editNote.emit( self._name )
+                    
+                else:
+                    
+                    self._note_text.setVisible( not self._note_text.isVisible() )
+                    
+                    self._note_visible = self._note_text.isVisible()
+                    
                 
-            else:
+                return True
                 
-                self._note_text.setVisible( not self._note_text.isVisible() )
-                
-                self._note_visible = self._note_text.isVisible()
-                
+            
+        except Exception as e:
+            
+            HydrusData.ShowException( e )
             
             return True
             
@@ -1847,7 +1865,7 @@ class CanvasHoverFrameRightDuplicates( CanvasHoverFrame ):
         
         self._comparison_statements_vbox = QP.VBoxLayout()
         
-        self._comparison_statement_names = [ 'filesize', 'resolution', 'ratio', 'mime', 'num_tags', 'time_imported', 'jpeg_quality', 'pixel_duplicates', 'exif_data', 'embedded_metadata', 'icc_profile' ]
+        self._comparison_statement_names = [ 'filesize', 'resolution', 'ratio', 'mime', 'num_tags', 'time_imported', 'jpeg_quality', 'pixel_duplicates', 'exif_data', 'embedded_metadata', 'icc_profile', 'has_audio' ]
         
         self._comparison_statements_sts = {}
         
