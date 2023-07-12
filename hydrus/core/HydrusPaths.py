@@ -24,6 +24,8 @@ mimes_to_default_thumbnail_paths[ HC.APPLICATION_PDF ] = os.path.join( HC.STATIC
 mimes_to_default_thumbnail_paths[ HC.APPLICATION_PSD ] = os.path.join( HC.STATIC_DIR, 'psd.png' )
 mimes_to_default_thumbnail_paths[ HC.APPLICATION_CLIP ] = os.path.join( HC.STATIC_DIR, 'clip.png' )
 mimes_to_default_thumbnail_paths[ HC.APPLICATION_SAI2 ] = os.path.join( HC.STATIC_DIR, 'sai.png' )
+mimes_to_default_thumbnail_paths[ HC.APPLICATION_KRITA ] = os.path.join( HC.STATIC_DIR, 'krita.png' )
+mimes_to_default_thumbnail_paths[ HC.IMAGE_SVG ] = os.path.join( HC.STATIC_DIR, 'svg.png' )
 
 for mime in HC.AUDIO:
     
@@ -344,7 +346,7 @@ def GetDevice( path ) -> typing.Optional[ str ]:
         
     
 
-def GetFileSystemType( path ):
+def GetFileSystemType( path ) -> typing.Optional[ str ]:
     
     partition_info = GetPartitionInfo( path )
     
@@ -913,7 +915,16 @@ def SanitizePathForExport( directory_path, directories_and_filename ):
     
     suffix_directories = components[:-1]
     
-    force_ntfs = GetFileSystemType( directory_path ).lower() in ( 'ntfs', 'exfat' )
+    fst = GetFileSystemType( directory_path )
+    
+    if fst is None:
+        
+        force_ntfs = False
+        
+    else:
+        
+        force_ntfs = fst.lower() in ( 'ntfs', 'exfat' )
+        
     
     suffix_directories = [ SanitizeFilename( suffix_directory, force_ntfs = force_ntfs ) for suffix_directory in suffix_directories ]
     filename = SanitizeFilename( filename, force_ntfs = force_ntfs )

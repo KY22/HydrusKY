@@ -529,7 +529,7 @@ def GenerateThumbnailBytesPIL( pil_image: PILImage.Image ) -> bytes:
 
 def GetEXIFDict( pil_image: PILImage.Image ) -> typing.Optional[ dict ]:
     
-    if pil_image.format in ( 'JPEG', 'TIFF' ) and hasattr( pil_image, '_getexif' ):
+    if pil_image.format in ( 'JPEG', 'TIFF', 'PNG', 'WEBP' ) and hasattr( pil_image, '_getexif' ):
         
         try:
             
@@ -879,6 +879,7 @@ def GetThumbnailResolutionAndClipRegion( image_resolution: typing.Tuple[ int, in
         bounding_height = int( bounding_height * thumbnail_dpr )
         bounding_width = int( bounding_width * thumbnail_dpr )
         
+    # TODO SVG thumbs should always scale up to the bounding dimensions
     
     if thumbnail_scale_type == THUMBNAIL_SCALE_DOWN_ONLY:
         
