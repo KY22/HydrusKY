@@ -76,6 +76,12 @@ class ClientOptions( HydrusSerialisable.SerialisableBase ):
         
         media_view[ HC.GENERAL_APPLICATION ] = ( CC.MEDIA_VIEWER_ACTION_SHOW_OPEN_EXTERNALLY_BUTTON, media_start_paused, media_start_with_embed, CC.MEDIA_VIEWER_ACTION_SHOW_OPEN_EXTERNALLY_BUTTON, preview_start_paused, preview_start_with_embed, null_zoom_info )
         
+        media_view[ HC.GENERAL_APPLICATION_ARCHIVE ] = ( CC.MEDIA_VIEWER_ACTION_SHOW_OPEN_EXTERNALLY_BUTTON, media_start_paused, media_start_with_embed, CC.MEDIA_VIEWER_ACTION_SHOW_OPEN_EXTERNALLY_BUTTON, preview_start_paused, preview_start_with_embed, null_zoom_info )
+        
+        media_view[ HC.GENERAL_IMAGE_PROJECT ] = ( CC.MEDIA_VIEWER_ACTION_SHOW_OPEN_EXTERNALLY_BUTTON, media_start_paused, media_start_with_embed, CC.MEDIA_VIEWER_ACTION_SHOW_OPEN_EXTERNALLY_BUTTON, preview_start_paused, preview_start_with_embed, null_zoom_info )
+        
+        media_view[ HC.APPLICATION_PSD ] = ( CC.MEDIA_VIEWER_ACTION_SHOW_WITH_NATIVE, media_start_paused, media_start_with_embed, CC.MEDIA_VIEWER_ACTION_SHOW_OPEN_EXTERNALLY_BUTTON, preview_start_paused, preview_start_with_embed, image_zoom_info )
+
         return media_view
         
     
@@ -170,6 +176,9 @@ class ClientOptions( HydrusSerialisable.SerialisableBase ):
         self._dictionary[ 'booleans' ][ 'ac_select_first_with_count' ] = False
         
         self._dictionary[ 'booleans' ][ 'saving_sash_positions_on_exit' ] = True
+        
+        self._dictionary[ 'booleans' ][ 'database_deferred_delete_maintenance_during_idle' ] = True
+        self._dictionary[ 'booleans' ][ 'database_deferred_delete_maintenance_during_active' ] = True
         
         self._dictionary[ 'booleans' ][ 'file_maintenance_during_idle' ] = True
         self._dictionary[ 'booleans' ][ 'file_maintenance_during_active' ] = True

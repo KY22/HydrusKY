@@ -1498,7 +1498,7 @@ class PanelPredicateSystemKnownURLsRegex( PanelPredicateSystemSingle ):
             
         except Exception as e:
             
-            raise Exception( 'Cannot compile that regex: {}'.format( e ) )
+            raise HydrusExceptions.VetoException( 'Cannot compile that regex: {}'.format( e ) )
             
         
     
@@ -1654,7 +1654,7 @@ class PanelPredicateSystemMime( PanelPredicateSystemSingle ):
         
         PanelPredicateSystemSingle.__init__( self, parent )
         
-        self._mimes = ClientGUIOptionsPanels.OptionsPanelMimes( self, HC.SEARCHABLE_MIMES )
+        self._mimes = ClientGUIOptionsPanels.OptionsPanelMimesTree( self, HC.SEARCHABLE_MIMES )
         
         #
         

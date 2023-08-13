@@ -5,7 +5,6 @@ import typing
 
 import numpy
 import numpy.core.multiarray # important this comes before cv!
-import struct
 import warnings
 
 try:
@@ -26,6 +25,22 @@ from PIL import ImageFile as PILImageFile
 from PIL import Image as PILImage
 from PIL import ImageCms as PILImageCms
 
+try:
+    
+    from pillow_heif import register_heif_opener
+    from pillow_heif import register_avif_opener
+    
+    register_heif_opener(thumbnails=False)
+    register_avif_opener(thumbnails=False)
+    
+    HEIF_OK = True
+    
+except:
+    
+    HEIF_OK = False
+    
+
+from hydrus.core import HydrusAnimationHandling
 from hydrus.core import HydrusConstants as HC
 from hydrus.core import HydrusData
 from hydrus.core import HydrusExceptions
@@ -33,6 +48,7 @@ from hydrus.core import HydrusGlobals as HG
 from hydrus.core import HydrusPaths
 from hydrus.core import HydrusTemp
 from hydrus.core import HydrusTime
+from hydrus.core import HydrusPSDHandling
 
 PIL_SRGB_PROFILE = PILImageCms.createProfile( 'sRGB' )
 
@@ -51,6 +67,7 @@ def EnableLoadTruncatedImages():
         return False
         
     
+
 if not hasattr( PILImage, 'DecompressionBombError' ):
     
     # super old versions don't have this, so let's just make a stub, wew
@@ -62,6 +79,7 @@ if not hasattr( PILImage, 'DecompressionBombError' ):
     
     PILImage.DecompressionBombError = DBEStub
     
+
 if not hasattr( PILImage, 'DecompressionBombWarning' ):
     
     # super old versions don't have this, so let's just make a stub, wew
@@ -73,13 +91,18 @@ if not hasattr( PILImage, 'DecompressionBombWarning' ):
     
     PILImage.DecompressionBombWarning = DBWStub
     
+
 warnings.simplefilter( 'ignore', PILImage.DecompressionBombWarning )
 warnings.simplefilter( 'ignore', PILImage.DecompressionBombError )
+
+# PIL moaning about weirdo TIFFs
+warnings.filterwarnings( "ignore", "(Possibly )?corrupt EXIF data", UserWarning )
+warnings.filterwarnings( "ignore", "Metadata Warning", UserWarning )
 
 OLD_PIL_MAX_IMAGE_PIXELS = PILImage.MAX_IMAGE_PIXELS
 PILImage.MAX_IMAGE_PIXELS = None # this turns off decomp check entirely, wew
 
-PIL_ONLY_MIMETYPES = { HC.IMAGE_GIF, HC.IMAGE_ICON }
+PIL_ONLY_MIMETYPES = { HC.IMAGE_GIF, HC.IMAGE_ICON }.union( HC.PIL_HEIF_MIMES )
 
 try:
     
@@ -113,6 +136,7 @@ except:
     
     OPENCV_OK = False
     
+
 def MakeClipRectFit( image_resolution, clip_rect ):
     
     ( im_width, im_height ) = image_resolution
@@ -249,7 +273,7 @@ def GenerateNumPyImage( path, mime, force_pil = False ) -> numpy.array:
         
         HydrusData.ShowText( 'Loading media: ' + path )
         
-    
+
     if not OPENCV_OK:
         
         force_pil = True
@@ -295,8 +319,19 @@ def GenerateNumPyImage( path, mime, force_pil = False ) -> numpy.array:
             pass
             
         
-    
-    if mime in PIL_ONLY_MIMETYPES or force_pil:
+    if mime == HC.APPLICATION_PSD:
+         
+        if HG.media_load_report_mode:
+        
+            HydrusData.ShowText( 'Loading PSD' )
+            
+        pil_image = HydrusPSDHandling.MergedPILImageFromPSD( path )
+ 
+        pil_image = DequantizePILImage( pil_image )
+        
+        numpy_image = GenerateNumPyImageFromPILImage( pil_image )
+
+    elif mime in PIL_ONLY_MIMETYPES or force_pil:
         
         if HG.media_load_report_mode:
             
@@ -454,7 +489,7 @@ def GenerateThumbnailBytesFromStaticImagePath( path, target_resolution, mime, cl
         pil_image = ClipPILImage( pil_image, clip_rect )
         
     
-    thumbnail_pil_image = pil_image.resize( target_resolution, PILImage.ANTIALIAS )
+    thumbnail_pil_image = pil_image.resize( target_resolution, PILImage.LANCZOS )
     
     thumbnail_bytes = GenerateThumbnailBytesPIL( thumbnail_pil_image )
     
@@ -529,11 +564,11 @@ def GenerateThumbnailBytesPIL( pil_image: PILImage.Image ) -> bytes:
 
 def GetEXIFDict( pil_image: PILImage.Image ) -> typing.Optional[ dict ]:
     
-    if pil_image.format in ( 'JPEG', 'TIFF', 'PNG', 'WEBP' ) and hasattr( pil_image, '_getexif' ):
+    if pil_image.format in ( 'JPEG', 'TIFF', 'PNG', 'WEBP', 'HEIF', 'AVIF' ):
         
         try:
             
-            exif_dict = pil_image._getexif()
+            exif_dict = pil_image.getexif()._get_merged_dict()
             
             if len( exif_dict ) > 0:
                 
@@ -639,6 +674,11 @@ def GetImageProperties( path, mime ):
             duration = None
             num_frames = None
             
+        
+    
+    if mime == HC.IMAGE_APNG:
+        
+        ( duration, num_frames ) = HydrusAnimationHandling.GetAPNGDurationAndNumFrames( path )
         
     
     width = max( width, 1 )
@@ -793,21 +833,6 @@ def GetEmbeddedFileText( pil_image: PILImage.Image ) -> typing.Optional[ str ]:
     
     return None
     
-
-def GetPSDResolution( path ):
-    
-    with open( path, 'rb' ) as f:
-        
-        f.seek( 14 )
-        
-        height_bytes = f.read( 4 )
-        width_bytes = f.read( 4 )
-        
-    
-    height = struct.unpack( '>L', height_bytes )[0]
-    width = struct.unpack( '>L', width_bytes )[0]
-    
-    return ( width, height )
     
 def GetResolutionNumPy( numpy_image ):
     
@@ -815,10 +840,11 @@ def GetResolutionNumPy( numpy_image ):
     
     return ( image_width, image_height )
     
+
 def GetResolutionAndNumFramesPIL( path, mime ):
     
-    pil_image = GeneratePILImage( path, dequantize = False )
-    
+    pil_image = GeneratePILImage( path, dequantize = False ) 
+
     ( x, y ) = pil_image.size
     
     if mime == HC.IMAGE_GIF: # some jpegs came up with 2 frames and 'duration' because of some embedded thumbnail in the metadata

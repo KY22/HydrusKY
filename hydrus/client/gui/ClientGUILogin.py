@@ -1305,7 +1305,7 @@ class EditLoginScriptPanel( ClientGUIScrolledPanels.EditPanel ):
         
         menu_items = []
         
-        page_func = HydrusData.Call( ClientPaths.LaunchPathInWebBrowser, os.path.join( HC.HELP_DIR, 'downloader_login.html' ) )
+        page_func = HydrusData.Call( ClientGUIDialogsQuick.OpenDocumentation, self, HC.DOCUMENTATION_DOWNLOADER_LOGIN )
         
         menu_items.append( ( 'normal', 'open the login scripts help', 'Open the help page for login scripts in your web browser.', page_func ) )
         
@@ -1672,7 +1672,8 @@ class EditLoginScriptPanel( ClientGUIScrolledPanels.EditPanel ):
                 
                 login_result = str( e )
                 
-                HydrusData.ShowException( e )
+                HydrusData.Print( 'During login test, encountered this halt/error:' )
+                HydrusData.PrintException( e )
                 
             finally:
                 

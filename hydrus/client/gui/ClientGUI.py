@@ -38,6 +38,7 @@ from hydrus.core import HydrusTemp
 from hydrus.core import HydrusText
 from hydrus.core import HydrusTime
 from hydrus.core import HydrusVideoHandling
+from hydrus.core import HydrusPSDHandling
 from hydrus.core.networking import HydrusNetwork
 from hydrus.core.networking import HydrusNetworking
 
@@ -748,6 +749,7 @@ class FrameGUI( CAC.ApplicationCommandProcessorMixin, ClientGUITopLevelWindows.M
         library_version_lines.append( 'OpenCV: {}'.format( cv2.__version__ ) )
         library_version_lines.append( 'openssl: {}'.format( ssl.OPENSSL_VERSION ) )
         library_version_lines.append( 'Pillow: {}'.format( PIL.__version__ ) )
+        library_version_lines.append( 'Pillow-HEIF: {}'.format( HydrusImageHandling.HEIF_OK ) )
         
         if QtInit.WE_ARE_QT5:
             
@@ -823,6 +825,7 @@ class FrameGUI( CAC.ApplicationCommandProcessorMixin, ClientGUITopLevelWindows.M
         library_version_lines.append( 'lz4 present: {}'.format( HydrusCompression.LZ4_OK ) )
         library_version_lines.append( 'pympler present: {}'.format( HydrusMemory.PYMPLER_OK ) )
         library_version_lines.append( 'pyopenssl present: {}'.format( HydrusEncryption.OPENSSL_OK ) )
+        library_version_lines.append( 'psd_tools present: {}'.format( HydrusPSDHandling.PSD_TOOLS_OK ) )
         library_version_lines.append( 'speedcopy (experimental test) present: {}'.format( HydrusFileHandling.SPEEDCOPY_OK ) )
         library_version_lines.append( 'install dir: {}'.format( HC.BASE_DIR ) )
         library_version_lines.append( 'db dir: {}'.format( HG.client_controller.db_dir ) )
@@ -3036,6 +3039,8 @@ class FrameGUI( CAC.ApplicationCommandProcessorMixin, ClientGUITopLevelWindows.M
         
         ClientGUIMenus.AppendSeparator( menu )
         
+        #
+        
         file_maintenance_menu = ClientGUIMenus.GenerateMenu( menu )
         
         ClientGUIMenus.AppendMenuItem( file_maintenance_menu, 'manage scheduled jobs', 'Review outstanding jobs, and schedule new ones.', self._ReviewFileMaintenance )
@@ -3061,20 +3066,44 @@ class FrameGUI( CAC.ApplicationCommandProcessorMixin, ClientGUITopLevelWindows.M
         
         ClientGUIMenus.AppendMenu( menu, file_maintenance_menu, 'file maintenance' )
         
-        maintenance_submenu = ClientGUIMenus.GenerateMenu( menu )
+        #
         
-        ClientGUIMenus.AppendMenuItem( maintenance_submenu, 'analyze', 'Optimise slow queries by running statistical analyses on the database.', self._AnalyzeDatabase )
-        ClientGUIMenus.AppendMenuItem( maintenance_submenu, 'review vacuum data', 'See whether it is worth rebuilding the database to reformat tables and recover disk space.', self._ReviewVacuumData )
+        db_maintenance_submenu = ClientGUIMenus.GenerateMenu( menu )
         
-        ClientGUIMenus.AppendSeparator( maintenance_submenu )
+        ClientGUIMenus.AppendMenuItem( db_maintenance_submenu, 'review deferred delete table data', 'See how many tables are being deleted in the background.', self._ReviewDeferredDeleteTableData )
         
-        ClientGUIMenus.AppendMenuItem( maintenance_submenu, 'clear orphan file records', 'Clear out surplus file records that have not been deleted correctly.', self._ClearOrphanFileRecords )
+        ClientGUIMenus.AppendSeparator( db_maintenance_submenu )
         
-        ClientGUIMenus.AppendMenuItem( maintenance_submenu, 'clear orphan tables', 'Clear out surplus db tables that have not been deleted correctly.', self._ClearOrphanTables )
+        check_manager = ClientGUICommon.CheckboxManagerOptions( 'database_deferred_delete_maintenance_during_idle' )
         
-        ClientGUIMenus.AppendMenuItem( maintenance_submenu, 'clear orphan hashed serialisables', 'Clear non-needed cached hashed serialisable objects.', self._ClearOrphanHashedSerialisables )
+        current_value = check_manager.GetCurrentValue()
+        func = check_manager.Invert
         
-        ClientGUIMenus.AppendMenu( menu, maintenance_submenu, 'db maintenance' )
+        ClientGUIMenus.AppendMenuCheckItem( db_maintenance_submenu, 'work deferred delete jobs during idle time', 'Control whether database deferred delete maintenance can work during idle time.', current_value, func )
+        
+        check_manager = ClientGUICommon.CheckboxManagerOptions( 'database_deferred_delete_maintenance_during_active' )
+        
+        current_value = check_manager.GetCurrentValue()
+        func = check_manager.Invert
+        
+        ClientGUIMenus.AppendMenuCheckItem( db_maintenance_submenu, 'work deferred delete jobs during normal time', 'Control whether database deferred delete maintenance can work during normal time.', current_value, func )
+        
+        #
+        
+        ClientGUIMenus.AppendSeparator( db_maintenance_submenu )
+        
+        ClientGUIMenus.AppendMenuItem( db_maintenance_submenu, 'analyze', 'Optimise slow queries by running statistical analyses on the database.', self._AnalyzeDatabase )
+        ClientGUIMenus.AppendMenuItem( db_maintenance_submenu, 'review vacuum data', 'See whether it is worth rebuilding the database to reformat tables and recover disk space.', self._ReviewVacuumData )
+        
+        ClientGUIMenus.AppendSeparator( db_maintenance_submenu )
+        
+        ClientGUIMenus.AppendMenuItem( db_maintenance_submenu, 'clear orphan file records', 'Clear out surplus file records that have not been deleted correctly.', self._ClearOrphanFileRecords )
+        
+        ClientGUIMenus.AppendMenuItem( db_maintenance_submenu, 'clear orphan tables', 'Clear out surplus db tables that have not been deleted correctly.', self._ClearOrphanTables )
+        
+        ClientGUIMenus.AppendMenuItem( db_maintenance_submenu, 'clear orphan hashed serialisables', 'Clear non-needed cached hashed serialisable objects.', self._ClearOrphanHashedSerialisables )
+        
+        ClientGUIMenus.AppendMenu( menu, db_maintenance_submenu, 'db maintenance' )
         
         check_submenu = ClientGUIMenus.GenerateMenu( menu )
         
@@ -3225,7 +3254,7 @@ class FrameGUI( CAC.ApplicationCommandProcessorMixin, ClientGUITopLevelWindows.M
         
         ClientGUIMenus.AppendMenu( menu, links, 'links' )
         
-        ClientGUIMenus.AppendMenuItem( menu, 'changelog', 'Open hydrus\'s local changelog in your web browser.', ClientPaths.LaunchPathInWebBrowser, os.path.join( HC.HELP_DIR, 'changelog.html' ) )
+        ClientGUIMenus.AppendMenuItem( menu, 'changelog', 'Open hydrus\'s local changelog in your web browser.', ClientGUIDialogsQuick.OpenDocumentation, self, HC.DOCUMENTATION_CHANGELOG )
         
         ClientGUIMenus.AppendSeparator( menu )
         
@@ -4964,41 +4993,7 @@ class FrameGUI( CAC.ApplicationCommandProcessorMixin, ClientGUITopLevelWindows.M
     
     def _OpenHelp( self ):
         
-        help_path = os.path.join( HC.HELP_DIR, 'index.html' )
-        
-        if os.path.exists( help_path ):
-            
-            ClientPaths.LaunchPathInWebBrowser( help_path )
-            
-        else:
-            
-            message = 'You do not have a local help! Are you running from source? Would you like to open the online help or see a guide on how to build your own?'
-            
-            yes_tuples = []
-            
-            yes_tuples.append( ( 'open online help', 0 ) )
-            yes_tuples.append( ( 'open how to build guide', 1 ) )
-            
-            try:
-                
-                result = ClientGUIDialogsQuick.GetYesYesNo( self, message, yes_tuples = yes_tuples, no_label = 'forget it' )
-                
-            except HydrusExceptions.CancelledException:
-                
-                return
-                
-            
-            if result == 0:
-                
-                url = 'https://hydrusnetwork.github.io/hydrus/'
-                
-            elif result == 1:
-                
-                url = 'https://hydrusnetwork.github.io/hydrus/about_docs.html'
-                
-            
-            ClientPaths.LaunchURLInWebBrowser( url )
-            
+        ClientGUIDialogsQuick.OpenDocumentation( self, HC.DOCUMENTATION_INDEX )
         
     
     def _OpenInstallFolder( self ):
@@ -5514,6 +5509,15 @@ class FrameGUI( CAC.ApplicationCommandProcessorMixin, ClientGUITopLevelWindows.M
         frame = ClientGUITopLevelWindowsPanels.FrameThatTakesScrollablePanel( self, 'review bandwidth use and edit rules' )
         
         panel = ClientGUINetwork.ReviewAllBandwidthPanel( frame, self._controller )
+        
+        frame.SetPanel( panel )
+        
+    
+    def _ReviewDeferredDeleteTableData( self ):
+        
+        frame = ClientGUITopLevelWindowsPanels.FrameThatTakesScrollablePanel( self, 'review deferred delete data' )
+        
+        panel = ClientGUIScrolledPanelsReview.ReviewDeferredDeleteTableData( frame, self._controller )
         
         frame.SetPanel( panel )
         

@@ -217,7 +217,9 @@ media_viewer_capabilities = {
     HC.GENERAL_IMAGE : static_full_support,
     HC.GENERAL_VIDEO : animated_full_support,
     HC.GENERAL_AUDIO : audio_full_support,
-    HC.GENERAL_APPLICATION : no_support
+    HC.GENERAL_APPLICATION : no_support,
+    HC.GENERAL_APPLICATION_ARCHIVE : no_support,
+    HC.GENERAL_IMAGE_PROJECT : no_support
 }
 
 for mime in HC.SEARCHABLE_MIMES:
@@ -237,6 +239,10 @@ for mime in HC.SEARCHABLE_MIMES:
     elif mime in HC.AUDIO:
         
         media_viewer_capabilities[ mime ] = audio_full_support
+
+    elif mime in HC.VIEWABLE_APPLICATIONS:
+
+        media_viewer_capabilities[ mime ] = static_full_support
         
     else:
         
