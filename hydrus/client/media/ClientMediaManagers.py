@@ -61,20 +61,7 @@ class FileInfoManager( object ):
         if mime is None:
             
             mime = HC.APPLICATION_UNKNOWN
-            
-        
-        if mime in HC.MIMES_WITH_THUMBNAILS:
-            
-            if width is None or width <= 0:
                 
-                width = 1
-                
-            
-            if height is None or height <= 0:
-                
-                height = 1
-                
-        
         self.hash_id = hash_id
         self.hash = hash
         self.size = size
@@ -1432,7 +1419,7 @@ class TagsManager( object ):
         
         self._tag_display_types_to_service_keys_to_statuses_to_tags = {
             ClientTags.TAG_DISPLAY_STORAGE : service_keys_to_statuses_to_storage_tags,
-            ClientTags.TAG_DISPLAY_ACTUAL : service_keys_to_statuses_to_display_tags
+            ClientTags.TAG_DISPLAY_DISPLAY_ACTUAL : service_keys_to_statuses_to_display_tags
         }
         
         self._storage_cache_is_dirty = True
@@ -1451,7 +1438,7 @@ class TagsManager( object ):
             
             self._RecalcStorageCache()
             
-        if tag_display_type == ClientTags.TAG_DISPLAY_ACTUAL and self._display_cache_is_dirty:
+        if tag_display_type == ClientTags.TAG_DISPLAY_DISPLAY_ACTUAL and self._display_cache_is_dirty:
             
             self._RecalcDisplayCache()
             
@@ -1506,7 +1493,7 @@ class TagsManager( object ):
         
         source_service_keys_to_statuses_to_tags = self._tag_display_types_to_service_keys_to_statuses_to_tags[ ClientTags.TAG_DISPLAY_STORAGE ]
         
-        destination_service_keys_to_statuses_to_tags = self._tag_display_types_to_service_keys_to_statuses_to_tags[ ClientTags.TAG_DISPLAY_ACTUAL ]
+        destination_service_keys_to_statuses_to_tags = self._tag_display_types_to_service_keys_to_statuses_to_tags[ ClientTags.TAG_DISPLAY_DISPLAY_ACTUAL ]
         
         combined_statuses_to_tags = HydrusData.default_dict_set()
         
@@ -1556,7 +1543,7 @@ class TagsManager( object ):
         
         tag_display_manager = HG.client_controller.tag_display_manager
         
-        source_service_keys_to_statuses_to_tags = self._tag_display_types_to_service_keys_to_statuses_to_tags[ ClientTags.TAG_DISPLAY_ACTUAL ]
+        source_service_keys_to_statuses_to_tags = self._tag_display_types_to_service_keys_to_statuses_to_tags[ ClientTags.TAG_DISPLAY_DISPLAY_ACTUAL ]
         
         destination_service_keys_to_statuses_to_tags = collections.defaultdict( HydrusData.default_dict_set )
         
@@ -1643,7 +1630,7 @@ class TagsManager( object ):
             
         
         # [[( service_key, statuses_to_tags )]]
-        s_k_s_t_t_tupled = ( CurrentAndPendingFilter( tags_manager.GetServiceKeysToStatusesToTags( ClientTags.TAG_DISPLAY_ACTUAL ).items() ) for tags_manager in tags_managers )
+        s_k_s_t_t_tupled = ( CurrentAndPendingFilter( tags_manager.GetServiceKeysToStatusesToTags( ClientTags.TAG_DISPLAY_DISPLAY_ACTUAL ).items() ) for tags_manager in tags_managers )
         
         # [(service_key, statuses_to_tags)]
         flattened_s_k_s_t_t = itertools.chain.from_iterable( s_k_s_t_t_tupled )
@@ -1965,7 +1952,7 @@ class TagsManager( object ):
             # this does not need to do clever sibling collapse or parent gubbins, because in that case, the db forces tagsmanager refresh
             # so this is just handling things if the content update has no sibling/parent tags
             
-            service_keys_to_statuses_to_tags = self._GetServiceKeysToStatusesToTags( ClientTags.TAG_DISPLAY_ACTUAL )
+            service_keys_to_statuses_to_tags = self._GetServiceKeysToStatusesToTags( ClientTags.TAG_DISPLAY_DISPLAY_ACTUAL )
             
             statuses_to_tags = service_keys_to_statuses_to_tags[ service_key ]
             
