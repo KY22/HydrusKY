@@ -99,7 +99,7 @@ warnings.filterwarnings( "ignore", "Metadata Warning", UserWarning )
 OLD_PIL_MAX_IMAGE_PIXELS = PILImage.MAX_IMAGE_PIXELS
 PILImage.MAX_IMAGE_PIXELS = None # this turns off decomp check entirely, wew
 
-PIL_ONLY_MIMETYPES = { HC.ANIMATION_GIF, HC.IMAGE_ICON, HC.IMAGE_WEBP, HC.IMAGE_QOI }.union( HC.PIL_HEIF_MIMES )
+PIL_ONLY_MIMETYPES = { HC.ANIMATION_GIF, HC.IMAGE_ICON, HC.IMAGE_WEBP, HC.IMAGE_QOI, HC.IMAGE_BMP }.union( HC.PIL_HEIF_MIMES )
 
 try:
     
@@ -172,43 +172,14 @@ def ClipNumPyImage( numpy_image: numpy.array, clip_rect ):
     
     return numpy_image[ y : y + clip_height, x : x + clip_width ]
     
+
 def ClipPILImage( pil_image: PILImage.Image, clip_rect ):
     
     ( x, y, clip_width, clip_height ) = MakeClipRectFit( pil_image.size, clip_rect )
     
     return pil_image.crop( box = ( x, y, x + clip_width, y + clip_height ) )
     
-def ConvertToPNGIfBMP( path ) -> None:
-    
-    with open( path, 'rb' ) as f:
-        
-        header = f.read( 2 )
-        
-    
-    if header == b'BM':
-        
-        ( os_file_handle, temp_path ) = HydrusTemp.GetTempPath()
-        
-        try:
-            
-            with open( path, 'rb' ) as f_source:
-                
-                with open( temp_path, 'wb' ) as f_dest:
-                    
-                    HydrusPaths.CopyFileLikeToFileLike( f_source, f_dest )
-                    
-                
-            
-            pil_image = GeneratePILImage( temp_path )
-            
-            pil_image.save( path, 'PNG' )
-            
-        finally:
-            
-            HydrusTemp.CleanUpTempPath( os_file_handle, temp_path )
-            
-        
-    
+
 def DequantizeNumPyImage( numpy_image: numpy.array ) -> numpy.array:
     
     # OpenCV loads images in BGR, and we want to normalise to RGB in general
@@ -270,7 +241,23 @@ def GenerateNumPyImage( path, mime, force_pil = False ) -> numpy.array:
         
         HydrusData.ShowText( 'Loading media: ' + path )
         
-    
+
+    if mime == HC.APPLICATION_PSD:
+        
+        if HG.media_load_report_mode:
+            
+            HydrusData.ShowText( 'Loading PSD' )
+            
+        
+        pil_image = HydrusPSDHandling.MergedPILImageFromPSD( path )
+        
+        pil_image = DequantizePILImage( pil_image )
+        
+        numpy_image = GenerateNumPyImageFromPILImage( pil_image )
+
+        return StripOutAnyUselessAlphaChannel( numpy_image )
+        
+
     if not OPENCV_OK:
         
         force_pil = True
@@ -316,19 +303,7 @@ def GenerateNumPyImage( path, mime, force_pil = False ) -> numpy.array:
             pass
             
         
-    if mime == HC.APPLICATION_PSD:
-        
-        if HG.media_load_report_mode:
-            
-            HydrusData.ShowText( 'Loading PSD' )
-            
-        pil_image = HydrusPSDHandling.MergedPILImageFromPSD( path )
-        
-        pil_image = DequantizePILImage( pil_image )
-        
-        numpy_image = GenerateNumPyImageFromPILImage( pil_image )
-        
-    elif mime in PIL_ONLY_MIMETYPES or force_pil:
+    if mime in PIL_ONLY_MIMETYPES or force_pil:
         
         if HG.media_load_report_mode:
             
@@ -384,6 +359,11 @@ def GenerateNumPyImage( path, mime, force_pil = False ) -> numpy.array:
     
 def GenerateNumPyImageFromPILImage( pil_image: PILImage.Image ) -> numpy.array:
     
+    # this seems to magically work, I guess asarray either has a match for Image or Image provides some common shape/datatype properties that it can hook into
+    return numpy.asarray( pil_image )
+    
+    # old method:
+    '''
     ( w, h ) = pil_image.size
     
     try:
@@ -398,7 +378,9 @@ def GenerateNumPyImageFromPILImage( pil_image: PILImage.Image ) -> numpy.array:
     depth = len( s ) // ( w * h )
     
     return numpy.fromstring( s, dtype = 'uint8' ).reshape( ( h, w, depth ) )
+    '''
     
+
 def GeneratePILImage( path, dequantize = True ) -> PILImage.Image:
     
     pil_image = RawOpenPILImage( path )
@@ -558,6 +540,31 @@ def GenerateThumbnailBytesPIL( pil_image: PILImage.Image ) -> bytes:
     
     return thumbnail_bytes
     
+def GeneratePNGBytesNumPy( numpy_image ) -> bytes:
+    
+    ( im_height, im_width, depth ) = numpy_image.shape
+
+    ext = '.png'
+
+    if depth == 4:
+        
+        convert = cv2.COLOR_RGBA2BGRA
+        
+    else:
+        
+        convert = cv2.COLOR_RGB2BGR
+        
+    numpy_image = cv2.cvtColor( numpy_image, convert )
+        
+    ( result_success, result_byte_array ) = cv2.imencode( ext, numpy_image )
+    
+    if result_success:
+        
+        return result_byte_array.tostring()
+                
+    else:
+        
+        raise HydrusExceptions.CantRenderWithCVException( 'Image failed to encode!' )
 
 def GetEXIFDict( pil_image: PILImage.Image ) -> typing.Optional[ dict ]:
     

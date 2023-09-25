@@ -39,6 +39,7 @@ from hydrus.client import ClientAPI
 from hydrus.client import ClientConstants as CC
 from hydrus.client import ClientLocation
 from hydrus.client import ClientThreading
+from hydrus.client import ClientRendering
 from hydrus.client.importing import ClientImportFiles
 from hydrus.client.importing.options import FileImportOptions
 from hydrus.client.media import ClientMedia
@@ -2231,6 +2232,8 @@ class HydrusResourceClientAPIRestrictedAddTagsGetTagSiblingsParents( HydrusResou
         
         CheckTags( tags )
         
+        tags = HydrusTags.CleanTags( tags )
+        
         tags_to_service_keys_to_siblings_and_parents = HG.client_controller.Read( 'tag_siblings_and_parents_lookup', tags )
         
         tags_dict = {}
@@ -2809,6 +2812,68 @@ class HydrusResourceClientAPIRestrictedGetFilesGetFile( HydrusResourceClientAPIR
         is_attachment = request.parsed_request_args.GetValue( 'download', bool, default_value = False )
         
         response_context = HydrusServerResources.ResponseContext( 200, mime = mime, path = path, is_attachment = is_attachment )
+        
+        return response_context
+        
+
+class HydrusResourceClientAPIRestrictedGetFilesGetRenderedFile( HydrusResourceClientAPIRestrictedGetFiles ):
+    
+    def _threadDoGETJob( self, request: HydrusServerRequest.HydrusRequest ):
+        
+        try:
+            
+            media_result: ClientMedia.MediaSingleton
+            
+            if 'file_id' in request.parsed_request_args:
+                
+                file_id = request.parsed_request_args.GetValue( 'file_id', int )
+                
+                request.client_api_permissions.CheckPermissionToSeeFiles( ( file_id, ) )
+                
+                ( media_result, ) = HG.client_controller.Read( 'media_results_from_ids', ( file_id, ) )
+                
+            elif 'hash' in request.parsed_request_args:
+                
+                request.client_api_permissions.CheckCanSeeAllFiles()
+                
+                hash = request.parsed_request_args.GetValue( 'hash', bytes )
+                
+                media_result = HG.client_controller.Read( 'media_result', hash )
+                
+            else:
+                
+                raise HydrusExceptions.BadRequestException( 'Please include a file_id or hash parameter!' )
+                
+            
+        except HydrusExceptions.DataMissing as e:
+            
+            raise HydrusExceptions.NotFoundException( 'One or more of those file identifiers was missing!' )
+            
+        
+        if not media_result.IsStaticImage():
+            
+            raise HydrusExceptions.BadRequestException('Requested file is not an image!')
+            
+        
+        renderer: ClientRendering.ImageRenderer = HG.client_controller.GetCache( 'images' ).GetImageRenderer( media_result )
+        
+        while not renderer.IsReady():
+            
+            if request.disconnected:
+                
+                return
+                
+            
+            time.sleep( 0.1 )
+            
+
+        numpy_image = renderer.GetNumPyImage()
+        
+        body = HydrusImageHandling.GeneratePNGBytesNumPy( numpy_image )
+        
+        is_attachment = request.parsed_request_args.GetValue( 'download', bool, default_value = False )
+
+        response_context = HydrusServerResources.ResponseContext( 200, mime = HC.IMAGE_PNG, body = body, is_attachment = is_attachment, max_age = 86400 * 365 )
         
         return response_context
         
@@ -3724,7 +3789,25 @@ class HydrusResourceClientAPIRestrictedManageDatabaseMrBones( HydrusResourceClie
     
     def _threadDoGETJob( self, request: HydrusServerRequest.HydrusRequest ):
         
-        boned_stats = HG.client_controller.Read( 'boned_stats' )
+        location_context = ParseLocationContext( request, ClientLocation.LocationContext.STATICCreateSimple( CC.COMBINED_LOCAL_MEDIA_SERVICE_KEY ) )
+        
+        tag_service_key = ParseTagServiceKey( request )
+        
+        if tag_service_key == CC.COMBINED_TAG_SERVICE_KEY and location_context.IsAllKnownFiles():
+            
+            raise HydrusExceptions.BadRequestException( 'Sorry, search for all known tags over all known files is not supported!' )
+            
+        
+        tag_context = ClientSearch.TagContext( service_key = tag_service_key )
+        predicates = ParseClientAPISearchPredicates( request )
+        
+        file_search_context = ClientSearch.FileSearchContext( location_context = location_context, tag_context = tag_context, predicates = predicates )
+        
+        job_key = ClientThreading.JobKey( cancellable = True )
+        
+        request.disconnect_callables.append( job_key.Cancel )
+        
+        boned_stats = HG.client_controller.Read( 'boned_stats', file_search_context = file_search_context, job_key = job_key )
         
         body_dict = { 'boned_stats' : boned_stats }
         
