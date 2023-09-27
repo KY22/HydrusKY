@@ -37,7 +37,7 @@ def MergedPILImageFromPSD( path: str ) -> PILImage:
     return HydrusPSDTools.MergedPILImageFromPSD( path )
     
 
-def GenerateThumbnailBytesFromPSDPath( path: str, target_resolution: typing.Tuple[int, int], clip_rect = None ) -> bytes:
+def GenerateThumbnailNumPyFromPSDPath( path: str, target_resolution: typing.Tuple[int, int], clip_rect = None ) -> bytes:
     
     pil_image = MergedPILImageFromPSD( path )
     
@@ -48,9 +48,11 @@ def GenerateThumbnailBytesFromPSDPath( path: str, target_resolution: typing.Tupl
     
     thumbnail_pil_image = pil_image.resize( target_resolution, PILImage.LANCZOS )
     
-    thumbnail_bytes = HydrusImageHandling.GenerateThumbnailBytesPIL( thumbnail_pil_image )
+    numpy_image = HydrusImageHandling.GenerateNumPyImageFromPILImage(thumbnail_pil_image)
     
-    return thumbnail_bytes
+    numpy_image = HydrusImageHandling.DequantizeNumPyImage( numpy_image )
+    
+    return numpy_image
     
 
 def GetPSDResolution( path: str ):

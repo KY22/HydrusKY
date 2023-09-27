@@ -49,6 +49,7 @@ REGENERATE_FILE_DATA_JOB_FILE_INTEGRITY_PRESENCE_LOG_ONLY = 18
 REGENERATE_FILE_DATA_JOB_FILE_HAS_HUMAN_READABLE_EMBEDDED_METADATA = 19
 REGENERATE_FILE_DATA_JOB_FILE_HAS_EXIF = 20
 REGENERATE_FILE_DATA_JOB_FILE_INTEGRITY_PRESENCE_DELETE_RECORD = 21
+REGENERATE_FILE_DATA_JOB_BLURHASH = 22
 
 regen_file_enum_to_str_lookup = {
     REGENERATE_FILE_DATA_JOB_FILE_METADATA : 'regenerate file metadata',
@@ -72,7 +73,8 @@ regen_file_enum_to_str_lookup = {
     REGENERATE_FILE_DATA_JOB_FILE_HAS_EXIF : 'determine if the file has EXIF metadata',
     REGENERATE_FILE_DATA_JOB_FILE_HAS_HUMAN_READABLE_EMBEDDED_METADATA : 'determine if the file has non-EXIF human-readable embedded metadata',
     REGENERATE_FILE_DATA_JOB_FILE_HAS_ICC_PROFILE : 'determine if the file has an icc profile',
-    REGENERATE_FILE_DATA_JOB_PIXEL_HASH : 'regenerate pixel duplicate data'
+    REGENERATE_FILE_DATA_JOB_PIXEL_HASH : 'regenerate pixel duplicate data',
+    REGENERATE_FILE_DATA_JOB_BLURHASH: 'regenerate blurhash'
 }
 
 regen_file_enum_to_description_lookup = {
@@ -129,7 +131,8 @@ All missing/Incorrect files will also have their hashes, tags, and URLs exported
     REGENERATE_FILE_DATA_JOB_FILE_HAS_EXIF : 'This loads the file to see if it has EXIF metadata, which can be shown in the media viewer and searched with "system:image has exif".',
     REGENERATE_FILE_DATA_JOB_FILE_HAS_HUMAN_READABLE_EMBEDDED_METADATA : 'This loads the file to see if it has non-EXIF human-readable metadata, which can be shown in the media viewer and searched with "system:image has human-readable embedded metadata".',
     REGENERATE_FILE_DATA_JOB_FILE_HAS_ICC_PROFILE : 'This loads the file to see if it has an ICC profile, which is used in "system:has icc profile" search.',
-    REGENERATE_FILE_DATA_JOB_PIXEL_HASH : 'This generates a fast unique identifier for the pixels in a still image, which is used in duplicate pixel searches.'
+    REGENERATE_FILE_DATA_JOB_PIXEL_HASH : 'This generates a fast unique identifier for the pixels in a still image, which is used in duplicate pixel searches.',
+    REGENERATE_FILE_DATA_JOB_BLURHASH: 'This generates a very small version of the file\'s thumbnail that can be used as a placeholder while the thumbnail loads.'
 }
 
 NORMALISED_BIG_JOB_WEIGHT = 100
@@ -156,7 +159,8 @@ regen_file_enum_to_job_weight_lookup = {
     REGENERATE_FILE_DATA_JOB_FILE_HAS_EXIF : 25,
     REGENERATE_FILE_DATA_JOB_FILE_HAS_HUMAN_READABLE_EMBEDDED_METADATA : 25,
     REGENERATE_FILE_DATA_JOB_FILE_HAS_ICC_PROFILE : 25,
-    REGENERATE_FILE_DATA_JOB_PIXEL_HASH : 100
+    REGENERATE_FILE_DATA_JOB_PIXEL_HASH : 100,
+    REGENERATE_FILE_DATA_JOB_BLURHASH: 15
 }
 
 regen_file_enum_to_overruled_jobs = {
@@ -181,10 +185,11 @@ regen_file_enum_to_overruled_jobs = {
     REGENERATE_FILE_DATA_JOB_FILE_HAS_EXIF : [],
     REGENERATE_FILE_DATA_JOB_FILE_HAS_HUMAN_READABLE_EMBEDDED_METADATA : [],
     REGENERATE_FILE_DATA_JOB_FILE_HAS_ICC_PROFILE : [],
-    REGENERATE_FILE_DATA_JOB_PIXEL_HASH : []
+    REGENERATE_FILE_DATA_JOB_PIXEL_HASH : [],
+    REGENERATE_FILE_DATA_JOB_BLURHASH: []
 }
 
-ALL_REGEN_JOBS_IN_PREFERRED_ORDER = [
+ALL_REGEN_JOBS_IN_RUN_ORDER = [
     REGENERATE_FILE_DATA_JOB_FILE_INTEGRITY_PRESENCE_TRY_URL_ELSE_REMOVE_RECORD,
     REGENERATE_FILE_DATA_JOB_FILE_INTEGRITY_PRESENCE_TRY_URL,
     REGENERATE_FILE_DATA_JOB_FILE_INTEGRITY_DATA_TRY_URL_ELSE_REMOVE_RECORD,
@@ -197,6 +202,7 @@ ALL_REGEN_JOBS_IN_PREFERRED_ORDER = [
     REGENERATE_FILE_DATA_JOB_FILE_METADATA,
     REGENERATE_FILE_DATA_JOB_REFIT_THUMBNAIL,
     REGENERATE_FILE_DATA_JOB_FORCE_THUMBNAIL,
+    REGENERATE_FILE_DATA_JOB_BLURHASH,
     REGENERATE_FILE_DATA_JOB_SIMILAR_FILES_METADATA,
     REGENERATE_FILE_DATA_JOB_CHECK_SIMILAR_FILES_MEMBERSHIP,
     REGENERATE_FILE_DATA_JOB_FIX_PERMISSIONS,
@@ -206,6 +212,32 @@ ALL_REGEN_JOBS_IN_PREFERRED_ORDER = [
     REGENERATE_FILE_DATA_JOB_FILE_HAS_HUMAN_READABLE_EMBEDDED_METADATA,
     REGENERATE_FILE_DATA_JOB_FILE_HAS_ICC_PROFILE,
     REGENERATE_FILE_DATA_JOB_PIXEL_HASH,
+    REGENERATE_FILE_DATA_JOB_DELETE_NEIGHBOUR_DUPES
+]
+
+ALL_REGEN_JOBS_IN_HUMAN_ORDER = [
+    REGENERATE_FILE_DATA_JOB_FILE_INTEGRITY_PRESENCE_TRY_URL_ELSE_REMOVE_RECORD,
+    REGENERATE_FILE_DATA_JOB_FILE_INTEGRITY_PRESENCE_TRY_URL,
+    REGENERATE_FILE_DATA_JOB_FILE_INTEGRITY_DATA_TRY_URL_ELSE_REMOVE_RECORD,
+    REGENERATE_FILE_DATA_JOB_FILE_INTEGRITY_DATA_TRY_URL,
+    REGENERATE_FILE_DATA_JOB_FILE_INTEGRITY_PRESENCE_REMOVE_RECORD,
+    REGENERATE_FILE_DATA_JOB_FILE_INTEGRITY_PRESENCE_DELETE_RECORD,
+    REGENERATE_FILE_DATA_JOB_FILE_INTEGRITY_DATA_REMOVE_RECORD,
+    REGENERATE_FILE_DATA_JOB_FILE_INTEGRITY_DATA_SILENT_DELETE,
+    REGENERATE_FILE_DATA_JOB_FILE_INTEGRITY_PRESENCE_LOG_ONLY,
+    REGENERATE_FILE_DATA_JOB_FILE_METADATA,
+    REGENERATE_FILE_DATA_JOB_REFIT_THUMBNAIL,
+    REGENERATE_FILE_DATA_JOB_FORCE_THUMBNAIL,
+    REGENERATE_FILE_DATA_JOB_BLURHASH,
+    REGENERATE_FILE_DATA_JOB_PIXEL_HASH,
+    REGENERATE_FILE_DATA_JOB_SIMILAR_FILES_METADATA,
+    REGENERATE_FILE_DATA_JOB_FILE_MODIFIED_TIMESTAMP,
+    REGENERATE_FILE_DATA_JOB_OTHER_HASHES,
+    REGENERATE_FILE_DATA_JOB_CHECK_SIMILAR_FILES_MEMBERSHIP,
+    REGENERATE_FILE_DATA_JOB_FILE_HAS_EXIF,
+    REGENERATE_FILE_DATA_JOB_FILE_HAS_HUMAN_READABLE_EMBEDDED_METADATA,
+    REGENERATE_FILE_DATA_JOB_FILE_HAS_ICC_PROFILE,
+    REGENERATE_FILE_DATA_JOB_FIX_PERMISSIONS,
     REGENERATE_FILE_DATA_JOB_DELETE_NEIGHBOUR_DUPES
 ]
 
@@ -1677,7 +1709,8 @@ class ClientFilesManager( object ):
             
             self._AddThumbnailFromBytes( hash, thumbnail_bytes )
             
-        
+        return True
+    
     
     def RegenerateThumbnailIfWrongSize( self, media ):
         
@@ -1725,7 +1758,6 @@ class ClientFilesManager( object ):
             
         
         return do_it
-        
     
     def Reinit( self ):
         
@@ -2371,7 +2403,8 @@ class FilesMaintenanceManager( object ):
         
         try:
             
-            self._controller.client_files_manager.RegenerateThumbnail( media_result )
+            return self._controller.client_files_manager.RegenerateThumbnail( media_result )
+        
             
         except HydrusExceptions.FileMissingException:
             
@@ -2396,7 +2429,7 @@ class FilesMaintenanceManager( object ):
             
         except HydrusExceptions.FileMissingException:
             
-            pass
+            return False
             
         
     
@@ -2439,6 +2472,36 @@ class FilesMaintenanceManager( object ):
             return None
             
         
+    def _RegenBlurhash( self, media ):
+        
+        if media.GetMime() not in HC.MIMES_WITH_THUMBNAILS:
+            
+            return None
+            
+        
+        try:
+            
+            thumbnail_path = self._controller.client_files_manager.GetThumbnailPath( media )
+            
+        except HydrusExceptions.FileMissingException as e:
+            
+            return None
+            
+        
+        try:
+            
+            thumbnail_mime = HydrusFileHandling.GetThumbnailMime( thumbnail_path )
+            
+            numpy_image = ClientImageHandling.GenerateNumPyImage( thumbnail_path, thumbnail_mime )
+            
+            return HydrusImageHandling.GetBlurhashFromNumPy( numpy_image )
+            
+        except:
+            
+            return None
+            
+        
+    
     
     def _RegenSimilarFilesMetadata( self, media_result ):
         
@@ -2560,11 +2623,13 @@ class FilesMaintenanceManager( object ):
                             
                         elif job_type == REGENERATE_FILE_DATA_JOB_FORCE_THUMBNAIL:
                             
-                            self._RegenFileThumbnailForce( media_result )
+                            additional_data = self._RegenFileThumbnailForce( media_result )
                             
                         elif job_type == REGENERATE_FILE_DATA_JOB_REFIT_THUMBNAIL:
                             
                             was_regenerated = self._RegenFileThumbnailRefit( media_result )
+                            
+                            additional_data = was_regenerated
                             
                             if was_regenerated:
                                 
@@ -2595,6 +2660,10 @@ class FilesMaintenanceManager( object ):
                         elif job_type == REGENERATE_FILE_DATA_JOB_FIX_PERMISSIONS:
                             
                             self._FixFilePermissions( media_result )
+                            
+                        elif job_type == REGENERATE_FILE_DATA_JOB_BLURHASH:
+                            
+                            additional_data = self._RegenBlurhash( media_result )
                             
                         elif job_type in (
                             REGENERATE_FILE_DATA_JOB_FILE_INTEGRITY_PRESENCE_REMOVE_RECORD,
