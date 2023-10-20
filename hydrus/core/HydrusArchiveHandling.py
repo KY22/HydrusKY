@@ -16,15 +16,9 @@ def ExtractSingleFileFromZip( path_to_zip, filename_to_extract, extract_into_fil
         
     
 
-def ReadSingleFileFromZip( path_to_zip, filename_to_extract ):
+def GetSingleFileFromZipBytes( path_to_zip, path_in_zip ):
     
-    with zipfile.ZipFile( path_to_zip ) as zip_handle:
-        
-        with zip_handle.open( filename_to_extract ) as reader:
-            
-            return reader.read()
-            
-        
+    return GetZipAsPath( path_to_zip, path_in_zip = path_in_zip ).read_bytes()
     
 
 def GetZipAsPath( path_to_zip, path_in_zip="" ):

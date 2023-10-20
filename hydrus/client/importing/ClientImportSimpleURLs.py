@@ -1,5 +1,6 @@
 import threading
 import time
+import typing
 import urllib.parse
 
 from hydrus.core import HydrusConstants as HC
@@ -1238,6 +1239,31 @@ class URLsImport( HydrusSerialisable.SerialisableBase ):
             
             ClientImporting.WakeRepeatingJob( self._files_repeating_job )
             ClientImporting.WakeRepeatingJob( self._gallery_repeating_job )
+            
+            self._SerialisableChangeMade()
+            
+
+    def AbortImport( self, do_delete = False ):
+        
+        if do_delete:
+            
+            self._file_seed_cache.RemoveFileSeedsByStatus( ( CC.STATUS_UNKNOWN, ) )
+            
+        else:
+            
+            file_seeds = self._file_seed_cache.GetFileSeeds( CC.STATUS_UNKNOWN )
+            
+            for file_seed in file_seeds:
+                
+                file_seed.SetStatus( CC.STATUS_SKIPPED, note = 'import abandoned by user' )
+                
+            
+            self._file_seed_cache.NotifyFileSeedsUpdated( file_seeds )
+            
+        
+        with self._lock:
+            
+            self._files_status = 'aborted'
             
             self._SerialisableChangeMade()
             

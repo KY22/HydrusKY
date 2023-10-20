@@ -1697,7 +1697,7 @@ class PagesNotebook( QP.TabWidgetWithDnD ):
     
     def _SendPageToNewNotebook( self, index ):
         
-        if 0 <= index and index <= self.count() - 1:
+        if 0 <= index <= self.count() - 1:
             
             page = self.widget( index )
             
@@ -1751,7 +1751,7 @@ class PagesNotebook( QP.TabWidgetWithDnD ):
             return
             
         
-        if 0 <= new_page_index and new_page_index <= self.count() - 1:
+        if 0 <= new_page_index <= self.count() - 1:
             
             page_is_selected = self.currentIndex() == page_index
             
@@ -3589,7 +3589,7 @@ class PagesNotebook( QP.TabWidgetWithDnD ):
         
         for ( i, page ) in enumerate( self._GetPages() ):
             
-            if isinstance( page, QW.QTabWidget ) and page.HasPage( showee ):
+            if isinstance( page, PagesNotebook ) and page.HasPage( showee ):
                 
                 self.setCurrentIndex( i )
                 
