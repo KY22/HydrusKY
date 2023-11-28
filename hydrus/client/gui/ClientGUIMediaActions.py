@@ -539,8 +539,6 @@ def MoveOrDuplicateLocalFiles( win: QW.QWidget, dest_service_key: bytes, action:
                 
                 do_yes_no = False
                 
-                num_applicable_media = len( applicable_media )
-                
                 choice_tuples = []
                 
                 for potential_source_service_key in potential_source_service_keys:
@@ -591,17 +589,17 @@ def MoveOrDuplicateLocalFiles( win: QW.QWidget, dest_service_key: bytes, action:
     
     def work_callable():
         
-        job_key = ClientThreading.JobKey( cancellable = True )
+        job_status = ClientThreading.JobStatus( cancellable = True )
         
         title = 'moving files' if action == HC.CONTENT_UPDATE_MOVE else 'adding files'
         
-        job_key.SetStatusTitle( title )
+        job_status.SetStatusTitle( title )
         
         BLOCK_SIZE = 64
         
         if len( applicable_media ) > BLOCK_SIZE:
             
-            HG.client_controller.pub( 'message', job_key )
+            HG.client_controller.pub( 'message', job_status )
             
         
         pauser = HydrusThreading.BigJobPauser()
@@ -612,13 +610,13 @@ def MoveOrDuplicateLocalFiles( win: QW.QWidget, dest_service_key: bytes, action:
         
         for ( i, block_of_media ) in enumerate( HydrusLists.SplitListIntoChunks( applicable_media, BLOCK_SIZE ) ):
             
-            if job_key.IsCancelled():
+            if job_status.IsCancelled():
                 
                 break
                 
             
-            job_key.SetStatusText( HydrusData.ConvertValueRangeToPrettyString( i * BLOCK_SIZE, num_to_do ) )
-            job_key.SetVariable( 'popup_gauge_1', ( i * BLOCK_SIZE, num_to_do ) )
+            job_status.SetStatusText( HydrusData.ConvertValueRangeToPrettyString( i * BLOCK_SIZE, num_to_do ) )
+            job_status.SetVariable( 'popup_gauge_1', ( i * BLOCK_SIZE, num_to_do ) )
             
             content_updates = []
             undelete_hashes = set()
@@ -646,7 +644,7 @@ def MoveOrDuplicateLocalFiles( win: QW.QWidget, dest_service_key: bytes, action:
                 
                 block_of_hashes = [ m.GetHash() for m in block_of_media ]
                 
-                content_updates = [ HydrusData.ContentUpdate( HC.CONTENT_TYPE_FILES, HC.CONTENT_UPDATE_DELETE, block_of_hashes, reason = 'Moved to {}'.format( dest_service_name ) ) ]
+                content_updates = [ HydrusData.ContentUpdate( HC.CONTENT_TYPE_FILES, HC.CONTENT_UPDATE_DELETE_FROM_SOURCE_AFTER_MIGRATE, block_of_hashes, reason = 'Moved to {}'.format( dest_service_name ) ) ]
                 
                 HG.client_controller.WriteSynchronous( 'content_updates', { source_service_key : content_updates } )
                 
@@ -654,7 +652,7 @@ def MoveOrDuplicateLocalFiles( win: QW.QWidget, dest_service_key: bytes, action:
             pauser.Pause()
             
         
-        job_key.Delete()
+        job_status.Delete()
         
     
     def publish_callable( result ):

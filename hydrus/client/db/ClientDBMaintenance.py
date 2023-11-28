@@ -249,20 +249,18 @@ class ClientDBMaintenance( ClientDBModule.ClientDBModule ):
         
         if len( names_to_analyze ) > 0:
             
-            job_key = ClientThreading.JobKey( maintenance_mode = maintenance_mode, cancellable = True )
+            job_status = ClientThreading.JobStatus( maintenance_mode = maintenance_mode, cancellable = True )
             
             try:
                 
-                job_key.SetStatusTitle( 'database maintenance - analyzing' )
+                job_status.SetStatusTitle( 'database maintenance - analyzing' )
                 
-                HG.client_controller.pub( 'modal_message', job_key )
+                HG.client_controller.pub( 'modal_message', job_status )
                 
-                random.shuffle( names_to_analyze )
-                
-                for name in names_to_analyze:
+                for name in HydrusData.IterateListRandomlyAndFast( names_to_analyze ):
                     
                     HG.client_controller.frame_splash_status.SetText( 'analyzing ' + name )
-                    job_key.SetStatusText( 'analyzing ' + name )
+                    job_status.SetStatusText( 'analyzing ' + name )
                     
                     time.sleep( 0.02 )
                     
@@ -278,7 +276,7 @@ class ClientDBMaintenance( ClientDBModule.ClientDBModule ):
                         
                     
                     p1 = HG.client_controller.ShouldStopThisWork( maintenance_mode, stop_time = stop_time )
-                    p2 = job_key.IsCancelled()
+                    p2 = job_status.IsCancelled()
                     
                     if p1 or p2:
                         
@@ -288,15 +286,15 @@ class ClientDBMaintenance( ClientDBModule.ClientDBModule ):
                 
                 self._Execute( 'ANALYZE sqlite_master;' ) # this reloads the current stats into the query planner
                 
-                job_key.SetStatusText( 'done!' )
+                job_status.SetStatusText( 'done!' )
                 
-                HydrusData.Print( job_key.ToString() )
+                HydrusData.Print( job_status.ToString() )
                 
             finally:
                 
-                job_key.Finish()
+                job_status.Finish()
                 
-                job_key.Delete( 10 )
+                job_status.Delete( 10 )
                 
             
         
@@ -336,18 +334,18 @@ class ClientDBMaintenance( ClientDBModule.ClientDBModule ):
         
         prefix_string = 'checking db integrity: '
         
-        job_key = ClientThreading.JobKey( cancellable = True )
+        job_status = ClientThreading.JobStatus( cancellable = True )
         
         num_errors = 0
         
         try:
             
-            job_key.SetStatusTitle( prefix_string + 'preparing' )
+            job_status.SetStatusTitle( prefix_string + 'preparing' )
             
-            HG.client_controller.pub( 'modal_message', job_key )
+            HG.client_controller.pub( 'modal_message', job_status )
             
-            job_key.SetStatusTitle( prefix_string + 'running' )
-            job_key.SetStatusText( 'errors found so far: ' + HydrusData.ToHumanInt( num_errors ) )
+            job_status.SetStatusTitle( prefix_string + 'running' )
+            job_status.SetStatusText( 'errors found so far: ' + HydrusData.ToHumanInt( num_errors ) )
             
             db_names = [ name for ( index, name, path ) in self._Execute( 'PRAGMA database_list;' ) if name not in ( 'mem', 'temp', 'durable_temp' ) ]
             
@@ -355,12 +353,12 @@ class ClientDBMaintenance( ClientDBModule.ClientDBModule ):
                 
                 for ( text, ) in self._Execute( 'PRAGMA ' + db_name + '.integrity_check;' ):
                     
-                    ( i_paused, should_quit ) = job_key.WaitIfNeeded()
+                    ( i_paused, should_quit ) = job_status.WaitIfNeeded()
                     
                     if should_quit:
                         
-                        job_key.SetStatusTitle( prefix_string + 'cancelled' )
-                        job_key.SetStatusText( 'errors found: ' + HydrusData.ToHumanInt( num_errors ) )
+                        job_status.SetStatusTitle( prefix_string + 'cancelled' )
+                        job_status.SetStatusText( 'errors found: ' + HydrusData.ToHumanInt( num_errors ) )
                         
                         return
                         
@@ -377,18 +375,18 @@ class ClientDBMaintenance( ClientDBModule.ClientDBModule ):
                         num_errors += 1
                         
                     
-                    job_key.SetStatusText( 'errors found so far: ' + HydrusData.ToHumanInt( num_errors ) )
+                    job_status.SetStatusText( 'errors found so far: ' + HydrusData.ToHumanInt( num_errors ) )
                     
                 
             
         finally:
             
-            job_key.SetStatusTitle( prefix_string + 'completed' )
-            job_key.SetStatusText( 'errors found: ' + HydrusData.ToHumanInt( num_errors ) )
+            job_status.SetStatusTitle( prefix_string + 'completed' )
+            job_status.SetStatusText( 'errors found: ' + HydrusData.ToHumanInt( num_errors ) )
             
-            HydrusData.Print( job_key.ToString() )
+            HydrusData.Print( job_status.ToString() )
             
-            job_key.Finish()
+            job_status.Finish()
             
         
     
@@ -434,17 +432,11 @@ class ClientDBMaintenance( ClientDBModule.ClientDBModule ):
     
     def DeferredDropTable( self, table_name: str ):
         
-        try:
+        if not self._TableExists( table_name ):
             
-            self._Execute( f'SELECT 1 FROM {table_name};' ).fetchone()
-            
-        except:
-            
-            # table doesn't exist I guess!
             return
             
         
-        schema = 'main'
         table_name_without_schema = table_name
         
         if '.' in table_name:
@@ -590,7 +582,7 @@ class ClientDBMaintenance( ClientDBModule.ClientDBModule ):
         return last_shutdown_work_time
         
     
-    def GetTableNamesDueAnalysis( self, force_reanalyze = False ):
+    def GetTableNamesDueAnalysis( self, force_reanalyze = False ) -> typing.List:
         
         db_names = [ name for ( index, name, path ) in self._Execute( 'PRAGMA database_list;' ) if name not in ( 'mem', 'temp', 'durable_temp' ) ]
         

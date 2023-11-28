@@ -7,6 +7,185 @@ title: Changelog
 !!! note
     This is the new changelog, only the most recent builds. For all versions, see the [old changelog](old_changelog.html).
 
+## [Version 553](https://github.com/hydrusnetwork/hydrus/releases/tag/v553)
+
+### animated gif fixes
+
+* fixed the **false positive** "serious I/O Error! This is a significant hard drive problem" problems saw in last week's animated gif 'has transparency' rescanning. it turns out the PIL animated gif renderer we rarely use was raising overly serious errors on a truncated frame (i.e. some borked file, not a borked OS hard drive access), and this was escalating up to the overall maintenance system, which was shutting down in panic. truncated gifs in the PIL renderer should now just either render the last frame over and over or rewind as soon as they hit a super problem
+* as well as rendering, the duration and frame-counter code also handles these borked frames better, so animated gifs that have a single borked frame should now A) import without an error and B) get more accurate frame counts
+* you may have seen this sort of error before where an mpv window seems to keep rendering the gif despite the scanbar hitting its right end. if you see a file like that, try right-clicking and hitting _manage->maintenance->regenerate file metadata_. might just fix it up!
+* if mpv encounters one of these busted gifs, a selection of quiet-but-spammy "I don't know what happened, but MPV just reported a weird error, here it is" logging no longer happens. we basically know what happened, and mpv seems good at recovering
+* fixed some PIL alpha gif rendering on backwards seek and loop
+
+### slideshow tech
+
+* _options->media_ has a new 'slideshow' section with five new options regarding slideshows and media with duration (video, audio). if you don't care too much, just leave them alone--they make slideshows transition better!
+* first, there's a checkbox to say 'always play duration-having media completely once through before moving on'. this was the previous behaviour, now default off
+* then there are two options, for a percentage of the current slideshow period and a flat seconds value, to say 'if the duration-having media is shorter than this amount of time, then move the slideshow on early'. this allows short gif loops to play a bit, but not for 15 minutes
+* then there is an option, for a percentage of the current slideshow period, to say 'if the duration-having media has a duration between this amount and 100% of the slideshow period, then move on once it has played once through'. this allows for clean slideshow transitions for media that is just a bit shorter than the slideshow period
+* then there is an option, again for a percentage of the slideshow period, to say 'if the duration-having media is _longer_ than the slideshow period plus this amount of time, then delay moving on until it is played once through'. this allows 35 second videos to complete fully in a 30 second slideshow while stopping a ten minute vid hogging its turn
+* completely rewrote the slideshow timer tech
+* did a little work bringing the experimental Qt media player up to proper slideshow capability, and neatened the associated code
+* yes, hydev did write all these options for his repurposed slideshow computer because he was annoyed about his vidya captures and 500ms loops playing jank on a 30m slideshow period
+
+### misc
+
+* the file-info-summary lines that appear in the top row thumbnail menu submenu now show if a file has audio/transparency/exif/other metadata/icc profile
+* the file-info-summary lines that appear in the top row thumbnail menu submenu and the top-center of the media viewer no longer list 'removed from x 5 days ago' for files that were moved internally between local file services. these statements were spammy and not helpful! if you really need them, are available in the 'manage times' dialog. sorry for the annoyance here
+* trying to move a file from local file service x to y no longer triggers the archive delete lock, if you have that enabled (this was prohibiting the delete from x after the copy to y is done)
+* the 'import options' button now labels itself with 'all default', 'all set', or 'some set' to quick-review what it is holding
+* the stupidly named advanced users' `OR*` button is now just `advanced`
+* the 'manage->regenerate' thumbnail menu is now called 'maintenance', and it always contains the whole file maintenance job list just as it appears in the main file maintenance panel. tooltips are the longer descriptions
+* if you reduce a static check time in a checker options (watchers or subscriptions), the next check time should now recalculate correctly immediately. previously, the new check period wasn't kicking in until the next, delayed cycle. I have preserved the logic that tries to keep a static check time regular (which was the core problem here), where if you check every 7 days on saturday night, then delaying one time and running it on sunday night won't delay the check time phase along to next sunday--the next week it will be due on saturday again
+* the system:rating edit panel has some tooltips that say 'Set "is" and leave rating null to search for "unrated".'. maybe this is annoying, maybe I should just add redundant 'unrated' checkboxes, let me know what you think
+* when the file maintenance routine runs into a serious error (like we had with the false positive transparent gifs), the popup messages now include a file button for the problem file for easy referral
+* if a file breaks MPV in a crashy-looking way, hydrus now makes a popup with a file button to it for easy referral
+* fixed a typo issue with the recent temp folder recovery code that broke the temp folder for file imports on the hydrus file repository. sorry for the trouble, this slipped through unit testing because that too has a hacky temp folder solution!
+
+### weird/specific stuff
+
+* I've spaced out many of the initial library loads across the core boot init routine. fingers crossed, the splash screen will open earlier and report more as things each import, rather than taking ages to appear and then suddenly initialising everything real quick (on slow computers). also, a monolithic UI init job is broken up into pieces, which should let the splash update itself a little smoother as your client loads its style and stuff
+* the file and database maintenance managers are now initialised in a better stage, and, like the subscription manager, they now do not start any work until the first session is fully loaded
+* while pouring over the server code trying to find a petition miscount bug and/or a petition summary fetch bug (which I was entirely unsuccessful at), I stopped it 404ing when there are unexpectedly no petitions to fetch--it should now just give an empty list and reset the count serverside, which is an old behaviour that wasn't working quite right in the modern system. this will cost less CPU than commanding the full service service_info number reset. I will have to investigate the core problem of miscounts more closely to figure out the base problem here
+* if two subscription jobs publish files to the same popup label (which merges the popup button to include both sets of files), this file list is now properly deduplicated (so if both subs picked up the same file(s), it now won't try to publish the same file twice). the basic popup button instantiation also clears out dupes
+* the 'additional tags'-only tag import options in a subscription query can now no longer be set 'default'. this choice was unintended and has no current meaning if set
+* building on last week, there are even fewer duplicate menu tooltips
+* updated and clarified the text in _options->external programs_. also, if you try to put a command that does not include "%path%", it'll moan at you with a yes/no dialog
+* when 'confirm sending files to trash' is off but 'use advanced file delete dialog' is also on, the advanced file delete dialog will now not pop up if there is only one normal local file service to delete from (it was always popping up before, since it exposes the physical file delete options and the dialog thought it wasn't a 'one-choice' delete)
+* the forced-wait throttle that happens on several exception catches is reduced from 1s to 200ms
+* I made the new job status queue properly thread-safe with a lock. I forgot to do it last week, whoops!
+* fixed the build script to construct a file named .tar.zst for the Ubuntu release, not .tar.gz
+
+## [Version 552](https://github.com/hydrusnetwork/hydrus/releases/tag/v552)
+
+### misc
+
+* 'system:has audio' and 'system:embedded metadata' are now combined under a new meta-system predicate 'system:file properties'. if you can't find your yes/no predicate, try looking there!
+* menu commands will no longer have their unadjusted label as their tooltip. all tooltips are either the full status bar description or the full label if it was long enough to be elided
+* the 'open externally' panel now shows the default filetype thumbnail for formats like zip and epub
+* 'system:number of character tags > 4' now parses correct when you type it (previously it wouldn't work with a namespace), including special handling for 'unnamespaced'
+* the various 'number of x' system predicates will now parse if you type 'num x', 'number x', or 'num of x'
+* to match the other entries, the '4k' resolution swap-in label is now '2160p'
+* added a little extra info on the manage tags dialog to 'getting started with tags'
+* if you have 'confirm sending files to trash' turned off, the delete dialog will now show on physical deletes (i.e. deletes from the trash)
+* updated the derpibooru parser to pull the new AI-based 'generator' and 'prompter' namespaces (converting both to the hydrus-appropriate 'creator')
+* thanks to a user, the Linux build is now archived with zstd instead of gzip. should be about the same size but faster to decompress
+
+### fixes
+
+* fixed a stupid typo in the folder copy/move tech last week that was not allowing some move/copies to start (as always, the thing that is so simple that you don't think to test it is the very thing that blows up). sorry for the trouble!
+* cleaned up the file/folder move/copy error statements a little more
+* fixed the 'default search page tag service' dropdown in _options->search_ not saving correctly
+* fixed the 'open externally' panel having out of position thumbnails when your thumbnail supersampling is set to other than 100%
+* fixed the import and display of images in signed 16-bit format (weird TIFFs, seems like).
+* any image with an unusual channel data type beyond uint16 and int16 is going to be, as the default thing to do, normalised to unsigned 8-bit. it may blow out the colour range, but it should show something!
+* the client handles files with (0x0) resolution better. they should now always import, and it'll _attempt_ to render them to a normal full size thumb. if it works (e.g. this is some misconfigured SVG), great, and if it doesn't, we'll get a nicely sized filetype.png or hydrus.png fallback
+* files with (0x0) resolution will now never show in the preview or media viewers. previously, the preview viewer would bail out half-way through setting the media, causing it to fall into an invalid state where it still showed the previous valid media but wouldn't 'click-off' it easily, and the media viewer would generally panic to its 'no media to show' state and lose navigation functionality. now, files that are 0x0 are included in the general 'can we show this?' pre-launch sanity checks
+
+### has_transparency
+
+* the database can now remember if a file has transparency. you can search this with the new 'system:has transparency' predicate, which is under the new 'system:file properties' and will also parse if you type 'system:has/no transparency/alpha'
+* note that my version of 'has transparency' discludes files that have an all-opaque alpha channel (i.e. one that lets no light through). RGBA is insufficient--I want an alpha channel with some actual translucency somewhere!
+* although many application image project types like PSD and XCF can have transparency, the various ways we render or thumbnail them are hacky and probably lock to RGB or RGBA always, so I'm going to start simple. this week, we test transparency for all the images that support it (basically anything but jpeg), and animated gif. the animated gif tech is new and actually looks through every frame of an RGBA gif until it hits interesting alpha to catch cases where it starts opaque and fades away
+* just like we had with 'has exif' and similar, 'has transparency' knowledge will be calculated instantly for all new files, but for the files you already have, we'll have to do some slow file maintenance in the background for a while to retroactively calculate it all. you don't have to do anything; the data will just populate over time
+* the duplicate filter now shows 'has transparency, the other is opaque' statements
+* while working on this, I encountered a number of files that seemed to be false positives--apparently normal, fully opaque images of anime girls that were somehow showing up as 'has interesting alpha'. upon inspecting them closely, I discovered the border pixels had a slight fade, or one pixel out of all of them was 98% opaque, or the single bottom right pixel was completely transparent. perhaps some of these are secret artist markers, but I imagine many are just an accidental drawing tablet smudge or dodgy crop tool calculations. I'm leaving them as 'has_transparency' for now, but maybe we'll want to tune this more in future, perhaps saying you have to be at least 0.3% transparent to count. anyway, as always, while I am interested in seeing files that seem to get a false positive/negative with this new 'has transparency' test, if you have the technical know-how, please check if they actually have no alpha yourself first. once you play around with this system, let me know what sort of pseudo-'false positive' rate you are getting, and we can talk about an appropriate threshold
+
+### client api
+
+* the 'file_metadata' call now includes a 'has_transparency' boolean! remember that it will be overly `false` for a while, until the file maintenance catches up
+* forgot to mention it last week, but thanks to a user there is a new `/manage_database/get_client_options` call that fetches a heap of different client options. this exposes a mess that may change with any update, but there may be something neat you can hook into. this week we fixed a thing that was breaking this call for probably all old clients
+* the client api version is now 56
+
+### boring cleanup
+
+* renamed JobKey to JobStatus across the program
+* in prep for Client API calls to interact with the popup system, the queue of JobStatuses waiting to be displayed in the popup toaster is now encapsulated in a separate class, outside of the Qt object dangerzone
+* sped up how the popup manager system inspects and cleans the JobStatus queue in general. should have better performance when you get hundreds or thousands of messages
+* cleaned up some awkward popup manager dismiss code
+* fixed a timing issue that meant popup messages were auto-dismissed from the popup toaster up to a second after they were being 'deleted' by their parent functiions. subscription flow felt more laggy because of this
+* fixed the file info manager's duplicate call to duplicate unusual metadata like has_exif and blurhash
+* removed some old code that isn't used any more
+
+## [Version 551](https://github.com/hydrusnetwork/hydrus/releases/tag/v551)
+
+### misc
+
+* thanks to a user, we have a new checkbox under _options->thumbnails_ that disables thumbnail fading. they'll just blink into place in one frame as soon as ready
+* after looking at this code myself, I gave it a full clean. the actual thumbnail fade animation is now handled with some proper objects rather than a scatter of variables passed around
+* I also doubled the default fade time to 500ms. I expect I'll add an option for it, especially if we rework all this into the proper Qt animation engine and get it performing better
+* fixed the crashes users on PyQt were seeing! I made one tiny change (1->1.0) last week, and PyQt didn't like it, so any view of Mr Bones or 'open externally' panels, or the media viewer top-right ratings hover was leading to program instability
+* the system predicates for 'has/no duration', 'has/no frames', 'has/no notes', 'has/no words' (i.e. the respective 'num x' system pred, but either = 0 or >0) are now aware that they are each others' inverse, so if you ctrl+double-click or do similar edit actions, they'll flip
+* updated the 'PTR for dummies' page to link to a new QuickSync source, kindly maintained and hosted by a user
+
+### code cleanup and misc bug fixes
+
+* sped up some random iteration across the program (e.g. when deciding which order to waterfall thumbnails in, which can suffer from overhead if you do a fast giganto-scroll)
+* cleaned up the code that does image alpha channel (transparency) detection, comparison, and stripping
+* unified how the variety of image loads and conversions perform the 'strip this image of useless transparency data' normalisation step. thumbnails from krita, svg, and pdf are now stripped of useless alpha. also, all 'import this serialised object png' avenues now handle pngs with spurious alpha
+* I think I fixed the alpha channel stripping code to handle 'LA' (greyscale with transparency) files. if you try to import a hydrus serialised object png file that is for some crazy reason now LA, I think it'll work!
+* when a files popup message filters its current files and the count goes to 0 (happens if you re-click the button after deleting everything it has to show), the message now auto-dismisses itself (previously it was nuking the button but staying as a thin strip of null panel space)
+* fixed a bug where `system:date` predicates were displaying labels an hour off (usually midnight -> 11pm, thus cycling back to the previous day) thanks to the clocks changed (in the USA) last weekend. I suspect there is more of this, here and there, so let me know what you see
+* fixed a counting typo error with the delete files code when you delete the last file in a domain but the domain thinks it already has 0 files
+* fixed up similar code across the database to forestall future typos on SQLite SUMs
+* improved and unified the 'hydrus temp dir' management code. if the specific per-process hydrus temp dir is cleared out by an external factor (I'm guessing just the OS cleaning up during a long running client session), hydrus should just simply make a new folder as needed. with luck, this will fix a problem with drag and drop export that ran into this
+
+### many file move/copy error handling improvements
+
+* _tl;dr: if hydrus can't put a file somewhere, it deals with that better now_
+* improved how file move/merge function reports its errors, and how all its callers handle them
+* the 'rename a file's file extension when its filetype changes' job now correctly recognises when it fails to rename a file due to a reason other than the file being currently in use
+* import folders now correctly detect when they fail to 'move' action a file out after processing
+* the check file integrity routine now correctly detects when it fails to move a damaged file from file storage to a landing zone in the main db directory. this failure now cancels the job properly and prints a nicer error to the log
+* improved how the file copy/mirror function reports its errors, and how all its callers handle them
+* saving a serialised object png now properly catches a 'transfer from temp dir to dest location' move error
+* the internal database backup and restore routines now detect file copy errors better
+* a drag and drop export operation that wants to put the files in the temp dir and also fails to collect its files nicely now correctly raises an error
+* failing to set the mpv file on options save (and the subsequent mpv-load action) now reports its error correctly
+* exporting update files now handles a missing update file more gracefully
+* mergedirectory and mirrordirectory now fail instantly after any single error, rather than several
+* added some more file/directory pre-checks to all the merge/mirror functions
+* deleted some old unused code here
+
+### client api
+
+* thanks to a user, the Client API now has a 'generate_hashes' endpoint that returns the sha256 hash (and pixel hash and perceptual hashes of any appropriate image file) of any file you give it
+* the client api version is now 55
+
+## [Version 550](https://github.com/hydrusnetwork/hydrus/releases/tag/v550)
+
+### misc
+
+* if you enter invalid URLs (i.e. non-parsing) into 'manage URLs', the dialog now lets you know they were not apparently good and asks if you want to enter them anyway. previously, it errored-out and disallowed anything that wasn't parsing ok (issue #1444)
+* when physically deleting files (i.e. deleting from trash or picking 'permanently delete' from the advanced delete dialog), the relevant files are now immediately removed from view. there were some situations where, when physically deleting a lot of files (causing the job to clear in batches), you could subsequently click on a soon-to-be-deleted file, loading it in mpv, and then, if you started a big UI-lag job like loading 'manage siblings', it could cause a crash if the file was deleted during the UI hang (issue #1447)
+* the client now explicitly closes and clears its network connections after five minutes of inactivity. it turns out that the behind the scenes tools were not doing this exactly as I had thought, clogging up connection slots (issue #1458)
+* thanks to a user, the rendering of palettized PNGs with ICC profiles is fixed!
+* fixed the github build script to include the new-as-of-a-couple-of-weeks-ago 'auto_update_installer.bat' file in the Windows builds. sorry for the confusion here, I forgot I had to do this!
+* optimised deselection of a large number of files when you already have a lot of thumbnails selected (a tricky example of this is clicking on an unselected file when you have a lot of files selected, thus deselecting all that old stuff). should be a little faster to work on big lists now
+* further optimised reduction recalculation of the taglist in general
+
+### thumbnail fill
+
+* after vacillating and talking about it for months, I finally reworked how ''scale to fill' thumbnails work. as sometimes happens, I only had to change about six critical lines of code to get the core functionality changed and nothing seems to have exploded
+* the main change here is KISS--'fill' thumbnail image files on disk are no longer clipped to just the viewable area, but the whole image scaled to fill the thumbnail space (with exceptions for extreme cases). this change gives us some simplicity and flexibility behind the scenes, saves some regeneration work when the user only changes one thumbnail dimension setting, improves maintenance tasks based off the thumbnail (like blurhash), and means that the Client API can fetch your thumbs and still have something useful to display
+* if you have 'scale to fill' set, hydrus will regenerate your thumbnails naturally as you browse the client. fingers crossed, you won't notice any visual difference through the transition
+* 'open externally' button panels now display their thumbnails with more reasonable maximum dimensions, and when things are gonk for whatever reason, they should nonetheless be centered correctly
+* as a side thing, this change allowed me to finally purge all the clipping tech from the thumbnail pipeline, where it had obtusely sunk in to every possible filetype thumbgen
+
+### eager login system
+
+* I fixed a problem where some sorts of login script could allow a network job supposedly waiting on them to start before they had completed. it was due to a complicated 'am I logged in?' cookie testing issue while the login process was still working. all network jobs that hypothetically need a login now test if there is a login process currently working on their domain and will properly wait for that process to finish before they move on
+* fixed a 'cannot log in' reporting bug in the login system
+* some misc login code cleanup
+
+### smarter orphan file record and repository update handling
+
+* _this is advanced stuff, most users can ignore_
+* _database->db maintenance->clear orphan file records_ is now able to recover file records where A) the file is in a service component but not the master, B) the file exists on disk. it copies the import timestamp from the specific to the umbrella domain and spams all the repaired files to a new page for user review. this maintenance routine isn't used all that much, but when you have a damaged database, it is nice to recover as much as possible rather than having to export (with clear orphan file records+clear orphan files) and then reimport and lose archive/inbox status and import timestamps
+* repository update files now have a 'delete from repository updates' entry in their right-click menu
+* this area of the code appears to be related to the PTR 404 issue some users have had (it seems to be repository update records not beeing added/deleted/updated correctly), so I am likely to revisit this
+* deleting a file from 'all local files' (which happens for repository update files) now correctly updates the UI-level media object to recognise that the file is fully deleted from all local file domains beneath the umbrella, removing the 'delete from x' commands from their menu, and in the right view contexts removing them from view completely
+
 ## [Version 549](https://github.com/hydrusnetwork/hydrus/releases/tag/v549)
 
 ### misc
@@ -232,161 +411,3 @@ title: Changelog
 * the Client API (and all hydrus servers) now return proper JSON on an error. there's the error summary, specific exception name, and http status code. the big bad 500-error-of-last-resort still tacks on the large serverside traceback to the summary, so we'll see if that is still annoying and split it off if needed
 * the new `/add_tags/get_siblings_and_parents` now properly cleans the tags you give it, trimming whitespace and lowercasing letters and so on
 * the client api version is now 52
-
-## [Version 543](https://github.com/hydrusnetwork/hydrus/releases/tag/v543)
-
-### misc
-
-* a new string converter rule now allows for extremely easy date parsing, thanks to the `dateparser` library. all old 'datestring to timestamp' rules remain as they are, but are now called '(advanced)'. a new option, 'datestring to timestamp (easy)', which has exactly zero variables to fiddle with, just eats up pretty much any date string you can think of, including timezone conversions, and even stuff like '2 hours ago'. you need the dateparser library for this to work, so **if you run from source, you might like to rebuild your venv this week**. your `dateparser` import status is in _help->about_
-* thanks to the user who added it recently, PSD rendering is now much faster and uses less memory. if you do a lot of PSD work, let me know how this goes. if PSDs now load pretty much like large pngs, I think we'll set them, by default, to show as normal in the preview viewer
-* thanks to a user, we now have description note parsing for the default e621 downloader
-* the program now supports bitmap files as-is. until now, I automatically converted them to png on import, but this was a mistake--despite this file format being a waste 99.7% of the time, hydrus's philosophy is not to alter files on import, and this long-time exception resulted in several awkward bumps in the code that I'm happy to be rid of now
-* fixed a couple desync bugs in the migrate database dialog where you could change a location's weight (particularly between 0 and 1) and not get the correct flip of the 'files need to be moved'/'files are all good' state until you re-opened the dialog
-
-### PDFs
-
-* I screwed something up with the PDF thumbnail generation at the last minute last week, fixing it on non-PySide6, but introducing some logspam and--for at least one user--adding instability. the logspam is now gone and I _believe_ the instability is fixed. now it is basically the same as the SVG thumbnail code, which hasn't given us any trouble. if we still see some crashes, I'm going to have to overhaul these two thumbnail generation methods
-* when PDFs fail to generate thumbs, a little text about the error is now printed to the log
-* _help->about_ now has lines for QtCharts and QtPdf, and if there is a PDF problem, it puts the import trace in a popup
-
-### mr bones
-
-* mr bones can now take any file search. if you want to see the average filesize of your pngs, or the archive/inbox ratio of creator x's webms, just set that search on the new panel and the numbers will update for that subset
-* this turned, characteristically, into a bottomless rabbit hole, and I culled the more complicated features lest the ride consume me. searching a multiple file domain means deleted numbers cannot be calculated, nor can the 'earliest import' time, and searching deleted domains will generally give you some gonk numbers (and likely reveal some interesting legacy bugs, like inbox count amongst deleted files)
-* the old search was highly optimised, but this has few guard rails. if you give this thing a super difficult query, it'll take a long time. there is now a cancel button that should interrupt all but the weirdest operations fairly promptly, however, just in case it is really lagging. note that hitting 'searching immediately' will pause updates as normal, if you need to set up something complex
-* assuming deleted numbers are available, the stats now include total views/viewtime for deleted files too
-* potential dupe counts are basically a search of 'at least one of the files matches the file list, can be pixel dupes, max distance 8'
-
-### more boring work, file storage and misc
-
-* wrote a new object to handle the base storage location for file/thumbnail subfolders. it can do over/underweight calculations and handles the pending max_num_bytes setting for database migration locations
-* all the new subfolder objects now track their base location using this new object, and all related load/save/display/edit code is now throwing this thing around instead of raw paths
-* the underlying migration determination code is now ready to redistribute according to a max_num_bytes option. I've just got to update the UI, and, fingers crossed, I'll be able to add it next week
-* added a bunch of unit tests for the new base storage location object. it separately reports whether it needs to shrink, wants to shrink, is able to expand, or is eager to expand
-* improved how updated objects are substituted into all multi-column lists, it fixes a couple of odd storage/display sync bugs here and there
-* a core image data loading/conversion tool inside the program is now a bit simpler and faster, and I think it also saves memory. it should speed up various sorts of unusual file loading
-
-## [Version 542](https://github.com/hydrusnetwork/hydrus/releases/tag/v542)
-
-### pdfs
-
-* thanks to a user, we now have pdf thumbnails! there is surprisingly little jank!
-* I hacked together a newer and better word count for PDFs. I can't promise it is perfect, but it does actually inspect the raw text. I'm expect we'll add a separate 'num_pages' row in future to handle comics (and other stuff like cbr/cbz)
-* I also hacked in 'human-readable file metadata' for PDFs. any PDF with author, title, subject, or keywords metadata is now viewable at the top of the media viewer
-* on update all your existing pdfs will be scheduled to get new thumbs, count their words, and learn if they have human-readable file metadata
-* this tech relies on Qt, so users running from source on old OSes (and thus Qt5) may not have very good support, sorry!
-
-### predicate parsing
-
-* the system predicate parser can now deal with numbers with commas, like in `system:width = 1,920`
-* `system:filetype is gif` works again in the predicate parser, now resolving to `system:filetype is animated gif, static gif`
-* fixed some weird parsing for 'system:tag as number' and added more operators like 'less than' and support for 'unnamespaced' and 'any namespace'
-* `system:tag as number` now labels itself in the client in the style `system:tag as number: page less than 20`, which is parseable by the system
-* the predicates for 'has exif/icc profile/human-readable embedded metadata' now label themselves in the format `system:has x`, not `system:image has x`. this harmonises with our other `has x` predicates, recognises that we pull metadata from non-images these days, and is the text that they were parsing with anyway
-
-### misc
-
-* the 'exporting' sidecar system's 'tag' source (i.e. pulling tags from your local tag services) now has a button to select 'storage' (no siblings or parents, what you see in manage tags dialog) or 'display' (has sibling and parent calculations, what you see in normal views) tags. all existing tag source sidecars will stay 'storage', but the default for new ones is now 'display'
-* renamed the dumb 'x metadata migrations' button label in export files to 'x sidecar actions'
-* wrote a new FAQ answer about why tags don't disappear when you delete files: https://hydrusnetwork.github.io/hydrus/faq.html#service_isolation
-* also wrote just a little FAQ about running hydrus off an encrypted partition--yes you can, and this is good tech to learn
-* moved the builds up to python 3.10. I thought we had already done this, but there we go. no special install instructions, it should just update as normal
-* for users who run from source: added a '(m)iddle Qt6' selection to the advanced setup venv script, for those who cannot run 6.5.2, with some explanation about it (it is the recently used 6.4.1, since Python 3.11 can't run the '(o)lder' 6.3.1), and added a '(t)est mpv' option for the newer python-mpv 1.0.4
-
-### boring file storage work
-
-* I decided that the planned granular folders will nest in groups of 2 hex characters. when you move to three-character storage, the files starting 'ab1' will be stored in '/fab/1' directory (rather than '/fab1'). we don't want to solve the overhead of a folder with 30,000 files by creating a folder with 4096 or 65536 folders. all the code was shifted over to this
-* all the migrate and repair code now uses subfolders
-* replaced various hardcoded folder determination code with subfolders, ensuring we are all calculating locations using the same single method
-* a variety of other responsibilities like 'does this subfolder exist on disk?' and 'make sure it does exist' are similarly now all collected in one place, in the subfolder code
-* added a little suite of unit tests for the new subfolders class
-* did a bunch of renaming to clear up various different concepts and names in all this code
-* the 'clear' custom thumbnail location button in migrate database is now wrapped in a yes/no confirmation dialog
-
-### other boring stuff
-
-* wrote some new exception classes to handle several 'limited support for this particular file' states and refactored a bunch of the resolution and thumbnail producing code to use it instead of None hacks or 'this file is completely busted' exceptions
-* improved some misc file format handling, particularly when they are damaged. stuff like clip database inspection and general thumbnail generation fail states
-* refactored many of my hardcoded special unicode characters to constants in HC. not sure I really like all the spammed `{HC.UNICODE_ELLIPSIS}` though, so might revisit
-* fixed an issue with last week's update code that was affecting users with a history of certain database damage
-* I may have improved import support for some damaged or generally very strange image files by falling back to OpenCV for resolution parsing when Pillow fails
-
-## [Version 541](https://github.com/hydrusnetwork/hydrus/releases/tag/v541)
-
-### misc
-
-* fixed the gallery downloader and thread watcher loading with the 'clear highlight' button enabled despite there being nothing currently highlighted
-* to fix the darkmode tooltips on the new Qt 6.5.2 on Windows (the text is stuck on a dark grey, which is unreadable in darkmodes), all the default darkmode styles now have an 'alternate-tooltip-colour' variant, which swaps out the tooltip background colour for the much brighter normal widget text colour
-* rewrote the apng parser to work much faster on large files. someone encountered a 200MB giga apng that locked up the client for minutes. now it takes a second or two (unfortunately it looks like that huge apng breaks mpv, but there we go)
-* the 'media' options page has two new checkboxes--'hide uninteresting import/modified times'--which allow you to turn off the media viewer behaivour where import and modified times similar to the 'added to my files xxx days ago' are hidden
-* reworked the layout of the 'media' options page. everything is in sections now and re-ordered a bit
-* the 'other file is a pixel-for-pixel duplicate png!' statements will now only show if the complement is a jpeg, gif, or webp. this statement isn't so appropriate for formats like PSD
-* a variety of tricky tags like `:>=` are now searchable in normal autocomplete lookup. a test that determined whether to use a slower but more capable search was misfiring
-* the client api key editing window has a new 'check all permissions' button
-* fixed the updates I made last week to the missing-master-file-id recovery system. I made a stupid typo and didn't test it properly, fixed now. sorry for the trouble!
-* thanks to a user, the help has a bunch of updated screenshots and fixed references to old concepts
-* did a little more reformatting and cleanup of 'getting started with downloading' help document and added a short section on note import options
-* cleaned up some of the syntax in our various batch files. fingers crossed, the setup_venv.bat script will absolutely retain the trailing space after its questions now, no matter what whitespace my IDE and github want to trim
-
-### string joiner
-
-* the parsing system has a new String Processor object--the 'String Joiner'. this is a simple concatenator that takes the list of strings and joins them together. it has two variables: what joining text to use, e.g. ', ', or '-', or empty string '' for simple concatenation; and an optional 'group size', which lets you join every two or three or n strings in 1-2-3, 1-2-3, 1-2-3 style patterns
-
-### new file types
-
-* thanks to a user; we now have support for QOI (a png-like lossless image type) and procreate (Apple image project file) files. the former has full support; the latter has thumbnails
-* QOI needs Pillow 9.5 at least, so if you are on a super old 'running from source' version, try rebuilding your venv; or cope with you QOI-lessness
-
-### client api
-
-* thanks to a user, we now have `/add_tags/get_siblings_and_parents`, which, given a set of tags, shows their sibling and parent display rules for each service
-* I wrote some help and unit tests for this
-* client api version is now 51
-
-### file storage (mostly boring)
-
-* the file storage system is creaky and ugly to use. I have prepped some longer-term upgrades, mostly by writing new tools and cleaning and reworking existing code. I am nowhere near to done, but I'd like us to have four new features in the nearish future: 
-  - dynamic-length subfolders (where instead of a fixed set of 256 x00-xff folders, we can bump up to 4096 x000-xfff, and beyond, based on total number of files)
-  - setting fixed space limits on particular database locations (e.g. 'no more than 200GB of files here') to complement the current weight system
-  - permitting multiple valid locations for a particular subfolder prefix
-  - slow per-file background migration between valid subfolders, rather than the giganto folder-atomic program-blocking 'move files now' button in database maintenance
-* so, it is pretty boring so far, but I did the following: 
-* wrote a new class to handle a specific file storage subfolder and spammed it everywhere, replacing previous location and prefix juggling
-* wrote some new tools to scan and check the coverage of multiple locations and dynamic-length subfolders
-* rewrote the file location database initialisation, storage, testing, updating, and repair to support multiple valid locations
-* updated the database to hold 'max num bytes' per file storage location
-* the feature to migrate the SQLite database files and then restart is removed from the 'migrate database' dialog. it was always ultrajank in a place that really shouldn't be, and it was completely user-unfriendly. just move things manually, while the client is closed
-* the old 'recover and merge surplus database locations into the correct position' side feature in 'move files now' is removed. it was always a little jank, was very rarely actually helpful, and had zero reporting. it will return in the new system as a better one-shot maintenance job
-* touched up the migrated database help a little
-
-## [Version 540](https://github.com/hydrusnetwork/hydrus/releases/tag/v540)
-
-### misc
-
-* the system predicate parser can now handle 'system:filetype is xxx' for more of the general human-friendly filetype strings like 'video' and 'mkv'. it can also handle 'static gif' and any other types with spaces but now enforces commas between each filetype. I think all system:filetype predicate strings the client produces now parse correctly if you paste them back
-* fixed many bitmap imports, most typically in the 'system:similar files' system, which was not generating pixel hashes correctly. most/all bitmaps coming in with alpha channels, or, I also believe, with a null channel (RGB32), were being handled wrong and coming out BGR. perceptual hashes are greyscale and were not affected, but pixel hashes were wrong. this was a real pain to figure out, and it may be that it is still broken for users on big-endian systems or something, so let me know how you get on
-* added links to https://github.com/abtalerico/wd-hydrus-tagger (danbooru-trained model tagging) and https://github.com/Garbevoir/wd-e621-hydrus-tagger (which adds more models) to the client api help. reports are that they work well, even on 'normal' pictures
-* the bad darkmode tooltip text colour in the new Qt 6.5.2 on Windows appears to be a bug, here: https://bugreports.qt.io/browse/QTBUG-116021 . there's not a great answer here, so let me know your thoughts. if you like, you can edit a custom stylesheet with a different `QToolTip` `background-color`, or I can spam some alternate fixed QSS files for everyone, or we can wait for a fix on Qt's end
-* on update, all existing PSD and static gif files will be scheduled for pixel hash regen, perceptual hash regen, and entry into the similar files system (I forgot to do this last week)
-* on update, all existing PNGs will be scheduled for pixel duplicate data regen. we have a legacy alpha channel issue here that has reared its head several times (searchting for 'must not be pixel dupes', but getting pixel dupes), so I am just going to bosh it on the head for everyone
-
-### file maintenance
-
-* if a file has multiple jobs pending, the file maintenance manager now processes all those jobs at once, saving significant disk I/O. also, a couple things like the 'do all work' button's popup now shows the total number of jobs to do, rather than that of each job type in turn
-* the 'manage scheduled jobs' file maintenance panel now shows the count for jobs that exist but are not yet due. previously, these were hidden, which was part of the mkv/webm duplicate difficulties last week.
-* when the program needs to rename a file because it has a new mime, it now first tests if the file is still in use (normally this means some file parsing component like ffmpeg or opencv is still cleaning up OS file handles or whatever), and, if so, waits just a little bit before trying
-* relatedly, the 'try and delete the rename-dupe again' job now tries again in one hour, rather than one week in the future, and if that after-one-hour job fails again (this would usually be because you were actually viewing the original file in the media viewer at the time of its reparse), then that job will retry again in a week, and the week after if that fails, and again after that, etc... for about a year
-* fixed an issue with the thumbnail resizing maintenance job on PSD files and probably some other weird types too
-* fixed some scheduling issues in how the mainloop of the file maintenance system tests its current rate of work and when it should cancel a current batch of work
-
-### boring stuff
-
-* simplified and cleaned up some of the duplicate system king-fetching code. I _may_ have also fixed one instance of pair representatives being fetched wrong for the filter when 'at least one file has to match the one search'
-* when editing the duplicate action merge options, a new label at the top says which dupe action you are editing for, and if it isn't "this is better", it notes that the available merge actions are limited
-* improved four things with the recovery code that handles missing master hash definitions--first, the substitute hashes are now the correct length; second, they are now saved back to the database, which should stop issues like the "trying to delete a thing that doesn't exist and has an ever-changing name in a loop forever" bug; third, the popup tells the user what to do next, and more information is written to the log; and fourth, the client checks the local hash cache so see if it can automatically recover the missing data
-
-### client api
-
-* the `file_metadata` call now has two new fields, `filetype_human`, which looks like 'jpeg' or 'webm', and `filetype_enum`, which uses internal hydrus filetype numbers
-* the help and unit tests are updated for this
-* client api version is now 50

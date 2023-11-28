@@ -822,13 +822,9 @@ class ManageOptionsPanel( ClientGUIScrolledPanels.ManagePanel ):
             
             self._new_options = HG.client_controller.new_options
             
-            mime_panel = ClientGUICommon.StaticBox( self, '\'open externally\' launch paths' )
+            browser_panel = ClientGUICommon.StaticBox( self, 'web browser launch path' )
             
-            self._web_browser_path = QW.QLineEdit( mime_panel )
-            
-            self._mime_launch_listctrl = ClientGUIListCtrl.BetterListCtrl( mime_panel, CGLC.COLUMN_LIST_EXTERNAL_PROGRAMS.ID, 15, self._ConvertMimeToListCtrlTuples, activation_callback = self._EditMimeLaunch )
-            
-            #
+            self._web_browser_path = QW.QLineEdit( browser_panel )
             
             web_browser_path = self._new_options.GetNoneableString( 'web_browser_path' )
             
@@ -836,6 +832,12 @@ class ManageOptionsPanel( ClientGUIScrolledPanels.ManagePanel ):
                 
                 self._web_browser_path.setText( web_browser_path )
                 
+            
+            #
+            
+            mime_panel = ClientGUICommon.StaticBox( self, '\'open externally\' launch paths' )
+            
+            self._mime_launch_listctrl = ClientGUIListCtrl.BetterListCtrl( mime_panel, CGLC.COLUMN_LIST_EXTERNAL_PROGRAMS.ID, 15, self._ConvertMimeToListCtrlTuples, activation_callback = self._EditMimeLaunch )
             
             for mime in HC.SEARCHABLE_MIMES:
                 
@@ -850,14 +852,16 @@ class ManageOptionsPanel( ClientGUIScrolledPanels.ManagePanel ):
             
             vbox = QP.VBoxLayout()
             
-            text = 'Setting a specific web browser launch command here that uses %path% for where the url should go--like \'C:\\program files\\firefox\\firefox.exe "%path%"\'--can help with various "launch url" commands across the program, which can be buggy with OS defaults. It also fixes #anchors, which are dropped in some OSes using default means.'
+            text = 'By default, when you ask to open a URL, hydrus will send it to your OS, and that figures out what your "default" web browser is. These OS launch commands can be buggy, though, and sometimes drop #anchor components. If this happens to you, set the specific launch command for your web browser here.'
             text += os.linesep * 2
-            text += 'Use the same %path% format for the \'open externally\' commands below. Hydrus will put the file path in there when it launches the program from terminal. Most programs are "program_exe %path%", but more complicated ones may need a profile switch or "-o" open command or similar.'
+            text += 'The command here must include a "%path%" component, normally ideally within those quote marks, which is where hydrus will place the URL when it executes the command. A good example would be:'
+            text += os.linesep * 2
+            text += 'C:\\program files\\firefox\\firefox.exe "%path%"'
             
-            st = ClientGUICommon.BetterStaticText( mime_panel, text )
+            st = ClientGUICommon.BetterStaticText( browser_panel, text )
             st.setWordWrap( True )
             
-            mime_panel.Add( st, CC.FLAGS_EXPAND_PERPENDICULAR )
+            browser_panel.Add( st, CC.FLAGS_EXPAND_PERPENDICULAR )
             
             rows = []
             
@@ -865,9 +869,26 @@ class ManageOptionsPanel( ClientGUIScrolledPanels.ManagePanel ):
             
             gridbox = ClientGUICommon.WrapInGrid( mime_panel, rows )
             
-            mime_panel.Add( gridbox, CC.FLAGS_EXPAND_SIZER_PERPENDICULAR )
+            browser_panel.Add( gridbox, CC.FLAGS_EXPAND_SIZER_PERPENDICULAR )
+            
+            #
+            
+            vbox = QP.VBoxLayout()
+            
+            text = 'Similarly, when you ask to open a file "externally", hydrus will send it to your OS, and that figures out your "default" program. This may fail or direct to a program you do not want for several reasons, so you can set a specific override here.'
+            text += os.linesep * 2
+            text += 'Again, make sure you include the "%path%" component. Most programs are going to be like \'program_exe "%path%"\', but some may need a profile switch or "-o" open command or similar.'
+            
+            st = ClientGUICommon.BetterStaticText( mime_panel, text )
+            st.setWordWrap( True )
+            
+            mime_panel.Add( st, CC.FLAGS_EXPAND_PERPENDICULAR )
+            
             mime_panel.Add( self._mime_launch_listctrl, CC.FLAGS_EXPAND_BOTH_WAYS )
             
+            #
+            
+            QP.AddToLayout( vbox, browser_panel, CC.FLAGS_EXPAND_PERPENDICULAR )
             QP.AddToLayout( vbox, mime_panel, CC.FLAGS_EXPAND_BOTH_WAYS )
             
             self.setLayout( vbox )
@@ -927,6 +948,18 @@ class ManageOptionsPanel( ClientGUIScrolledPanels.ManagePanel ):
                             
                         
                         if new_launch_path not in ( launch_path, default ):
+                            
+                            if new_launch_path is not None and '%path%' not in new_launch_path:
+                                
+                                message = f'Hey, your command "{new_launch_path}" did not include %path%--it probably is not going to work! Are you sure this is ok?'
+                                
+                                result = ClientGUIDialogsQuick.GetYesNo( self, message )
+                                
+                                if result != QW.QDialog.Accepted:
+                                    
+                                    break
+                                    
+                                
                             
                             self._mime_launch_listctrl.DeleteDatas( [ ( mime, launch_path ) ] )
                             
@@ -1034,6 +1067,8 @@ class ManageOptionsPanel( ClientGUIScrolledPanels.ManagePanel ):
             self._ms_to_wait_between_physical_file_deletes.setValue( self._new_options.GetInteger( 'ms_to_wait_between_physical_file_deletes' ) )
             
             self._confirm_trash.setChecked( HC.options[ 'confirm_trash' ] )
+            tt = 'If there is only one place to delete the file from, you will get no delete dialog--it will just be deleted immediately. Applies the same way to undelete.'
+            self._confirm_trash.setToolTip( tt )
             
             self._confirm_archive.setChecked( HC.options[ 'confirm_archive' ] )
             
@@ -2346,10 +2381,6 @@ class ManageOptionsPanel( ClientGUIScrolledPanels.ManagePanel ):
             
             self._media_viewer_cursor_autohide_time_ms = ClientGUICommon.NoneableSpinCtrl( media_viewer_panel, none_phrase = 'do not autohide', min = 100, max = 100000, unit = 'ms' )
             
-            self._slideshow_durations = QW.QLineEdit( media_viewer_panel )
-            self._slideshow_durations.setToolTip( 'This is a bit hacky, but whatever you have here, in comma-separated floats, will end up in the slideshow menu in the media viewer.' )
-            self._slideshow_durations.textChanged.connect( self.EventSlideshowDurationsChanged )
-            
             self._media_zooms = QW.QLineEdit( media_viewer_panel )
             self._media_zooms.setToolTip( 'This is a bit hacky, but whatever you have here, in comma-separated floats, will be what the program steps through as you zoom a media up and down.' )
             self._media_zooms.textChanged.connect( self.EventZoomsChanged )
@@ -2378,6 +2409,34 @@ class ManageOptionsPanel( ClientGUIScrolledPanels.ManagePanel ):
             
             self._anchor_and_hide_canvas_drags = QW.QCheckBox( media_viewer_panel )
             self._touchscreen_canvas_drags_unanchor = QW.QCheckBox( media_viewer_panel )
+            
+            #
+            
+            slideshow_panel = ClientGUICommon.StaticBox( media_viewer_panel, 'slideshows' )
+            
+            self._slideshow_durations = QW.QLineEdit( slideshow_panel )
+            self._slideshow_durations.setToolTip( 'This is a bit hacky, but whatever you have here, in comma-separated floats, will end up in the slideshow menu in the media viewer.' )
+            self._slideshow_durations.textChanged.connect( self.EventSlideshowChanged )
+            
+            self._slideshow_always_play_duration_media_once_through = QW.QCheckBox( slideshow_panel )
+            self._slideshow_always_play_duration_media_once_through.setToolTip( 'If this is on, then a slideshow will not move on until the current duration-having media has played once through.' )
+            self._slideshow_always_play_duration_media_once_through.clicked.connect( self.EventSlideshowChanged )
+            
+            self._slideshow_short_duration_loop_seconds = ClientGUICommon.NoneableSpinCtrl( slideshow_panel, none_phrase = 'do not use', min = 1, max = 86400, unit = 's' )
+            tt = '(Ensures very short loops play for a bit, but not five minutes) A slideshow will move on early if the current duration-having media has a duration less than this many seconds (and this is less than the overall slideshow period).'
+            self._slideshow_short_duration_loop_seconds.setToolTip( tt )
+            
+            self._slideshow_short_duration_loop_percentage = ClientGUICommon.NoneableSpinCtrl( slideshow_panel, none_phrase = 'do not use', min = 1, max = 99, unit = '%' )
+            tt = '(Ensures short videos play for a bit, but not twenty minutes) A slideshow will move on early if the current duration-having media has a duration less than this percentage of the overall slideshow period.'
+            self._slideshow_short_duration_loop_percentage.setToolTip( tt )
+            
+            self._slideshow_short_duration_cutoff_percentage = ClientGUICommon.NoneableSpinCtrl( slideshow_panel, none_phrase = 'do not use', min = 1, max = 99, unit = '%' )
+            tt = '(Ensures that slightly shorter videos move the slideshow cleanly along as soon as they are done) A slideshow will move on early if the current duration-having media will have played exactly once through between this many percent and 100% of the slideshow period.'
+            self._slideshow_short_duration_cutoff_percentage.setToolTip( tt )
+            
+            self._slideshow_long_duration_overspill_percentage = ClientGUICommon.NoneableSpinCtrl( slideshow_panel, none_phrase = 'do not use', min = 1, max = 500, unit = '%' )
+            tt = '(Ensures slightly longer videos will not get cut off right at the end) A slideshow will delay moving on if playing the current duration-having media would stretch the overall slideshow period less than this amount.'
+            self._slideshow_long_duration_overspill_percentage.setToolTip( tt )
             
             #
             
@@ -2418,6 +2477,12 @@ class ManageOptionsPanel( ClientGUIScrolledPanels.ManagePanel ):
             
             self._slideshow_durations.setText( ','.join( ( str( slideshow_duration ) for slideshow_duration in slideshow_durations ) ) )
             
+            self._slideshow_always_play_duration_media_once_through.setChecked( self._new_options.GetBoolean( 'slideshow_always_play_duration_media_once_through' ) )
+            self._slideshow_short_duration_loop_seconds.SetValue( self._new_options.GetNoneableInteger( 'slideshow_short_duration_loop_seconds' ) )
+            self._slideshow_short_duration_loop_percentage.SetValue( self._new_options.GetNoneableInteger( 'slideshow_short_duration_loop_percentage' ) )
+            self._slideshow_short_duration_cutoff_percentage.SetValue( self._new_options.GetNoneableInteger( 'slideshow_short_duration_cutoff_percentage' ) )
+            self._slideshow_long_duration_overspill_percentage.SetValue( self._new_options.GetNoneableInteger( 'slideshow_long_duration_overspill_percentage' ) )
+            
             media_zooms = self._new_options.GetMediaZooms()
             
             self._media_zooms.setText( ','.join( ( str( media_zoom ) for media_zoom in media_zooms ) ) )
@@ -2442,7 +2507,6 @@ class ManageOptionsPanel( ClientGUIScrolledPanels.ManagePanel ):
             rows = []
             
             rows.append( ( 'Time until mouse cursor autohides on media viewer:', self._media_viewer_cursor_autohide_time_ms ) )
-            rows.append( ( 'Slideshow durations:', self._slideshow_durations ) )
             rows.append( ( 'Media zooms:', self._media_zooms ) )
             rows.append( ( 'Centerpoint for media zooming:', self._media_viewer_zoom_center ) )
             rows.append( ( 'Draw image transparency as checkerboard:', self._draw_transparency_checkerboard_media_canvas ) )
@@ -2451,11 +2515,25 @@ class ManageOptionsPanel( ClientGUIScrolledPanels.ManagePanel ):
             rows.append( ( 'RECOMMEND WINDOWS ONLY: Hide and anchor mouse cursor on media viewer drags:', self._anchor_and_hide_canvas_drags ) )
             rows.append( ( 'RECOMMEND WINDOWS ONLY: If set to hide and anchor, undo on apparent touchscreen drag:', self._touchscreen_canvas_drags_unanchor ) )
             
-            gridbox = ClientGUICommon.WrapInGrid( media_viewer_panel, rows )
+            media_viewer_gridbox = ClientGUICommon.WrapInGrid( media_viewer_panel, rows )
+            
+            rows = []
+            
+            rows.append( ( 'Slideshow durations:', self._slideshow_durations ) )
+            rows.append( ( 'Always play media once through before moving on:', self._slideshow_always_play_duration_media_once_through ) )
+            rows.append( ( 'Slideshow short-media skip seconds threshold:', self._slideshow_short_duration_loop_seconds ) )
+            rows.append( ( 'Slideshow short-media skip percentage threshold:', self._slideshow_short_duration_loop_percentage ) )
+            rows.append( ( 'Slideshow shorter-media cutoff percentage threshold:', self._slideshow_short_duration_cutoff_percentage ) )
+            rows.append( ( 'Slideshow long-media allowed delay percentage threshold:', self._slideshow_long_duration_overspill_percentage ) )
+            
+            slideshow_gridbox = ClientGUICommon.WrapInGrid( slideshow_panel, rows )
+            
+            slideshow_panel.Add( slideshow_gridbox, CC.FLAGS_EXPAND_SIZER_PERPENDICULAR )
             
             filetype_handling_panel.Add( media_viewer_list_panel, CC.FLAGS_EXPAND_BOTH_WAYS )
             
-            media_viewer_panel.Add( gridbox, CC.FLAGS_EXPAND_SIZER_PERPENDICULAR )
+            media_viewer_panel.Add( media_viewer_gridbox, CC.FLAGS_EXPAND_SIZER_PERPENDICULAR )
+            media_viewer_panel.Add( slideshow_panel, CC.FLAGS_EXPAND_SIZER_PERPENDICULAR )
             media_viewer_panel.Add( filetype_handling_panel, CC.FLAGS_EXPAND_BOTH_WAYS )
             
             QP.AddToLayout( vbox, media_viewer_panel, CC.FLAGS_EXPAND_BOTH_WAYS )
@@ -2675,7 +2753,7 @@ class ManageOptionsPanel( ClientGUIScrolledPanels.ManagePanel ):
                 
             
         
-        def EventSlideshowDurationsChanged( self, text ):
+        def EventSlideshowChanged( self, text ):
             
             try:
                 
@@ -2691,6 +2769,10 @@ class ManageOptionsPanel( ClientGUIScrolledPanels.ManagePanel ):
             self._slideshow_durations.style().polish( self._slideshow_durations )
             
             self._slideshow_durations.update()
+            
+            always_once_through = self._slideshow_always_play_duration_media_once_through.isChecked()
+            
+            self._slideshow_long_duration_overspill_percentage.setEnabled( not always_once_through )
             
         
         def EventZoomsChanged( self, text ):
@@ -2766,6 +2848,12 @@ class ManageOptionsPanel( ClientGUIScrolledPanels.ManagePanel ):
                 
                 HydrusData.ShowText( 'Could not parse those slideshow durations, so they were not saved!' )
                 
+            
+            self._new_options.SetBoolean( 'slideshow_always_play_duration_media_once_through', self._slideshow_always_play_duration_media_once_through.isChecked() )
+            self._new_options.SetNoneableInteger( 'slideshow_short_duration_loop_percentage', self._slideshow_short_duration_loop_percentage.GetValue() )
+            self._new_options.SetNoneableInteger( 'slideshow_short_duration_loop_seconds', self._slideshow_short_duration_loop_seconds.GetValue() )
+            self._new_options.SetNoneableInteger( 'slideshow_short_duration_cutoff_percentage', self._slideshow_short_duration_cutoff_percentage.GetValue() )
+            self._new_options.SetNoneableInteger( 'slideshow_long_duration_overspill_percentage', self._slideshow_long_duration_overspill_percentage.GetValue() )
             
             try:
                 
@@ -3091,6 +3179,8 @@ class ManageOptionsPanel( ClientGUIScrolledPanels.ManagePanel ):
             
         
         def UpdateOptions( self ):
+            
+            self._new_options.SetKey( 'default_tag_service_search_page', self._default_tag_service_search_page.GetValue() )
             
             self._new_options.SetDefaultLocalLocationContext( self._default_local_location_context.GetValue() )
             
@@ -4769,11 +4859,9 @@ class ManageOptionsPanel( ClientGUIScrolledPanels.ManagePanel ):
             
             # I tried <100%, but Qt seems to cap it to 1.0. Sad!
             self._thumbnail_dpr_percentage = ClientGUICommon.BetterSpinBox( self, min = 100, max = 800 )
-            
             tt = 'If your OS runs at an UI scale greater than 100%, mirror it here and your thumbnails will look crisp. If you have multiple monitors at different UI scales, or you change UI scale regularly, set it to the largest one you use.'
             tt += os.linesep * 2
             tt += 'I believe the UI scale on the monitor this dialog opened on was {}'.format( HydrusData.ConvertFloatToPercentage( self.devicePixelRatio() ) )
-            
             self._thumbnail_dpr_percentage.setToolTip( tt )
             
             self._video_thumbnail_percentage_in = ClientGUICommon.BetterSpinBox( self, min=0, max=100 )
@@ -4782,10 +4870,12 @@ class ManageOptionsPanel( ClientGUIScrolledPanels.ManagePanel ):
             self._thumbnail_visibility_scroll_percent.setToolTip( 'Lower numbers will cause fewer scrolls, higher numbers more.' )
             
             self._allow_blurhash_fallback = QW.QCheckBox( self )
-            
             tt = 'If hydrus does not have a thumbnail for a file (e.g. you are looking at a deleted file, or one unexpectedly missing), but it does know its blurhash, it will generate a blurry thumbnail based off that blurhash. Turning this behaviour off here will make it always show the default "hydrus" thumbnail.'
-            
             self._allow_blurhash_fallback.setToolTip( tt )
+            
+            self._fade_thumbnails = QW.QCheckBox( self )
+            tt = 'Whenever thumbnails change (appearing on a page, selecting, an icon or tag banner changes), they normally fade from the old to the new. If you would rather they change instantly, in one frame, uncheck this.'
+            self._fade_thumbnails.setToolTip( tt )
             
             self._focus_preview_on_ctrl_click = QW.QCheckBox( self )
             self._focus_preview_on_ctrl_click_only_static = QW.QCheckBox( self )
@@ -4812,6 +4902,8 @@ class ManageOptionsPanel( ClientGUIScrolledPanels.ManagePanel ):
             self._video_thumbnail_percentage_in.setValue( self._new_options.GetInteger( 'video_thumbnail_percentage_in' ) )
             
             self._allow_blurhash_fallback.setChecked( self._new_options.GetBoolean( 'allow_blurhash_fallback' ) )
+            
+            self._fade_thumbnails.setChecked( self._new_options.GetBoolean( 'fade_thumbnails' ) )
             
             self._focus_preview_on_ctrl_click.setChecked( self._new_options.GetBoolean( 'focus_preview_on_ctrl_click' ) )
             self._focus_preview_on_ctrl_click_only_static.setChecked( self._new_options.GetBoolean( 'focus_preview_on_ctrl_click_only_static' ) )
@@ -4845,6 +4937,7 @@ class ManageOptionsPanel( ClientGUIScrolledPanels.ManagePanel ):
             rows.append( ( '  Only on files with no duration: ', self._focus_preview_on_shift_click_only_static ) )
             rows.append( ( 'Generate video thumbnails this % in: ', self._video_thumbnail_percentage_in ) )
             rows.append( ( 'Use blurhash missing thumbnail fallback: ', self._allow_blurhash_fallback ) )
+            rows.append( ( 'Fade thumbnails: ', self._fade_thumbnails ) )
             rows.append( ( 'Do not scroll down on key navigation if thumbnail at least this % visible: ', self._thumbnail_visibility_scroll_percent ) )
             rows.append( ( 'EXPERIMENTAL: Scroll thumbnails at this rate per scroll tick: ', self._thumbnail_scroll_rate ) )
             rows.append( ( 'EXPERIMENTAL: Image path for thumbnail panel background image (set blank to clear): ', self._media_background_bmp_path ) )
@@ -4886,6 +4979,8 @@ class ManageOptionsPanel( ClientGUIScrolledPanels.ManagePanel ):
             self._new_options.SetBoolean( 'focus_preview_on_shift_click_only_static', self._focus_preview_on_shift_click_only_static.isChecked() )
             
             self._new_options.SetBoolean( 'allow_blurhash_fallback', self._allow_blurhash_fallback.isChecked() )
+            
+            self._new_options.SetBoolean( 'fade_thumbnails', self._fade_thumbnails.isChecked() )
             
             try:
                 
@@ -5027,34 +5122,72 @@ class ManageURLsPanel( CAC.ApplicationCommandProcessorMixin, ClientGUIScrolledPa
         HG.client_controller.pub( 'clipboard', 'text', text )
         
     
-    def _EnterURL( self, url, only_add = False ):
+    def _EnterURLs( self, urls, only_add = False ):
         
-        normalised_url = HG.client_controller.network_engine.domain_manager.NormaliseURL( url )
+        normalised_urls = []
+        weird_urls = []
         
-        addee_media = set()
-        
-        for m in self._current_media:
+        for url in urls:
             
-            locations_manager = m.GetLocationsManager()
-            
-            if normalised_url not in locations_manager.GetURLs():
+            try:
                 
-                addee_media.add( m )
+                normalised_url = HG.client_controller.network_engine.domain_manager.NormaliseURL( url )
                 
-            
-        
-        if len( addee_media ) > 0:
-            
-            addee_hashes = { m.GetHash() for m in addee_media }
-            
-            content_update = HydrusData.ContentUpdate( HC.CONTENT_TYPE_URLS, HC.CONTENT_UPDATE_ADD, ( ( normalised_url, ), addee_hashes ) )
-            
-            for m in addee_media:
+                normalised_urls.append( normalised_url )
                 
-                m.GetMediaResult().ProcessContentUpdate( CC.COMBINED_LOCAL_FILE_SERVICE_KEY, content_update )
+            except HydrusExceptions.URLClassException:
+                
+                weird_urls.append( url )
                 
             
-            self._pending_content_updates.append( content_update )
+        
+        if len( weird_urls ) > 0:
+            
+            message = 'The URLs:'
+            message += '\n' * 2
+            message += '\n'.join( weird_urls )
+            message += '\n' * 2
+            message += '--did not parse. Normally I would not recommend importing invalid URLs, but do you want to force it anyway?'
+            
+            result = ClientGUIDialogsQuick.GetYesNo( self, message )
+            
+            if result != QW.QDialog.Accepted:
+                
+                return False
+                
+            
+            normalised_urls.extend( weird_urls )
+            
+        
+        normalised_urls = HydrusData.DedupeList( normalised_urls )
+        
+        for normalised_url in normalised_urls:
+            
+            addee_media = set()
+            
+            for m in self._current_media:
+                
+                locations_manager = m.GetLocationsManager()
+                
+                if normalised_url not in locations_manager.GetURLs():
+                    
+                    addee_media.add( m )
+                    
+                
+            
+            if len( addee_media ) > 0:
+                
+                addee_hashes = { m.GetHash() for m in addee_media }
+                
+                content_update = HydrusData.ContentUpdate( HC.CONTENT_TYPE_URLS, HC.CONTENT_UPDATE_ADD, ( ( normalised_url, ), addee_hashes ) )
+                
+                for m in addee_media:
+                    
+                    m.GetMediaResult().ProcessContentUpdate( CC.COMBINED_LOCAL_FILE_SERVICE_KEY, content_update )
+                    
+                
+                self._pending_content_updates.append( content_update )
+                
             
         
         #
@@ -5077,13 +5210,9 @@ class ManageURLsPanel( CAC.ApplicationCommandProcessorMixin, ClientGUIScrolledPa
         
         try:
             
-            for url in HydrusText.DeserialiseNewlinedTexts( raw_text ):
-                
-                if url != '':
-                    
-                    self._EnterURL( url, only_add = True )
-                    
-                
+            urls = HydrusText.DeserialiseNewlinedTexts( raw_text )
+            
+            self._EnterURLs( urls, only_add = True )
             
         except Exception as e:
             
@@ -5195,6 +5324,7 @@ class ManageURLsPanel( CAC.ApplicationCommandProcessorMixin, ClientGUIScrolledPa
         else:
             
             return True # was: event.ignore()
+            
         
     
     def AddURL( self ):
@@ -5209,7 +5339,7 @@ class ManageURLsPanel( CAC.ApplicationCommandProcessorMixin, ClientGUIScrolledPa
             
             try:
                 
-                self._EnterURL( url )
+                self._EnterURLs( [ url ] )
                 
                 self._url_input.clear()
                 

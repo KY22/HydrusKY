@@ -685,7 +685,7 @@ class EditDeleteFilesPanel( ClientGUIScrolledPanels.EditPanel ):
         
         #
         
-        ( file_service_key, list_of_service_keys_to_content_updates, save_reason, involves_physical_delete, description ) = self._action_radio.GetValue()
+        ( file_service_key, list_of_service_keys_to_content_updates, save_reason, hashes_physically_deleted, description ) = self._action_radio.GetValue()
         
         self._simple_description.setText( description )
         
@@ -811,6 +811,8 @@ class EditDeleteFilesPanel( ClientGUIScrolledPanels.EditPanel ):
     
     def _InitialisePermittedActionChoices( self ):
         
+        we_are_advanced_delete_dialog = HG.client_controller.new_options.GetBoolean( 'use_advanced_file_deletion_dialog' )
+        
         possible_file_service_keys = []
         
         local_file_services = list( HG.client_controller.services_manager.GetServices( ( HC.LOCAL_FILE_DOMAIN, ) ) )
@@ -820,7 +822,7 @@ class EditDeleteFilesPanel( ClientGUIScrolledPanels.EditPanel ):
         
         possible_file_service_keys.append( ( CC.TRASH_SERVICE_KEY, CC.COMBINED_LOCAL_FILE_SERVICE_KEY ) )
         
-        if HG.client_controller.new_options.GetBoolean( 'use_advanced_file_deletion_dialog' ):
+        if we_are_advanced_delete_dialog:
             
             possible_file_service_keys.append( ( CC.COMBINED_LOCAL_FILE_SERVICE_KEY, CC.COMBINED_LOCAL_FILE_SERVICE_KEY ) )
             
@@ -840,6 +842,8 @@ class EditDeleteFilesPanel( ClientGUIScrolledPanels.EditPanel ):
         possible_file_service_keys_and_hashes = [ ( fsk, keys_to_hashes[ fsk ] ) for fsk in possible_file_service_keys if fsk in keys_to_hashes and len( keys_to_hashes[ fsk ] ) > 0 ]
         
         self._num_actionable_local_file_services = len( local_file_service_keys.intersection( ( fsk[0] for ( fsk, hashes ) in possible_file_service_keys_and_hashes ) ) )
+        
+        possibilities_involve_spicy_physical_delete = False
         
         all_local_jobs = []
         num_local_services_done = 0
@@ -888,14 +892,14 @@ class EditDeleteFilesPanel( ClientGUIScrolledPanels.EditPanel ):
                 
                 save_reason = True
                 
-                involves_physical_delete = False
+                hashes_physically_deleted = []
                 
                 num_local_services_done += 1
                 
                 # this is an ugly place to put this, and the mickey-mouse append, but it works
                 if self._num_actionable_local_file_services > 1 and num_local_services_done == self._num_actionable_local_file_services:
                     
-                    self._permitted_action_choices.append( ( text, ( deletee_file_service_key, list_of_service_keys_to_content_updates, save_reason, involves_physical_delete, text ) ) )
+                    self._permitted_action_choices.append( ( text, ( deletee_file_service_key, list_of_service_keys_to_content_updates, save_reason, hashes_physically_deleted, text ) ) )
                     
                     deletee_file_service_key = CC.COMBINED_LOCAL_MEDIA_SERVICE_KEY
                     
@@ -911,7 +915,7 @@ class EditDeleteFilesPanel( ClientGUIScrolledPanels.EditPanel ):
                     
                     save_reason = True
                     
-                    involves_physical_delete = False
+                    hashes_physically_deleted = []
                     
                 
             elif deletee_service_type == HC.FILE_REPOSITORY:
@@ -948,10 +952,12 @@ class EditDeleteFilesPanel( ClientGUIScrolledPanels.EditPanel ):
                     
                     list_of_service_keys_to_content_updates = [ { deletee_file_service_key : content_updates } ]
                     
-                    involves_physical_delete = False
+                    hashes_physically_deleted = []
                     
                 
             elif deletee_file_service_key == CC.COMBINED_LOCAL_FILE_SERVICE_KEY:
+                
+                possibilities_involve_spicy_physical_delete = True
                 
                 # do a physical delete now, skipping or force-removing from trash
                 
@@ -985,13 +991,15 @@ class EditDeleteFilesPanel( ClientGUIScrolledPanels.EditPanel ):
                 
                 save_reason = True
                 
-                involves_physical_delete = True
+                hashes_physically_deleted = hashes
                 
             
-            self._permitted_action_choices.append( ( text, ( deletee_file_service_key, list_of_service_keys_to_content_updates, save_reason, involves_physical_delete, text ) ) )
+            self._permitted_action_choices.append( ( text, ( deletee_file_service_key, list_of_service_keys_to_content_updates, save_reason, hashes_physically_deleted, text ) ) )
             
         
-        if self._num_actionable_local_file_services == 1 and not HC.options[ 'confirm_trash' ]:
+        unnatural_spicy_physical_delete = possibilities_involve_spicy_physical_delete and not we_are_advanced_delete_dialog
+        
+        if self._num_actionable_local_file_services == 1 and not unnatural_spicy_physical_delete and not HC.options[ 'confirm_trash' ]:
             
             # this dialog will never show
             self._question_is_already_resolved = True
@@ -1028,9 +1036,9 @@ class EditDeleteFilesPanel( ClientGUIScrolledPanels.EditPanel ):
                 
                 save_reason = False
                 
-                involves_physical_delete = True
+                hashes_physically_deleted = hashes
                 
-                self._permitted_action_choices.append( ( text, ( 'clear_delete', list_of_service_keys_to_content_updates, save_reason, involves_physical_delete, text ) ) )
+                self._permitted_action_choices.append( ( text, ( 'clear_delete', list_of_service_keys_to_content_updates, save_reason, hashes_physically_deleted, text ) ) )
                 
             
         
@@ -1092,7 +1100,7 @@ class EditDeleteFilesPanel( ClientGUIScrolledPanels.EditPanel ):
     
     def _UpdateControls( self ):
         
-        ( file_service_key, list_of_service_keys_to_content_updates, save_reason, involves_physical_delete, description ) = self._action_radio.GetValue()
+        ( file_service_key, list_of_service_keys_to_content_updates, save_reason, hashes_physically_deleted, description ) = self._action_radio.GetValue()
         
         reason_permitted = save_reason
         
@@ -1124,9 +1132,7 @@ class EditDeleteFilesPanel( ClientGUIScrolledPanels.EditPanel ):
             return ( False, [] )
             
         
-        involves_physical_delete = False
-        
-        ( file_service_key, list_of_service_keys_to_content_updates, save_reason, involves_physical_delete, description ) = self._action_radio.GetValue()
+        ( file_service_key, list_of_service_keys_to_content_updates, save_reason, hashes_physically_deleted, description ) = self._action_radio.GetValue()
         
         if save_reason:
             
@@ -1190,7 +1196,7 @@ class EditDeleteFilesPanel( ClientGUIScrolledPanels.EditPanel ):
                 
             
         
-        return ( involves_physical_delete, list_of_service_keys_to_content_updates )
+        return ( hashes_physically_deleted, list_of_service_keys_to_content_updates )
         
     
     def QuestionIsAlreadyResolved( self ):

@@ -3,6 +3,7 @@ import os
 import re
 import threading
 import time
+import typing
 import urllib.parse
 
 from hydrus.core import HydrusGlobals as HG
@@ -74,6 +75,8 @@ class NetworkLoginManager( HydrusSerialisable.SerialisableBase ):
         
         self._login_script_keys_to_login_scripts = {}
         self._login_script_names_to_login_scripts = {}
+        
+        self._current_login_process: typing.Optional[ LoginProcess ] = None
         
         self._hydrus_login_script = LoginScriptHydrus()
         
@@ -324,11 +327,11 @@ class NetworkLoginManager( HydrusSerialisable.SerialisableBase ):
                 
                 if login_domain is None or not login_expected:
                     
-                    raise HydrusExceptions.ValidationException( 'The domain ' + login_domain + ' has no active login script--has it just been turned off?' )
+                    raise HydrusExceptions.ValidationException( f'The domain "{login_domain}" has no active login script--has it just been turned off?' )
                     
                 elif not login_possible:
                     
-                    raise HydrusExceptions.ValidationException( 'The domain ' + login_domain + ' cannot log in: ' + login_error_text )
+                    raise HydrusExceptions.ValidationException( f'The domain "{login_domain}" cannot log in: {login_error_text}' )
                     
                 
             elif network_context.context_type == CC.NETWORK_CONTEXT_HYDRUS:
@@ -354,6 +357,50 @@ class NetworkLoginManager( HydrusSerialisable.SerialisableBase ):
                     
                     raise HydrusExceptions.ValidationException( message )
                     
+                
+            
+        
+    
+    def CurrentlyNeedsLogin( self, network_context ):
+        
+        with self._lock:
+            
+            if self._current_login_process is not None and self._current_login_process.network_context == network_context:
+                
+                # this network context is currently being logged in, so yes, we still need to wait for that to finish
+                
+                return True
+                
+            
+            if network_context.context_type == CC.NETWORK_CONTEXT_DOMAIN:
+                
+                ( login_domain, login_expected, login_possible, login_error_text ) = self._GetLoginDomainStatus( network_context )
+                
+                if login_domain is None or not login_expected:
+                    
+                    return False # no login required, no problem
+                    
+                else:
+                    
+                    try:
+                        
+                        ( login_script, credentials ) = self._GetLoginScriptAndCredentials( login_domain )
+                        
+                    except HydrusExceptions.ValidationException:
+                        
+                        # couldn't find the script or something. assume we need a login to move errors forward to checkcanlogin trigger phase
+                        
+                        return True
+                        
+                    
+                    login_network_context = ClientNetworkingContexts.NetworkContext( context_type = CC.NETWORK_CONTEXT_DOMAIN, context_data = login_domain )
+                    
+                    return not login_script.IsLoggedIn( self.engine, login_network_context )
+                    
+                
+            elif network_context.context_type == CC.NETWORK_CONTEXT_HYDRUS:
+                
+                return not self._hydrus_login_script.IsLoggedIn( self.engine, network_context )
                 
             
         
@@ -529,43 +576,6 @@ class NetworkLoginManager( HydrusSerialisable.SerialisableBase ):
             
         
     
-    def NeedsLogin( self, network_context ):
-        
-        with self._lock:
-            
-            if network_context.context_type == CC.NETWORK_CONTEXT_DOMAIN:
-                
-                ( login_domain, login_expected, login_possible, login_error_text ) = self._GetLoginDomainStatus( network_context )
-                
-                if login_domain is None or not login_expected:
-                    
-                    return False # no login required, no problem
-                    
-                else:
-                    
-                    try:
-                        
-                        ( login_script, credentials ) = self._GetLoginScriptAndCredentials( login_domain )
-                        
-                    except HydrusExceptions.ValidationException:
-                        
-                        # couldn't find the script or something. assume we need a login to move errors forward to checkcanlogin trigger phase
-                        
-                        return True
-                        
-                    
-                    login_network_context = ClientNetworkingContexts.NetworkContext( context_type = CC.NETWORK_CONTEXT_DOMAIN, context_data = login_domain )
-                    
-                    return not login_script.IsLoggedIn( self.engine, login_network_context )
-                    
-                
-            elif network_context.context_type == CC.NETWORK_CONTEXT_HYDRUS:
-                
-                return not self._hydrus_login_script.IsLoggedIn( self.engine, network_context )
-                
-            
-        
-    
     def OverwriteDefaultLoginScripts( self, login_script_names ):
         
         with self._lock:
@@ -617,6 +627,12 @@ class NetworkLoginManager( HydrusSerialisable.SerialisableBase ):
             
             self._SetDirty()
             
+        
+    
+    def SetCurrentLoginProcess( self, login_process: typing.Optional[ "LoginProcess" ] ):
+        
+        self._current_login_process = login_process
+        
         
     
     def SetDomainsToLoginInfo( self, domains_to_login_info ):
@@ -904,6 +920,11 @@ class LoginProcess( object ):
         raise NotImplementedError()
         
     
+    def GetNetworkContext( self ):
+        
+        return self.network_context
+        
+    
     def IsDone( self ):
         
         return self._done
@@ -934,23 +955,23 @@ class LoginProcessDomain( LoginProcess ):
         
         login_domain = self.network_context.context_data
         
-        job_key = ClientThreading.JobKey( cancellable = True )
+        job_status = ClientThreading.JobStatus( cancellable = True )
         
-        job_key.SetStatusTitle( 'Logging in ' + login_domain )
+        job_status.SetStatusTitle( 'Logging in ' + login_domain )
         
-        HG.client_controller.pub( 'message', job_key )
+        HG.client_controller.pub( 'message', job_status )
         
         HydrusData.Print( 'Starting login for ' + login_domain )
         
-        result = self.login_script.Start( self.engine, self.network_context, self.credentials, job_key = job_key )
+        result = self.login_script.Start( self.engine, self.network_context, self.credentials, job_status = job_status )
         
         HydrusData.Print( 'Finished login for ' + self.network_context.context_data + '. Result was: ' + result )
         
-        job_key.SetStatusText( result )
+        job_status.SetStatusText( result )
         
-        job_key.Finish()
+        job_status.Finish()
         
-        job_key.Delete( 4 )
+        job_status.Delete( 4 )
         
     
 class LoginProcessHydrus( LoginProcess ):
@@ -1366,7 +1387,7 @@ class LoginScriptDomain( HydrusSerialisable.SerialisableBaseNamed ):
         self._name = name
         
     
-    def Start( self, engine, network_context, given_credentials, network_job_presentation_context_factory = None, test_result_callable = None, job_key = None ):
+    def Start( self, engine, network_context, given_credentials, network_job_presentation_context_factory = None, test_result_callable = None, job_status = None ):
         
         # don't mess with the domain--assume that we are given precisely the right domain
         
@@ -1378,9 +1399,9 @@ class LoginScriptDomain( HydrusSerialisable.SerialisableBaseNamed ):
         
         for login_step in self._login_steps:
             
-            if job_key is not None:
+            if job_status is not None:
                 
-                if job_key.IsCancelled():
+                if job_status.IsCancelled():
                     
                     message = 'User cancelled the login process.'
                     
@@ -1389,7 +1410,7 @@ class LoginScriptDomain( HydrusSerialisable.SerialisableBaseNamed ):
                     return message
                     
                 
-                job_key.SetStatusText( login_step.GetName() )
+                job_status.SetStatusText( login_step.GetName() )
                 
             
             try:

@@ -6,6 +6,7 @@ from hydrus.core import HydrusConstants as HC
 from hydrus.core import HydrusData
 from hydrus.core import HydrusExceptions
 from hydrus.core import HydrusGlobals as HG
+from hydrus.core import HydrusPSDHandling
 from hydrus.core import HydrusSerialisable
 from hydrus.core import HydrusTime
 
@@ -16,6 +17,40 @@ from hydrus.client.media import ClientMediaManagers
 from hydrus.client.media import ClientMediaResult
 from hydrus.client.metadata import ClientTags
 from hydrus.client.search import ClientSearch
+
+def CanDisplayMedia( media: "MediaSingleton" ) -> bool:
+    
+    if media is None:
+        
+        return False
+        
+    
+    media = media.GetDisplayMedia()
+    
+    if media is None:
+        
+        return False
+        
+    
+    locations_manager = media.GetLocationsManager()
+    
+    if not locations_manager.IsLocal():
+        
+        return False
+        
+    
+    # note width/height is None for audio etc..
+    
+    ( width, height ) = media.GetResolution()
+    
+    if width == 0 or height == 0: # we cannot display this gonked out svg
+        
+        return False
+        
+    
+    return True
+    
+
 
 def FilterServiceKeysToContentUpdates( full_service_keys_to_content_updates, hashes ):
     
@@ -115,6 +150,43 @@ def GetMediasTagCount( pool, tag_service_key, tag_display_type ):
     return GetTagsManagersTagCount( tags_managers, tag_service_key, tag_display_type )
     
 
+def GetShowAction( media: "MediaSingleton", canvas_type: int ):
+    
+    start_paused = False
+    start_with_embed = False
+    
+    bad_result = ( CC.MEDIA_VIEWER_ACTION_DO_NOT_SHOW, start_paused, start_with_embed )
+    
+    if media is None:
+        
+        return bad_result
+        
+    
+    mime = media.GetMime()
+    
+    if mime not in HC.ALLOWED_MIMES: # stopgap to catch a collection or application_unknown due to unusual import order/media moving
+        
+        return bad_result
+        
+    
+    if canvas_type == CC.CANVAS_PREVIEW:
+        
+        action =  HG.client_controller.new_options.GetPreviewShowAction( mime )
+        
+    else:
+        
+        action = HG.client_controller.new_options.GetMediaShowAction( mime )
+        
+    
+    if mime == HC.APPLICATION_PSD and action[0] == CC.MEDIA_VIEWER_ACTION_SHOW_WITH_NATIVE and not HydrusPSDHandling.PSD_TOOLS_OK:
+        
+        # fallback to open externally button when psd_tools not available 
+        action = ( CC.MEDIA_VIEWER_ACTION_SHOW_OPEN_EXTERNALLY_BUTTON, start_paused, start_with_embed )
+        
+    
+    return action
+    
+
 def GetTagsManagersTagCount( tags_managers, tag_service_key, tag_display_type ):
     
     current_tags_to_count = collections.Counter()
@@ -133,6 +205,18 @@ def GetTagsManagersTagCount( tags_managers, tag_service_key, tag_display_type ):
         
     
     return ( current_tags_to_count, deleted_tags_to_count, pending_tags_to_count, petitioned_tags_to_count )
+    
+
+def UserWantsUsToDisplayMedia( media: "MediaSingleton", canvas_type: int ) -> bool:
+    
+    ( media_show_action, media_start_paused, media_start_with_embed ) = GetShowAction( media, canvas_type )
+    
+    if media_show_action in ( CC.MEDIA_VIEWER_ACTION_DO_NOT_SHOW_ON_ACTIVATION_OPEN_EXTERNALLY, CC.MEDIA_VIEWER_ACTION_DO_NOT_SHOW ):
+        
+        return False
+        
+    
+    return True
     
 
 class Media( object ):
@@ -841,11 +925,7 @@ class MediaList( object ):
                 
                 if for_media_viewer:
                     
-                    new_options = HG.client_controller.new_options
-                    
-                    ( media_show_action, media_start_paused, media_start_with_embed ) = new_options.GetMediaShowAction( media.GetMime() )
-                    
-                    if media_show_action in ( CC.MEDIA_VIEWER_ACTION_DO_NOT_SHOW_ON_ACTIVATION_OPEN_EXTERNALLY, CC.MEDIA_VIEWER_ACTION_DO_NOT_SHOW ):
+                    if not UserWantsUsToDisplayMedia( media, CC.CANVAS_MEDIA_VIEWER ) or not CanDisplayMedia( media ):
                         
                         continue
                         
@@ -1057,10 +1137,10 @@ class MediaList( object ):
                 
                 if data_type == HC.CONTENT_TYPE_FILES:
                     
-                    if action == HC.CONTENT_UPDATE_DELETE:
+                    if action in ( HC.CONTENT_UPDATE_DELETE, HC.CONTENT_UPDATE_DELETE_FROM_SOURCE_AFTER_MIGRATE ):
                         
                         local_file_domains = HG.client_controller.services_manager.GetServiceKeys( ( HC.LOCAL_FILE_DOMAIN, ) )
-                        all_local_file_services = set( list( local_file_domains ) + [ CC.COMBINED_LOCAL_FILE_SERVICE_KEY, CC.COMBINED_LOCAL_MEDIA_SERVICE_KEY, CC.TRASH_SERVICE_KEY ] )
+                        all_local_file_services = set( list( local_file_domains ) + [ CC.COMBINED_LOCAL_FILE_SERVICE_KEY, CC.COMBINED_LOCAL_MEDIA_SERVICE_KEY, CC.TRASH_SERVICE_KEY, CC.LOCAL_UPDATE_SERVICE_KEY ] )
                         
                         #
                         
@@ -1844,28 +1924,27 @@ class MediaSingleton( Media ):
             
             lines.append( ( True, 'deleted from this client {} ({})'.format( ClientTime.TimestampToPrettyTimeDelta( timestamp ), local_file_deletion_reason ) ) )
             
-        elif len( deleted_local_file_services ) > 0:
+        elif CC.TRASH_SERVICE_KEY in current_service_keys:
             
-            if CC.TRASH_SERVICE_KEY in current_service_keys or not only_interesting_lines:
+            # I used to list these always as part of 'interesting' lines, but without the trash qualifier, you get spammy 'removed from x 5 years ago' lines for migrations. not helpful!
+            
+            for local_file_service in deleted_local_file_services:
                 
-                for local_file_service in deleted_local_file_services:
+                timestamp = timestamps_manager.GetDeletedTimestamp( local_file_service.GetServiceKey() )
+                
+                line = 'removed from {} {}'.format( local_file_service.GetName(), ClientTime.TimestampToPrettyTimeDelta( timestamp ) )
+                
+                if len( deleted_local_file_services ) == 1:
                     
-                    timestamp = timestamps_manager.GetDeletedTimestamp( local_file_service.GetServiceKey() )
-                    
-                    line = 'removed from {} {}'.format( local_file_service.GetName(), ClientTime.TimestampToPrettyTimeDelta( timestamp ) )
-                    
-                    if len( deleted_local_file_services ) == 1:
-                        
-                        line = f'{line} ({local_file_deletion_reason})'
-                        
-                    
-                    lines.append( ( True, line ) )
+                    line = f'{line} ({local_file_deletion_reason})'
                     
                 
-                if len( deleted_local_file_services ) > 1:
-                    
-                    lines.append( ( False, 'Deletion reason: {}'.format( local_file_deletion_reason ) ) )
-                    
+                lines.append( ( True, line ) )
+                
+            
+            if len( deleted_local_file_services ) > 1:
+                
+                lines.append( ( False, 'Deletion reason: {}'.format( local_file_deletion_reason ) ) )
                 
             
         
@@ -1947,6 +2026,31 @@ class MediaSingleton( Media ):
                 
             
             lines.append( ( True, '{} to {} {}'.format( status_label, service.GetName(), ClientTime.TimestampToPrettyTimeDelta( timestamp ) ) ) )
+            
+        
+        if self.GetFileInfoManager().has_audio:
+            
+            lines.append( ( False, 'has audio' ) )
+            
+        
+        if self.GetFileInfoManager().has_transparency:
+            
+            lines.append( ( False, 'has transparency' ) )
+            
+        
+        if self.GetFileInfoManager().has_exif:
+            
+            lines.append( ( False, 'has exif data' ) )
+            
+        
+        if self.GetFileInfoManager().has_human_readable_embedded_metadata:
+            
+            lines.append( ( False, 'has human-readable embedded metadata' ) )
+            
+        
+        if self.GetFileInfoManager().has_icc_profile:
+            
+            lines.append( ( False, 'has icc profile' ) )
             
         
         lines = [ line for ( interesting, line ) in lines if interesting or not only_interesting_lines ]
@@ -2697,6 +2801,37 @@ class MediaSort( HydrusSerialisable.SerialisableBase ):
         return '{}, {}'.format( sort_type_string, sort_order_string )
         
     
+    def ToDictForAPI( self ):
+
+        ( sort_metatype, sort_data ) = self.sort_type
+
+        data = {
+            'sort_metatype' : sort_metatype,
+            'sort_order' : self.sort_order,
+            'tag_context': self.tag_context.ToDictForAPI(),
+        }
+
+        if sort_metatype == 'system':
+            
+            data[ 'sort_type' ] = sort_data
+            
+        elif sort_metatype == 'namespaces':
+            
+            (namespaces, tag_display_type) = sort_data
+
+            data[ 'namespaces' ] = self.GetNamespaces()
+            data[ 'tag_display_type' ] = tag_display_type
+            
+        elif sort_metatype == 'rating':
+            
+            service_key = sort_data
+            
+            data[ 'service_key' ] = service_key.hex()
+        
+        return data
+        
+    
+
 HydrusSerialisable.SERIALISABLE_TYPES_TO_OBJECT_TYPES[ HydrusSerialisable.SERIALISABLE_TYPE_MEDIA_SORT ] = MediaSort
 
 class SortedList( object ):

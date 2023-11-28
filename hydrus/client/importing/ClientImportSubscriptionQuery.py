@@ -339,7 +339,7 @@ class SubscriptionQueryHeader( HydrusSerialisable.SerialisableBase ):
             
             nj.engine = network_engine
             
-            if nj.NeedsLogin():
+            if nj.CurrentlyNeedsLogin():
                 
                 try:
                     
@@ -389,7 +389,7 @@ class SubscriptionQueryHeader( HydrusSerialisable.SerialisableBase ):
             
             nj.engine = network_engine
             
-            if nj.NeedsLogin():
+            if nj.CurrentlyNeedsLogin():
                 
                 try:
                     
@@ -482,6 +482,10 @@ class SubscriptionQueryHeader( HydrusSerialisable.SerialisableBase ):
         elif self._checker_status == ClientImporting.CHECKER_STATUS_DEAD:
             
             return 'dead, so not checking'
+            
+        elif self._query_log_container_status == LOG_CONTAINER_UNSYNCED:
+            
+            return 'will recalculate when next fully loaded'
             
         else:
             
@@ -781,9 +785,9 @@ class SubscriptionQueryHeader( HydrusSerialisable.SerialisableBase ):
                     
                 
             
-            last_next_check_time = self._next_check_time
+            previous_next_check_time = self._next_check_time
             
-            self._next_check_time = checker_options.GetNextCheckTime( file_seed_cache, self._last_check_time, last_next_check_time )
+            self._next_check_time = checker_options.GetNextCheckTime( file_seed_cache, self._last_check_time, previous_next_check_time )
             
         
         self._raw_file_velocity = checker_options.GetRawCurrentVelocity( file_seed_cache, self._last_check_time )

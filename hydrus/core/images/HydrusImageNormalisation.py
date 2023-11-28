@@ -22,6 +22,15 @@ def DequantizeFreshlyLoadedNumPyImage( numpy_image: numpy.array ) -> numpy.array
         
         numpy_image = numpy.array( numpy_image // 256, dtype = 'uint8' )
         
+    elif numpy_image.dtype == 'int16':
+        
+        numpy_image = numpy.array( ( numpy_image + 32768 ) // 256, dtype = 'uint8' )
+        
+    elif numpy_image.dtype != 'uint8':
+        
+        # this is hacky and is applying some crazy old-school flickr HDR to minmax our range, but it basically works
+        numpy_image = cv2.normalize( numpy_image, None, 0, 255, cv2.NORM_MINMAX, dtype = cv2.CV_8U )
+        
     
     shape = numpy_image.shape
     
@@ -88,7 +97,7 @@ def NormaliseICCProfilePILImageToSRGB( pil_image: PILImage.Image ) -> PILImage.I
         
         src_profile = PILImageCms.ImageCmsProfile( f )
         
-        if pil_image.mode in ( 'L', 'LA' ):
+        if pil_image.mode in ( 'L', 'LA', 'P' ):
             
             # had a bunch of LA pngs that turned pure white on RGBA ICC conversion
             # but seem to work fine if keep colourspace the same for now
@@ -122,8 +131,6 @@ def NormaliseICCProfilePILImageToSRGB( pil_image: PILImage.Image ) -> PILImage.I
         
         pass
         
-    
-    pil_image = NormalisePILImageToRGB( pil_image )
     
     return pil_image
     
@@ -224,7 +231,9 @@ def StripOutAnyUselessAlphaChannel( numpy_image: numpy.array ) -> numpy.array:
     
     if HydrusImageColours.NumPyImageHasUselessAlphaChannel( numpy_image ):
         
-        numpy_image = numpy_image[:,:,:3].copy()
+        channel_number = HydrusImageColours.GetNumPyAlphaChannelNumber( numpy_image )
+        
+        numpy_image = numpy_image[:,:,:channel_number].copy()
         
         # old way, which doesn't actually remove the channel lmao lmao lmao
         '''

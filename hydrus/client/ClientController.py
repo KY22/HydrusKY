@@ -19,44 +19,21 @@ from hydrus.core import HydrusData
 from hydrus.core import HydrusExceptions
 from hydrus.core import HydrusGlobals as HG
 from hydrus.core import HydrusSerialisable
-from hydrus.core import HydrusTemp
 from hydrus.core import HydrusThreading
 from hydrus.core import HydrusTime
-from hydrus.core import HydrusVideoHandling
-from hydrus.core.networking import HydrusNetwork
 from hydrus.core.networking import HydrusNetworking
 
-from hydrus.client import ClientAPI
 from hydrus.client import ClientConstants as CC
 from hydrus.client import ClientDaemons
-from hydrus.client import ClientDBMaintenanceManager
 from hydrus.client import ClientDefaults
-from hydrus.client import ClientDownloading
 from hydrus.client import ClientFiles
-from hydrus.client import ClientManagers
 from hydrus.client import ClientOptions
 from hydrus.client import ClientServices
 from hydrus.client import ClientThreading
-from hydrus.client import ClientTime
 from hydrus.client.caches import ClientCaches
 from hydrus.client.db import ClientDB
-from hydrus.client.gui import ClientGUI
-from hydrus.client.gui import ClientGUIDialogs
-from hydrus.client.gui import ClientGUIScrolledPanelsManagement
 from hydrus.client.gui import ClientGUISplash
-from hydrus.client.gui import ClientGUIStyle
-from hydrus.client.gui import ClientGUITopLevelWindowsPanels
-from hydrus.client.gui import QtInit
 from hydrus.client.gui import QtPorting as QP
-from hydrus.client.gui.lists import ClientGUIListManager
-from hydrus.client.importing import ClientImportSubscriptions
-from hydrus.client.metadata import ClientTagsHandling
-from hydrus.client.networking import ClientNetworking
-from hydrus.client.networking import ClientNetworkingBandwidth
-from hydrus.client.networking import ClientNetworkingDomain
-from hydrus.client.networking import ClientNetworkingLogin
-from hydrus.client.networking import ClientNetworkingSessions
-from hydrus.client.search import ClientSearch
 
 if not HG.twisted_is_broke:
     
@@ -308,19 +285,19 @@ class Controller( HydrusController.HydrusController ):
     
     def _ShowJustWokeToUser( self ):
         
-        def do_it( job_key: ClientThreading.JobKey ):
+        def do_it( job_status: ClientThreading.JobStatus ):
             
             while not HG.started_shutdown:
                 
                 with self._sleep_lock:
                     
-                    if job_key.IsCancelled():
+                    if job_status.IsCancelled():
                         
                         self.TouchTimestamp( 'now_awake' )
                         
-                        job_key.SetStatusText( 'enabling I/O now' )
+                        job_status.SetStatusText( 'enabling I/O now' )
                         
-                        job_key.Delete()
+                        job_status.Delete()
                         
                         return
                         
@@ -330,26 +307,26 @@ class Controller( HydrusController.HydrusController ):
                 
                 if HydrusTime.TimeHasPassed( wake_time ):
                     
-                    job_key.Delete()
+                    job_status.Delete()
                     
                     return
                     
                 else:
                     
-                    job_key.SetStatusText( 'enabling I/O {}'.format( HydrusTime.TimestampToPrettyTimeDelta( wake_time, just_now_threshold = 0 ) ) )
+                    job_status.SetStatusText( 'enabling I/O {}'.format( HydrusTime.TimestampToPrettyTimeDelta( wake_time, just_now_threshold = 0 ) ) )
                     
                 
                 time.sleep( 0.5 )
                 
             
         
-        job_key = ClientThreading.JobKey( cancellable = True )
+        job_status = ClientThreading.JobStatus( cancellable = True )
         
-        job_key.SetStatusTitle( 'just woke up from sleep' )
+        job_status.SetStatusTitle( 'just woke up from sleep' )
         
-        self.pub( 'message', job_key )
+        self.pub( 'message', job_status )
         
-        self.CallToThread( do_it, job_key )
+        self.CallToThread( do_it, job_status )
         
     
     def _ShutdownManagers( self ):
@@ -408,7 +385,7 @@ class Controller( HydrusController.HydrusController ):
     
     def CallBlockingToQt( self, win, func, *args, **kwargs ):
         
-        def qt_code( win: QW.QWidget, job_key: ClientThreading.JobKey ):
+        def qt_code( win: QW.QWidget, job_status: ClientThreading.JobStatus ):
             
             try:
                 
@@ -426,32 +403,32 @@ class Controller( HydrusController.HydrusController ):
                 
                 result = func( *args, **kwargs )
                 
-                job_key.SetVariable( 'result', result )
+                job_status.SetVariable( 'result', result )
                 
             except ( HydrusExceptions.QtDeadWindowException, HydrusExceptions.DBCredentialsException, HydrusExceptions.ShutdownException, HydrusExceptions.CancelledException ) as e:
                 
-                job_key.SetErrorException( e )
+                job_status.SetErrorException( e )
                 
             except Exception as e:
                 
-                job_key.SetErrorException( e )
+                job_status.SetErrorException( e )
                 
                 HydrusData.Print( 'CallBlockingToQt just caught this error:' )
                 HydrusData.DebugPrint( traceback.format_exc() )
                 
             finally:
                 
-                job_key.Finish()
+                job_status.Finish()
                 
             
         
-        job_key = ClientThreading.JobKey( cancel_on_shutdown = False )
+        job_status = ClientThreading.JobStatus( cancel_on_shutdown = False )
         
-        QP.CallAfter( qt_code, win, job_key )
+        QP.CallAfter( qt_code, win, job_status )
         
         i = 0
         
-        while not job_key.IsDone() and i < 8:
+        while not job_status.IsDone() and i < 8:
             
             time.sleep( 0.02 )
             
@@ -462,7 +439,7 @@ class Controller( HydrusController.HydrusController ):
         # but I also don't want a hang, as we have seen with some GUI async job that got fired on shutdown and it seems some event queue was halted or deadlocked
         # so, we'll give it 16ms to work, then we'll start testing for shutdown hang
         
-        while not job_key.IsDone():
+        while not job_status.IsDone():
             
             if HG.model_shutdown or not self._qt_app_running:
                 
@@ -472,18 +449,18 @@ class Controller( HydrusController.HydrusController ):
             time.sleep( 0.02 )
             
         
-        if job_key.HasVariable( 'result' ):
+        if job_status.HasVariable( 'result' ):
             
             # result can be None, for qt_code that has no return variable
             
-            result = job_key.GetIfHasVariable( 'result' )
+            result = job_status.GetIfHasVariable( 'result' )
             
             return result
             
         
-        if job_key.HadError():
+        if job_status.HadError():
             
-            e = job_key.GetErrorException()
+            e = job_status.GetErrorException()
             
             raise e
             
@@ -978,7 +955,11 @@ class Controller( HydrusController.HydrusController ):
         
         def qt_code( missing_subfolders ):
             
+            from hydrus.client.gui import ClientGUITopLevelWindowsPanels
+            
             with ClientGUITopLevelWindowsPanels.DialogManage( None, 'repair file system' ) as dlg:
+                
+                from hydrus.client.gui import ClientGUIScrolledPanelsManagement
                 
                 panel = ClientGUIScrolledPanelsManagement.RepairFileSystemPanel( dlg, missing_subfolders )
                 
@@ -1001,8 +982,6 @@ class Controller( HydrusController.HydrusController ):
         
         self.client_files_manager = ClientFiles.ClientFilesManager( self )
         
-        self.files_maintenance_manager = ClientFiles.FilesMaintenanceManager( self )
-        
         missing_subfolders = self.client_files_manager.GetMissingSubfolders()
         
         while len( missing_subfolders ) > 0:
@@ -1012,6 +991,8 @@ class Controller( HydrusController.HydrusController ):
         
     
     def InitModel( self ):
+        
+        from hydrus.client import ClientManagers
         
         self.frame_splash_status.SetTitleText( 'booting db' + HC.UNICODE_ELLIPSIS )
         
@@ -1025,6 +1006,8 @@ class Controller( HydrusController.HydrusController ):
         HC.options = self.options
         
         if self.new_options.GetBoolean( 'use_system_ffmpeg' ):
+            
+            from hydrus.core import HydrusVideoHandling
             
             if HydrusVideoHandling.FFMPEG_PATH.startswith( HC.BIN_DIR ):
                 
@@ -1049,6 +1032,8 @@ class Controller( HydrusController.HydrusController ):
         self.services_manager = ClientServices.ServicesManager( self )
         
         # important this happens before repair, as repair dialog has a column list lmao
+        
+        from hydrus.client.gui.lists import ClientGUIListManager
         
         column_list_manager = self.Read( 'serialisable', HydrusSerialisable.SERIALISABLE_TYPE_COLUMN_LIST_MANAGER )
         
@@ -1078,6 +1063,8 @@ class Controller( HydrusController.HydrusController ):
         
         self.parsing_cache = ClientCaches.ParsingCache()
         
+        from hydrus.client import ClientAPI
+        
         client_api_manager = self.Read( 'serialisable', HydrusSerialisable.SERIALISABLE_TYPE_CLIENT_API_MANAGER )
         
         if client_api_manager is None:
@@ -1090,6 +1077,8 @@ class Controller( HydrusController.HydrusController ):
             
         
         self.client_api_manager = client_api_manager
+        
+        from hydrus.client.networking import ClientNetworkingBandwidth
         
         bandwidth_manager = self.Read( 'serialisable', HydrusSerialisable.SERIALISABLE_TYPE_NETWORK_BANDWIDTH_MANAGER )
         
@@ -1108,6 +1097,8 @@ class Controller( HydrusController.HydrusController ):
             self.SafeShowCriticalMessage( 'Problem loading object', 'Your bandwidth manager was missing on boot! I have recreated a new one. It may have your bandwidth record, but some/all may be missing. Your rules have been reset to default. Please check that your hard drive and client are ok and let the hydrus dev know the details if there is a mystery.' )
             
         
+        from hydrus.client.networking import ClientNetworkingSessions
+        
         session_manager = self.Read( 'serialisable', HydrusSerialisable.SERIALISABLE_TYPE_NETWORK_SESSION_MANAGER )
         
         if session_manager is None:
@@ -1122,6 +1113,8 @@ class Controller( HydrusController.HydrusController ):
             
             self.SafeShowCriticalMessage( 'Problem loading object', 'Your session manager was missing on boot! I have recreated a new one. It may have your sessions, or some/all may be missing. Please check that your hard drive and client are ok and let the hydrus dev know the details if there is a mystery.' )
             
+        
+        from hydrus.client.networking import ClientNetworkingDomain
         
         domain_manager = self.Read( 'serialisable', HydrusSerialisable.SERIALISABLE_TYPE_NETWORK_DOMAIN_MANAGER )
         
@@ -1138,6 +1131,8 @@ class Controller( HydrusController.HydrusController ):
         
         domain_manager.Initialise()
         
+        from hydrus.client.networking import ClientNetworkingLogin
+        
         login_manager = self.Read( 'serialisable', HydrusSerialisable.SERIALISABLE_TYPE_NETWORK_LOGIN_MANAGER )
         
         if login_manager is None:
@@ -1153,11 +1148,15 @@ class Controller( HydrusController.HydrusController ):
         
         login_manager.Initialise()
         
+        from hydrus.client.networking import ClientNetworking
+        
         self.network_engine = ClientNetworking.NetworkEngine( self, bandwidth_manager, session_manager, domain_manager, login_manager )
         
         self.CallToThreadLongRunning( self.network_engine.MainLoop )
         
         #
+        
+        from hydrus.client import ClientDownloading
         
         self.quick_download_manager = ClientDownloading.QuickDownloadManager( self )
         
@@ -1174,6 +1173,8 @@ class Controller( HydrusController.HydrusController ):
         self.frame_splash_status.SetSubtext( 'tag display' )
         
         # note that this has to be made before siblings/parents managers, as they rely on it
+        
+        from hydrus.client.metadata import ClientTagsHandling
         
         tag_display_manager = self.Read( 'serialisable', HydrusSerialisable.SERIALISABLE_TYPE_TAG_DISPLAY_MANAGER )
         
@@ -1195,6 +1196,8 @@ class Controller( HydrusController.HydrusController ):
         #
         
         self.frame_splash_status.SetSubtext( 'favourite searches' )
+        
+        from hydrus.client.search import ClientSearch
         
         favourite_search_manager = self.Read( 'serialisable', HydrusSerialisable.SERIALISABLE_TYPE_FAVOURITE_SEARCH_MANAGER )
         
@@ -1228,6 +1231,8 @@ class Controller( HydrusController.HydrusController ):
                 
                 while True:
                     
+                    from hydrus.client.gui import ClientGUIDialogs
+                    
                     with ClientGUIDialogs.DialogTextEntry( self._splash, 'Enter your password.', allow_blank = False, password_entry = True, min_char_width = 24 ) as dlg:
                         
                         if dlg.exec() == QW.QDialog.Accepted:
@@ -1254,17 +1259,19 @@ class Controller( HydrusController.HydrusController ):
         
         subscriptions = HG.client_controller.Read( 'serialisable_named', HydrusSerialisable.SERIALISABLE_TYPE_SUBSCRIPTION )
         
+        self.files_maintenance_manager = ClientFiles.FilesMaintenanceManager( self )
+        
+        from hydrus.client import ClientDBMaintenanceManager
+        
+        self.database_maintenance_manager = ClientDBMaintenanceManager.DatabaseMaintenanceManager( self )
+        
+        from hydrus.client.importing import ClientImportSubscriptions
+        
         self.subscriptions_manager = ClientImportSubscriptions.SubscriptionsManager( self, subscriptions )
         
-        def qt_code_gui():
+        def qt_code_style():
             
-            shortcut_sets = HG.client_controller.Read( 'serialisable_named', HydrusSerialisable.SERIALISABLE_TYPE_SHORTCUT_SET )
-            
-            from hydrus.client.gui import ClientGUIShortcuts
-            
-            ClientGUIShortcuts.ShortcutsManager( shortcut_sets = shortcut_sets )
-            
-            ClientGUIShortcuts.SetMouseLabels( self.new_options.GetBoolean( 'call_mouse_buttons_primary_secondary' ) )
+            from hydrus.client.gui import ClientGUIStyle
             
             ClientGUIStyle.InitialiseDefaults()
             
@@ -1300,6 +1307,31 @@ class Controller( HydrusController.HydrusController ):
                     
                 
             
+        
+        self.CallBlockingToQt( self._splash, qt_code_style )
+        
+        def qt_code_pregui():
+            
+            shortcut_sets = HG.client_controller.Read( 'serialisable_named', HydrusSerialisable.SERIALISABLE_TYPE_SHORTCUT_SET )
+            
+            from hydrus.client.gui import ClientGUIShortcuts
+            
+            ClientGUIShortcuts.ShortcutsManager( shortcut_sets = shortcut_sets )
+            
+            ClientGUIShortcuts.SetMouseLabels( self.new_options.GetBoolean( 'call_mouse_buttons_primary_secondary' ) )
+            
+        
+        self.CallBlockingToQt( self._splash, qt_code_pregui )
+        
+        from hydrus.client.gui import ClientGUIPopupMessages
+        
+        # got to keep this before gui instantiation, since it uses it
+        self.job_status_popup_queue = ClientGUIPopupMessages.JobStatusPopupQueue()
+        
+        def qt_code_gui():
+            
+            from hydrus.client.gui import ClientGUI
+            
             self.gui = ClientGUI.FrameGUI( self )
             
             self.ResetIdleTimer()
@@ -1307,19 +1339,13 @@ class Controller( HydrusController.HydrusController ):
         
         self.CallBlockingToQt( self._splash, qt_code_gui )
         
-        # ShowText will now popup as a message, as popup message manager has overwritten the hooks
+        # ShowText will hereafter popup as a message, as the GUI's popup message manager has overwritten the hooks
         
         HydrusController.HydrusController.InitView( self )
-        
-        self.database_maintenance_manager = ClientDBMaintenanceManager.DatabaseMaintenanceManager( self )
-        
-        self.database_maintenance_manager.Start()
         
         self._service_keys_to_connected_ports = {}
         
         self.RestartClientServerServices()
-        
-        self.files_maintenance_manager.Start()
         
         job = self.CallRepeatingQtSafe( self, 10.0, 10.0, 'repeating mouse idle check', self.CheckMouseIdle )
         self._daemon_jobs[ 'check_mouse_idle' ] = job
@@ -1526,6 +1552,8 @@ class Controller( HydrusController.HydrusController ):
         job.WakeOnPubSub( 'notify_network_traffic_unpaused' )
         self._daemon_jobs[ 'synchronise_accounts' ] = job
         
+        from hydrus.core.networking import HydrusNetwork
+        
         job = self.CallRepeating( 5.0, HydrusNetwork.UPDATE_CHECKING_PERIOD, self.SynchroniseRepositories )
         job.ShouldDelayOnWakeup( True )
         job.WakeOnPubSub( 'notify_restart_repo_sync' )
@@ -1566,6 +1594,8 @@ class Controller( HydrusController.HydrusController ):
         job.ShouldDelayOnWakeup( True )
         self._daemon_jobs[ 'maintain_hashed_serialisables' ] = job
         
+        self.files_maintenance_manager.Start()
+        self.database_maintenance_manager.Start()
         self.subscriptions_manager.Start()
         
     
@@ -1620,6 +1650,8 @@ class Controller( HydrusController.HydrusController ):
         
     
     def Run( self ):
+        
+        from hydrus.client.gui import QtInit
         
         QtInit.MonkeyPatchMissingMethods()
         

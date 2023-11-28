@@ -309,8 +309,6 @@ class DB( HydrusDB.HydrusDB ):
         
         names_to_analyze = [ name for name in all_names if name not in existing_names_to_timestamps or HydrusTime.TimeHasPassed( existing_names_to_timestamps[ name ] + stale_time_delta ) ]
         
-        random.shuffle( names_to_analyze )
-        
         if len( names_to_analyze ) > 0:
             
             locked = HG.server_busy.acquire( False ) # pylint: disable=E1111
@@ -322,7 +320,7 @@ class DB( HydrusDB.HydrusDB ):
             
             try:
                 
-                for name in names_to_analyze:
+                for name in HydrusData.IterateListRandomlyAndFast( names_to_analyze ):
                     
                     started = HydrusTime.GetNowPrecise()
                     
@@ -1932,11 +1930,6 @@ class DB( HydrusDB.HydrusDB ):
     
     def _RepositoryConvertPetitionIdsToSummary( self, content_type: int, status: int, petition_ids: typing.Collection[ typing.Tuple[ int, int ] ], limit: int ) -> typing.List[ HydrusNetwork.PetitionHeader ]:
         
-        if len( petition_ids ) == 0:
-            
-            raise HydrusExceptions.NotFoundException( 'No petitions!' )
-            
-        
         if len( petition_ids ) > limit:
             
             # we don't want a random sample, we want to sample grouped by account id, so let's be a bit more clever about it
@@ -1949,9 +1942,7 @@ class DB( HydrusDB.HydrusDB ):
             
             petition_account_ids = list( petitioner_account_ids_to_reason_ids.keys() )
             
-            random.shuffle( petition_account_ids )
-            
-            for petition_account_id in petition_account_ids:
+            for petition_account_id in HydrusData.IterateListRandomlyAndFast( petition_account_ids ):
                 
                 reason_ids = petitioner_account_ids_to_reason_ids[ petition_account_id ]
                 
@@ -3018,32 +3009,13 @@ class DB( HydrusDB.HydrusDB ):
         
         contents = []
         
-        petition_namespace = None
-        
         petition_pairs = list( tag_ids_to_hash_ids.items() )
         
-        random.shuffle( petition_pairs )
-        
-        for ( service_tag_id, service_hash_ids ) in petition_pairs:
+        for ( service_tag_id, service_hash_ids ) in HydrusData.IterateListRandomlyAndFast( petition_pairs ):
             
             master_tag_id = self._RepositoryGetMasterTagId( service_id, service_tag_id )
             
             tag = self._GetTag( master_tag_id )
-            
-            # taking this out for now. it is confusing when you look at counts
-            '''
-            ( namespace, subtag ) = HydrusTags.SplitTag( tag )
-            
-            if petition_namespace is None:
-                
-                petition_namespace = namespace
-                
-            
-            if namespace != petition_namespace:
-                
-                continue
-                
-            '''
             
             master_hash_ids = self._RepositoryGetMasterHashIds( service_id, service_hash_ids )
             
@@ -4187,21 +4159,15 @@ class DB( HydrusDB.HydrusDB ):
                     
                     table_join = self._RepositoryGetFilesInfoFilesTableJoin( service_id, HC.CONTENT_STATUS_CURRENT )
                     
-                    ( total_current_storage, ) = self._Execute( 'SELECT SUM( size ) FROM ' + table_join + ';' ).fetchone()
+                    result = self._Execute( 'SELECT SUM( size ) FROM ' + table_join + ';' ).fetchone()
                     
-                    if total_current_storage is None:
-                        
-                        total_current_storage = 0
-                        
+                    total_current_storage = self._GetSumResult( result )
                     
                     table_join = self._RepositoryGetFilesInfoFilesTableJoin( service_id, HC.CONTENT_STATUS_PENDING )
                     
-                    ( total_pending_storage, ) = self._Execute( 'SELECT SUM( size ) FROM ' + table_join + ';' ).fetchone()
+                    result = self._Execute( 'SELECT SUM( size ) FROM ' + table_join + ';' ).fetchone()
                     
-                    if total_pending_storage is None:
-                        
-                        total_pending_storage = 0
-                        
+                    total_pending_storage = self._GetSumResult( result )
                     
                     if total_current_storage + total_pending_storage + file_dict[ 'size' ] > max_storage:
                         

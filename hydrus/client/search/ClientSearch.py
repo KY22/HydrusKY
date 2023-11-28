@@ -64,11 +64,12 @@ PREDICATE_TYPE_SYSTEM_HAS_ICC_PROFILE = 41
 PREDICATE_TYPE_SYSTEM_TIME = 42
 PREDICATE_TYPE_SYSTEM_LAST_VIEWED_TIME = 43
 PREDICATE_TYPE_SYSTEM_HAS_HUMAN_READABLE_EMBEDDED_METADATA = 44
-PREDICATE_TYPE_SYSTEM_EMBEDDED_METADATA = 45
+PREDICATE_TYPE_SYSTEM_FILE_PROPERTIES = 45
 PREDICATE_TYPE_SYSTEM_HAS_EXIF = 46
 PREDICATE_TYPE_SYSTEM_ARCHIVED_TIME = 47
 PREDICATE_TYPE_SYSTEM_SIMILAR_TO_DATA = 48
 PREDICATE_TYPE_SYSTEM_SIMILAR_TO = 49
+PREDICATE_TYPE_SYSTEM_HAS_TRANSPARENCY = 50
 
 SYSTEM_PREDICATE_TYPES = {
     PREDICATE_TYPE_SYSTEM_EVERYTHING,
@@ -90,7 +91,8 @@ SYSTEM_PREDICATE_TYPES = {
     PREDICATE_TYPE_SYSTEM_FRAMERATE,
     PREDICATE_TYPE_SYSTEM_NUM_FRAMES,
     PREDICATE_TYPE_SYSTEM_HAS_AUDIO,
-    PREDICATE_TYPE_SYSTEM_EMBEDDED_METADATA,
+    PREDICATE_TYPE_SYSTEM_FILE_PROPERTIES,
+    PREDICATE_TYPE_SYSTEM_HAS_TRANSPARENCY,
     PREDICATE_TYPE_SYSTEM_HAS_EXIF,
     PREDICATE_TYPE_SYSTEM_HAS_HUMAN_READABLE_EMBEDDED_METADATA,
     PREDICATE_TYPE_SYSTEM_HAS_ICC_PROFILE,
@@ -449,6 +451,13 @@ class FileSystemPredicates( object ):
                 has_audio = value
                 
                 self._common_info[ 'has_audio' ] = has_audio
+                
+            
+            if predicate_type == PREDICATE_TYPE_SYSTEM_HAS_TRANSPARENCY:
+                
+                has_transparency = value
+                
+                self._common_info[ 'has_transparency' ] = has_transparency
                 
             
             if predicate_type == PREDICATE_TYPE_SYSTEM_HAS_EXIF:
@@ -1294,6 +1303,16 @@ class TagContext( HydrusSerialisable.SerialisableBase ):
         return name_method( self.service_key )
         
     
+    def ToDictForAPI( self ):
+        
+        return {
+            'service_key' : self.service_key.hex(), 
+            'include_current_tags' : self.include_current_tags, 
+            'include_pending_tags' : self.include_pending_tags, 
+            'display_service_key' : self.display_service_key.hex()
+        }
+        
+    
 
 HydrusSerialisable.SERIALISABLE_TYPES_TO_OBJECT_TYPES[ HydrusSerialisable.SERIALISABLE_TYPE_tag_context ] = TagContext
 
@@ -2123,9 +2142,28 @@ class Predicate( HydrusSerialisable.SerialisableBase ):
             
             return Predicate( self._predicate_type, self._value, not self._inclusive )
             
-        elif self._predicate_type in ( PREDICATE_TYPE_SYSTEM_HAS_AUDIO, PREDICATE_TYPE_SYSTEM_HAS_EXIF, PREDICATE_TYPE_SYSTEM_HAS_HUMAN_READABLE_EMBEDDED_METADATA, PREDICATE_TYPE_SYSTEM_HAS_ICC_PROFILE ):
+        elif self._predicate_type in ( PREDICATE_TYPE_SYSTEM_HAS_AUDIO, PREDICATE_TYPE_SYSTEM_HAS_TRANSPARENCY, PREDICATE_TYPE_SYSTEM_HAS_EXIF, PREDICATE_TYPE_SYSTEM_HAS_HUMAN_READABLE_EMBEDDED_METADATA, PREDICATE_TYPE_SYSTEM_HAS_ICC_PROFILE ):
             
             return Predicate( self._predicate_type, not self._value )
+            
+        elif self._predicate_type in ( PREDICATE_TYPE_SYSTEM_NUM_NOTES, PREDICATE_TYPE_SYSTEM_NUM_WORDS, PREDICATE_TYPE_SYSTEM_NUM_FRAMES, PREDICATE_TYPE_SYSTEM_DURATION ):
+            
+            ( operator, value ) = self._value
+            
+            number_test = NumberTest.STATICCreateFromCharacters( operator, value )
+            
+            if number_test.IsZero():
+                
+                return Predicate( self._predicate_type, ( '>', 0 ) )
+                
+            elif number_test.IsAnythingButZero():
+                
+                return Predicate( self._predicate_type, ( '=', 0 ) )
+                
+            else:
+                
+                return None
+                
             
         elif self._predicate_type == PREDICATE_TYPE_SYSTEM_FILE_RELATIONSHIPS_KING:
             
@@ -2362,7 +2400,7 @@ class Predicate( HydrusSerialisable.SerialisableBase ):
             elif self._predicate_type == PREDICATE_TYPE_SYSTEM_UNTAGGED: base = 'untagged'
             elif self._predicate_type == PREDICATE_TYPE_SYSTEM_LOCAL: base = 'local'
             elif self._predicate_type == PREDICATE_TYPE_SYSTEM_NOT_LOCAL: base = 'not local'
-            elif self._predicate_type == PREDICATE_TYPE_SYSTEM_EMBEDDED_METADATA: base = 'embedded metadata'
+            elif self._predicate_type == PREDICATE_TYPE_SYSTEM_FILE_PROPERTIES: base = 'file properties'
             elif self._predicate_type == PREDICATE_TYPE_SYSTEM_DIMENSIONS: base = 'dimensions'
             elif self._predicate_type == PREDICATE_TYPE_SYSTEM_SIMILAR_TO: base = 'similar files'
             elif self._predicate_type == PREDICATE_TYPE_SYSTEM_TIME: base = 'time'
@@ -2646,8 +2684,6 @@ class Predicate( HydrusSerialisable.SerialisableBase ):
                         
                         dt = datetime.datetime( year, month, day, hour, minute )
                         
-                        timestamp = HydrusTime.DateTimeToTimestamp( dt )
-                        
                         if operator == '<':
                             
                             pretty_operator = 'before '
@@ -2667,7 +2703,7 @@ class Predicate( HydrusSerialisable.SerialisableBase ):
                         
                         include_24h_time = operator != '=' and ( hour > 0 or minute > 0 )
                         
-                        base += ': ' + pretty_operator + HydrusTime.TimestampToPrettyTime( timestamp, include_24h_time = include_24h_time )
+                        base += ': ' + pretty_operator + HydrusTime.DateTimeToPrettyTime( dt, include_24h_time = include_24h_time )
                         
                     
                 
@@ -2704,6 +2740,20 @@ class Predicate( HydrusSerialisable.SerialisableBase ):
                     if not has_audio:
                         
                         base = 'no audio'
+                        
+                    
+                
+            elif self._predicate_type == PREDICATE_TYPE_SYSTEM_HAS_TRANSPARENCY:
+                
+                base = 'has transparency'
+                
+                if self._value is not None:
+                    
+                    has_transparency = self._value
+                    
+                    if not has_transparency:
+                        
+                        base = 'no transparency'
                         
                     
                 

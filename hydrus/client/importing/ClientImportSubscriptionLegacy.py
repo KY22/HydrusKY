@@ -454,9 +454,9 @@ class SubscriptionQueryLegacy( HydrusSerialisable.SerialisableBase ):
                     
                 
             
-            last_next_check_time = self._next_check_time
+            previous_next_check_time = self._next_check_time
             
-            self._next_check_time = checker_options.GetNextCheckTime( self._file_seed_cache, self._last_check_time, last_next_check_time )
+            self._next_check_time = checker_options.GetNextCheckTime( self._file_seed_cache, self._last_check_time, previous_next_check_time )
             
         
     
@@ -653,7 +653,7 @@ class SubscriptionLegacy( HydrusSerialisable.SerialisableBaseNamed ):
             
             nj.engine = HG.client_controller.network_engine
             
-            if nj.NeedsLogin():
+            if nj.CurrentlyNeedsLogin():
                 
                 try:
                     
@@ -713,7 +713,7 @@ class SubscriptionLegacy( HydrusSerialisable.SerialisableBaseNamed ):
             
             nj.engine = HG.client_controller.network_engine
             
-            if nj.NeedsLogin():
+            if nj.CurrentlyNeedsLogin():
                 
                 try:
                     

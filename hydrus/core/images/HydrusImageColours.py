@@ -2,6 +2,33 @@ import numpy
 
 from PIL import Image as PILImage
 
+def GetNumPyAlphaChannel( numpy_image: numpy.array ) -> numpy.array:
+    
+    if not NumPyImageHasAlphaChannel( numpy_image ):
+        
+        raise Exception( 'Does not have an alpha channel!' )
+        
+    
+    channel_number = GetNumPyAlphaChannelNumber( numpy_image )
+    
+    alpha_channel = numpy_image[:,:,channel_number].copy()
+    
+    return alpha_channel
+    
+
+def GetNumPyAlphaChannelNumber( numpy_image: numpy.array ):
+    
+    shape = numpy_image.shape
+    
+    if len( shape ) <= 2:
+        
+        raise Exception( 'Greyscale image, does not have an alpha channel!' )
+        
+    
+    # 1 for LA, 3 for RGBA
+    return shape[2] - 1
+    
+
 def NumPyImageHasAllCellsTheSame( numpy_image: numpy.array, value: int ):
     
     # I looked around for ways to do this iteratively at the c++ level but didn't have huge luck.
@@ -13,6 +40,32 @@ def NumPyImageHasAllCellsTheSame( numpy_image: numpy.array, value: int ):
     # alpha_channel == numpy.full( ( shape[0], shape[1] ), 255, dtype = 'uint8' ) ).all()
     
 
+def NumPyImageHasUsefulAlphaChannel( numpy_image: numpy.array ) -> bool:
+    
+    if not NumPyImageHasAlphaChannel( numpy_image ):
+        
+        return False
+        
+    
+    # RGBA or LA image
+    
+    alpha_channel = GetNumPyAlphaChannel( numpy_image )
+    
+    if NumPyImageHasAllCellsTheSame( alpha_channel, 255 ): # all opaque
+        
+        return False
+        
+    
+    if NumPyImageHasAllCellsTheSame( alpha_channel, 0 ): # all transparent
+        
+        underlying_image_is_black = NumPyImageHasAllCellsTheSame( numpy_image, 0 )
+        
+        return underlying_image_is_black
+        
+    
+    return True
+    
+
 def NumPyImageHasUselessAlphaChannel( numpy_image: numpy.array ) -> bool:
     
     if not NumPyImageHasAlphaChannel( numpy_image ):
@@ -20,9 +73,9 @@ def NumPyImageHasUselessAlphaChannel( numpy_image: numpy.array ) -> bool:
         return False
         
     
-    # RGBA image
+    # RGBA or LA image
     
-    alpha_channel = numpy_image[:,:,3].copy()
+    alpha_channel = GetNumPyAlphaChannel( numpy_image )
     
     if NumPyImageHasAllCellsTheSame( alpha_channel, 255 ): # all opaque
         
@@ -46,10 +99,10 @@ def NumPyImageHasOpaqueAlphaChannel( numpy_image: numpy.array ) -> bool:
         return False
         
     
-    # RGBA image
+    # RGBA or LA image
     # opaque means 255
     
-    alpha_channel = numpy_image[:,:,3].copy()
+    alpha_channel = GetNumPyAlphaChannel( numpy_image )
     
     return NumPyImageHasAllCellsTheSame( alpha_channel, 255 )
     
@@ -76,10 +129,10 @@ def NumPyImageHasTransparentAlphaChannel( numpy_image: numpy.array ) -> bool:
         return False
         
     
-    # RGBA image
+    # RGBA or LA image
     # transparent means 0
     
-    alpha_channel = numpy_image[:,:,3].copy()
+    alpha_channel = GetNumPyAlphaChannel( numpy_image )
     
     return NumPyImageHasAllCellsTheSame( alpha_channel, 0 )
     

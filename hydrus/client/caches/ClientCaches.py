@@ -474,7 +474,7 @@ class ThumbnailCache( object ):
                     thumbnail_scale_type = self._controller.new_options.GetInteger( 'thumbnail_scale_type' )
                     thumbnail_dpr_percent = HG.client_controller.new_options.GetInteger( 'thumbnail_dpr_percent' )
                     
-                    ( clip_rect, ( expected_width, expected_height ) ) = HydrusImageHandling.GetThumbnailResolutionAndClipRegion( ( media_width, media_height ), bounding_dimensions, thumbnail_scale_type, thumbnail_dpr_percent )
+                    ( expected_width, expected_height ) = HydrusImageHandling.GetThumbnailResolution( ( media_width, media_height ), bounding_dimensions, thumbnail_scale_type, thumbnail_dpr_percent )
                     
                     numpy_image = HydrusBlurhash.GetNumpyFromBlurhash( blurhash, expected_width, expected_height )
                     
@@ -532,7 +532,7 @@ class ThumbnailCache( object ):
             try:
                 
                 # file is malformed, let's force a regen
-                self._controller.files_maintenance_manager.RunJobImmediately( [ display_media ], ClientFiles.REGENERATE_FILE_DATA_JOB_FORCE_THUMBNAIL, pub_job_key = False )
+                self._controller.files_maintenance_manager.RunJobImmediately( [ display_media ], ClientFiles.REGENERATE_FILE_DATA_JOB_FORCE_THUMBNAIL, pub_job_status = False )
                 
             except Exception as e:
                 
@@ -565,7 +565,7 @@ class ThumbnailCache( object ):
         thumbnail_scale_type = self._controller.new_options.GetInteger( 'thumbnail_scale_type' )
         thumbnail_dpr_percent = HG.client_controller.new_options.GetInteger( 'thumbnail_dpr_percent' )
         
-        ( clip_rect, ( expected_width, expected_height ) ) = HydrusImageHandling.GetThumbnailResolutionAndClipRegion( ( media_width, media_height ), bounding_dimensions, thumbnail_scale_type, thumbnail_dpr_percent )
+        ( expected_width, expected_height ) = HydrusImageHandling.GetThumbnailResolution( ( media_width, media_height ), bounding_dimensions, thumbnail_scale_type, thumbnail_dpr_percent )
         
         exactly_as_expected = current_width == expected_width and current_height == expected_height
         
@@ -630,12 +630,12 @@ class ThumbnailCache( object ):
             message += os.linesep * 2
             message += summary
             
-            job_key = ClientThreading.JobKey()
+            job_status = ClientThreading.JobStatus()
             
-            job_key.SetStatusText( message )
-            job_key.SetFiles( { hash }, 'broken thumbnail' )
+            job_status.SetStatusText( message )
+            job_status.SetFiles( [ hash ], 'broken thumbnail' )
             
-            HG.client_controller.pub( 'message', job_key )
+            HG.client_controller.pub( 'message', job_status )
             
         
     
@@ -806,12 +806,7 @@ class ThumbnailCache( object ):
                 
                 numpy_image_resolution = HydrusImageHandling.GetResolutionNumPy( numpy_image )
                 
-                ( clip_rect, target_resolution ) = HydrusImageHandling.GetThumbnailResolutionAndClipRegion( numpy_image_resolution, bounding_dimensions, thumbnail_scale_type, thumbnail_dpr_percent )
-                
-                if clip_rect is not None:
-                    
-                    numpy_image = HydrusImageHandling.ClipNumPyImage( numpy_image, clip_rect )
-                    
+                target_resolution = HydrusImageHandling.GetThumbnailResolution( numpy_image_resolution, bounding_dimensions, thumbnail_scale_type, thumbnail_dpr_percent )
                 
                 numpy_image = HydrusImageHandling.ResizeNumPyImage( numpy_image, target_resolution )
                 
@@ -1072,7 +1067,7 @@ class ThumbnailCache( object ):
             
             try:
                 
-                self._controller.files_maintenance_manager.RunJobImmediately( [ media_result ], ClientFiles.REGENERATE_FILE_DATA_JOB_FORCE_THUMBNAIL, pub_job_key = False )
+                self._controller.files_maintenance_manager.RunJobImmediately( [ media_result ], ClientFiles.REGENERATE_FILE_DATA_JOB_FORCE_THUMBNAIL, pub_job_status = False )
                 
             except HydrusExceptions.FileMissingException:
                 

@@ -492,7 +492,7 @@ class ExportFolder( HydrusSerialisable.SerialisableBaseNamed ):
             
         
     
-    def _DoExport( self, job_key: ClientThreading.JobKey ):
+    def _DoExport( self, job_status: ClientThreading.JobStatus ):
         
         query_hash_ids = HG.client_controller.Read( 'file_query_ids', self._file_search_context, apply_implicit_limit = False )
         
@@ -502,9 +502,9 @@ class ExportFolder( HydrusSerialisable.SerialisableBaseNamed ):
         
         for ( i, block_of_hash_ids ) in enumerate( HydrusLists.SplitListIntoChunks( query_hash_ids, 256 ) ):
             
-            job_key.SetStatusText( 'searching: {}'.format( HydrusData.ConvertValueRangeToPrettyString( i * CHUNK_SIZE, len( query_hash_ids ) ) ) )
+            job_status.SetStatusText( 'searching: {}'.format( HydrusData.ConvertValueRangeToPrettyString( i * CHUNK_SIZE, len( query_hash_ids ) ) ) )
             
-            if job_key.IsCancelled():
+            if job_status.IsCancelled():
                 
                 return
                 
@@ -536,13 +536,13 @@ class ExportFolder( HydrusSerialisable.SerialisableBaseNamed ):
         
         client_files_manager = HG.client_controller.client_files_manager
         
-        num_copied = 0
+        num_actually_copied = 0
         
         for ( i, media_result ) in enumerate( media_results ):
             
-            job_key.SetStatusText( 'exporting: {}'.format( HydrusData.ConvertValueRangeToPrettyString( i + 1, len( media_results ) ) ) )
+            job_status.SetStatusText( 'exporting: {}'.format( HydrusData.ConvertValueRangeToPrettyString( i + 1, len( media_results ) ) ) )
             
-            if job_key.IsCancelled():
+            if job_status.IsCancelled():
                 
                 return
                 
@@ -599,21 +599,21 @@ class ExportFolder( HydrusSerialisable.SerialisableBaseNamed ):
                                 
                             
                         
-                        copied = True
+                        actually_copied = True
                         
                     else:
                         
-                        copied = False
+                        actually_copied = False
                         
                     
                 else:
                     
-                    copied = HydrusPaths.MirrorFile( source_path, dest_path )
+                    actually_copied = HydrusPaths.MirrorFile( source_path, dest_path )
                     
                 
-                if copied:
+                if actually_copied:
                     
-                    num_copied += 1
+                    num_actually_copied += 1
                     
                     HydrusPaths.TryToGiveFileNicePermissionBits( dest_path )
                     
@@ -627,9 +627,9 @@ class ExportFolder( HydrusSerialisable.SerialisableBaseNamed ):
             sync_paths.add( dest_path )
             
         
-        if num_copied > 0:
+        if num_actually_copied > 0:
             
-            HydrusData.Print( 'Export folder ' + self._name + ' exported ' + HydrusData.ToHumanInt( num_copied ) + ' files.' )
+            HydrusData.Print( 'Export folder ' + self._name + ' exported ' + HydrusData.ToHumanInt( num_actually_copied ) + ' files.' )
             
         
         if self._export_type == HC.EXPORT_FOLDER_TYPE_SYNCHRONISE:
@@ -638,12 +638,12 @@ class ExportFolder( HydrusSerialisable.SerialisableBaseNamed ):
             
             for ( i, deletee_path ) in enumerate( deletee_paths ):
                 
-                if job_key.IsCancelled():
+                if job_status.IsCancelled():
                     
                     return
                     
                 
-                job_key.SetStatusText( 'delete-synchronising: {}'.format( HydrusData.ConvertValueRangeToPrettyString( i + 1, len( deletee_paths ) ) ) )
+                job_status.SetStatusText( 'delete-synchronising: {}'.format( HydrusData.ConvertValueRangeToPrettyString( i + 1, len( deletee_paths ) ) ) )
                 
                 ClientPaths.DeletePath( deletee_path )
                 
@@ -652,7 +652,7 @@ class ExportFolder( HydrusSerialisable.SerialisableBaseNamed ):
             
             for ( root, dirnames, filenames ) in os.walk( self._path, topdown = False ):
                 
-                if job_key.IsCancelled():
+                if job_status.IsCancelled():
                     
                     return
                     
@@ -696,12 +696,12 @@ class ExportFolder( HydrusSerialisable.SerialisableBaseNamed ):
             
             for ( i, media_result ) in enumerate( media_results ):
                 
-                if job_key.IsCancelled():
+                if job_status.IsCancelled():
                     
                     return
                     
                 
-                job_key.SetStatusText( 'delete-prepping: {}'.format( HydrusData.ConvertValueRangeToPrettyString( i + 1, len( media_results ) ) ) )
+                job_status.SetStatusText( 'delete-prepping: {}'.format( HydrusData.ConvertValueRangeToPrettyString( i + 1, len( media_results ) ) ) )
                 
                 if media_result.IsDeleteLocked():
                     
@@ -728,12 +728,12 @@ class ExportFolder( HydrusSerialisable.SerialisableBaseNamed ):
                 
                 for ( i, chunk_of_hashes ) in enumerate( chunks_of_hashes ):
                     
-                    if job_key.IsCancelled():
+                    if job_status.IsCancelled():
                         
                         return
                         
                     
-                    job_key.SetStatusText( 'deleting: {}'.format( HydrusData.ConvertValueRangeToPrettyString( i * CHUNK_SIZE, len( deletee_hashes ) ) ) )
+                    job_status.SetStatusText( 'deleting: {}'.format( HydrusData.ConvertValueRangeToPrettyString( i * CHUNK_SIZE, len( deletee_hashes ) ) ) )
                     
                     content_update = HydrusData.ContentUpdate( HC.CONTENT_TYPE_FILES, HC.CONTENT_UPDATE_DELETE, chunk_of_hashes, reason = reason )
                     
@@ -742,7 +742,7 @@ class ExportFolder( HydrusSerialisable.SerialisableBaseNamed ):
                 
             
         
-        job_key.SetStatusText( 'Done!' )
+        job_status.SetStatusText( 'Done!' )
         
     
     def DoWork( self ):
@@ -756,9 +756,9 @@ class ExportFolder( HydrusSerialisable.SerialisableBaseNamed ):
             return
             
         
-        job_key = ClientThreading.JobKey( pausable = False, cancellable = True )
+        job_status = ClientThreading.JobStatus( pausable = False, cancellable = True )
         
-        job_key.SetStatusTitle( 'export folder - ' + self._name )
+        job_status.SetStatusTitle( 'export folder - ' + self._name )
         
         try:
             
@@ -781,10 +781,10 @@ class ExportFolder( HydrusSerialisable.SerialisableBaseNamed ):
             
             if popup_desired:
                 
-                HG.client_controller.pub( 'message', job_key )
+                HG.client_controller.pub( 'message', job_status )
                 
             
-            self._DoExport( job_key )
+            self._DoExport( job_status )
             
             self._last_error = ''
             
@@ -816,7 +816,7 @@ class ExportFolder( HydrusSerialisable.SerialisableBaseNamed ):
             
             HG.client_controller.WriteSynchronous( 'serialisable', self )
             
-            job_key.Delete()
+            job_status.Delete()
             
         
     

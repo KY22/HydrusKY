@@ -74,6 +74,7 @@ class FileInfoManager( object ):
         self.has_audio = has_audio
         self.num_words = num_words
         
+        self.has_transparency = False
         self.has_exif = False
         self.has_human_readable_embedded_metadata = False
         self.has_icc_profile = False
@@ -83,7 +84,16 @@ class FileInfoManager( object ):
     
     def Duplicate( self ):
         
-        return FileInfoManager( self.hash_id, self.hash, self.size, self.mime, self.width, self.height, self.duration, self.num_frames, self.has_audio, self.num_words )
+        fim = FileInfoManager( self.hash_id, self.hash, self.size, self.mime, self.width, self.height, self.duration, self.num_frames, self.has_audio, self.num_words )
+        
+        fim.has_transparency = self.has_transparency
+        fim.has_exif = self.has_exif
+        fim.has_human_readable_embedded_metadata = self.has_human_readable_embedded_metadata
+        fim.has_icc_profile = self.has_icc_profile
+        fim.blurhash = self.blurhash
+        fim.pixel_hash = self.pixel_hash
+        
+        return fim
         
     
     def ToTuple( self ):
@@ -1119,7 +1129,7 @@ class LocationsManager( object ):
                     self._service_keys_to_filenames[ service_key ] = multihash
                     
                 
-            elif action == HC.CONTENT_UPDATE_DELETE:
+            elif action in ( HC.CONTENT_UPDATE_DELETE, HC.CONTENT_UPDATE_DELETE_FROM_SOURCE_AFTER_MIGRATE ):
                 
                 if content_update.HasReason():
                     
@@ -1133,6 +1143,16 @@ class LocationsManager( object ):
                 if service_key == CC.COMBINED_LOCAL_MEDIA_SERVICE_KEY:
                     
                     for s_k in HG.client_controller.services_manager.GetServiceKeys( ( HC.LOCAL_FILE_DOMAIN, ) ):
+                        
+                        if s_k in self._current:
+                            
+                            self._DeleteFromService( s_k, reason )
+                            
+                        
+                    
+                elif service_key == CC.COMBINED_LOCAL_FILE_SERVICE_KEY:
+                    
+                    for s_k in HG.client_controller.services_manager.GetServiceKeys( ( HC.COMBINED_LOCAL_MEDIA, HC.LOCAL_FILE_DOMAIN, HC.LOCAL_FILE_TRASH_DOMAIN, HC.LOCAL_FILE_UPDATE_DOMAIN ) ):
                         
                         if s_k in self._current:
                             

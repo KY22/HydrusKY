@@ -11,7 +11,7 @@ from hydrus.core import HydrusTime
 
 from hydrus.client.gui import QtPorting as QP
 
-class JobKey( object ):
+class JobStatus( object ):
     
     def __init__( self, pausable = False, cancellable = False, maintenance_mode = HC.MAINTENANCE_FORCED, only_start_if_unbusy = False, stop_time = None, cancel_on_shutdown = True ):
         
@@ -55,7 +55,7 @@ class JobKey( object ):
     
     def __eq__( self, other ):
         
-        if isinstance( other, JobKey ):
+        if isinstance( other, JobStatus ):
             
             return self.__hash__() == other.__hash__()
             
@@ -112,7 +112,12 @@ class JobKey( object ):
             
         
     
-    def Cancel( self, seconds = None ):
+    def Cancel( self, seconds = None ) -> bool:
+        
+        if not self.IsCancellable():
+            
+            return False
+            
         
         if seconds is None:
             
@@ -125,17 +130,23 @@ class JobKey( object ):
             HG.client_controller.CallLater( seconds, self.Cancel )
             
         
+        return True
+        
     
-    def Delete( self, seconds = None ):
+    def Delete( self, seconds = None ) -> bool:
         
         if seconds is None:
             
-            self._deletion_time = HydrusTime.GetNow()
+            self._deleted.set()
+            
+            self.Finish()
             
         else:
             
             self._deletion_time = HydrusTime.GetNow() + seconds
             
+        
+        return True
         
     
     def DeleteFiles( self ):
@@ -282,6 +293,11 @@ class JobKey( object ):
         return self._cancelled.is_set()
         
     
+    def IsDeletable( self ):
+        
+        return not ( self.IsPausable() or self.IsCancellable() )
+        
+    
     def IsDeleted( self ):
         
         self._CheckCancelTests()
@@ -319,8 +335,14 @@ class JobKey( object ):
     
     def PausePlay( self ):
         
-        if self._paused.is_set(): self._paused.clear()
-        else: self._paused.set()
+        if self._paused.is_set():
+            
+            self._paused.clear()
+            
+        else:
+            
+            self._paused.set()
+            
         
     
     def SetCancellable( self, value ):
@@ -335,7 +357,7 @@ class JobKey( object ):
         self.Cancel()
         
     
-    def SetFiles( self, hashes, label ):
+    def SetFiles( self, hashes: typing.List[ bytes ], label: str ):
         
         if len( hashes ) == 0:
             
@@ -343,7 +365,9 @@ class JobKey( object ):
             
         else:
             
-            self.SetVariable( 'attached_files', ( list( hashes ), label ) )
+            hashes = HydrusData.DedupeList( list( hashes ) )
+            
+            self.SetVariable( 'attached_files', ( hashes, label ) )
             
         
     

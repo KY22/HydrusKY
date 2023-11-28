@@ -126,6 +126,7 @@ class FileImportJob( object ):
         self._thumbnail_bytes = None
         self._perceptual_hashes = None
         self._extra_hashes = None
+        self._has_transparency = None
         self._has_exif = None
         self._has_human_readable_embedded_metadata = None
         self._has_icc_profile = None
@@ -351,11 +352,11 @@ class FileImportJob( object ):
             thumbnail_scale_type = HG.client_controller.new_options.GetInteger( 'thumbnail_scale_type' )
             thumbnail_dpr_percent = HG.client_controller.new_options.GetInteger( 'thumbnail_dpr_percent' )
             
-            ( clip_rect, target_resolution ) = HydrusImageHandling.GetThumbnailResolutionAndClipRegion( ( width, height ), bounding_dimensions, thumbnail_scale_type, thumbnail_dpr_percent )
+            target_resolution = HydrusImageHandling.GetThumbnailResolution( ( width, height ), bounding_dimensions, thumbnail_scale_type, thumbnail_dpr_percent )
             
             percentage_in = HG.client_controller.new_options.GetInteger( 'video_thumbnail_percentage_in' )
             
-            thumbnail_numpy = HydrusFileHandling.GenerateThumbnailNumPy(self._temp_path, target_resolution, mime, duration, num_frames, clip_rect = clip_rect, percentage_in = percentage_in)
+            thumbnail_numpy = HydrusFileHandling.GenerateThumbnailNumPy(self._temp_path, target_resolution, mime, duration, num_frames, percentage_in = percentage_in)
 
             # this guy handles almost all his own exceptions now, so no need for clever catching. if it fails, we are prob talking an I/O failure, which is not a 'thumbnail failed' error
             self._thumbnail_bytes = HydrusImageHandling.GenerateThumbnailBytesFromNumPy( thumbnail_numpy )
@@ -404,6 +405,8 @@ class FileImportJob( object ):
         self._extra_hashes = HydrusFileHandling.GetExtraHashesFromPath( self._temp_path )
         
         #
+        
+        self._has_transparency = ClientFiles.HasTransparency( self._temp_path, mime, num_frames = num_frames, resolution = ( width, height ) )
         
         has_exif = False
         
@@ -528,6 +531,11 @@ class FileImportJob( object ):
     def HasICCProfile( self ) -> bool:
         
         return self._has_icc_profile
+        
+    
+    def HasTransparency( self ) -> bool:
+        
+        return self._has_transparency
         
     
     def GetBlurhash( self ) -> str:

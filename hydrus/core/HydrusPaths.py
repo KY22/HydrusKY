@@ -129,51 +129,6 @@ def ConvertPortablePathToAbsPath( portable_path, base_dir_override = None ):
     
     return abs_path
     
-def CopyAndMergeTree( source, dest ):
-    
-    pauser = HydrusThreading.BigJobPauser()
-    
-    MakeSureDirectoryExists( dest )
-    
-    num_errors = 0
-    
-    for ( root, dirnames, filenames ) in os.walk( source ):
-        
-        dest_root = root.replace( source, dest )
-        
-        for dirname in dirnames:
-            
-            pauser.Pause()
-            
-            source_path = os.path.join( root, dirname )
-            dest_path = os.path.join( dest_root, dirname )
-            
-            MakeSureDirectoryExists( dest_path )
-            
-            shutil.copystat( source_path, dest_path )
-            
-        
-        for filename in filenames:
-            
-            if num_errors > 5:
-                
-                raise Exception( 'Too many errors, directory copy abandoned.' )
-                
-            
-            pauser.Pause()
-            
-            source_path = os.path.join( root, filename )
-            dest_path = os.path.join( dest_root, filename )
-            
-            ok = MirrorFile( source_path, dest_path )
-            
-            if not ok:
-                
-                num_errors += 1
-                
-            
-        
-    
 
 def CopyFileLikeToFileLike( f_source, f_dest ):
     
@@ -565,46 +520,70 @@ def safe_copy2( source, dest ):
         
     
 
-def MergeFile( source, dest ):
+def MergeFile( source, dest ) -> bool:
+    """
+    Moves a file unless it already exists with same size and modified date, in which case it simply deletes the source.
     
-    # this can merge a file, but if it is given a dir it will just straight up overwrite not merge
+    :return: Whether an actual move happened.
+    """
+    
+    if not os.path.exists( source ):
+        
+        raise Exception( f'Cannot file-merge "{source}" to "{dest}"--the source does not exist!' )
+        
+    
+    if os.path.isdir( source ):
+        
+        raise Exception( f'Cannot file-merge "{source}" to "{dest}"--the source is a directory, not a file!' )
+        
+    
+    if os.path.isdir( dest ):
+        
+        raise Exception( f'Cannot file-merge "{source}" to "{dest}"--the destination is a directory, not a file!' )
+        
     
     if os.path.exists( source ) and os.path.exists( dest ) and os.path.samefile( source, dest ):
         
+        # maybe this should just return, but we don't want the parent caller deleting the source or anything, so bleh
         raise Exception( f'Woah, "{source}" and "{dest}" are the same file!' )
         
     
-    if not os.path.isdir( source ):
+    if PathsHaveSameSizeAndDate( source, dest ):
         
-        if PathsHaveSameSizeAndDate( source, dest ):
-            
-            DeletePath( source )
-            
-            return True
-            
-        
-    
-    try:
-        
-        # this overwrites on conflict without hassle
-        shutil.move( source, dest, copy_function = safe_copy2 )
-        
-    except Exception as e:
-        
-        HydrusData.ShowText( 'Trying to move ' + source + ' to ' + dest + ' caused the following problem:' )
-        
-        HydrusData.ShowException( e )
+        DeletePath( source )
         
         return False
         
+    
+    # this overwrites on conflict without hassle
+    shutil.move( source, dest, copy_function = safe_copy2 )
     
     return True
     
 
 def MergeTree( source, dest, text_update_hook = None ):
+    """
+    Moves everything in the source to the dest using fast MergeFile tech.
+    """
+    
+    if not os.path.exists( source ):
+        
+        raise Exception( f'Cannot directory-merge "{source}" to "{dest}"--the source does not exist!' )
+        
+    
+    if os.path.isfile( source ):
+        
+        raise Exception( f'Cannot directory-merge "{source}" to "{dest}"--the source is a file, not a directory!' )
+        
+    
+    if os.path.isfile( dest ):
+        
+        raise Exception( f'Cannot directory-merge "{source}" to "{dest}"--the destination is a file, not a directory!' )
+        
     
     if os.path.exists( source ) and os.path.exists( dest ) and os.path.samefile( source, dest ):
         
+        # maybe this should just return, but we don't want the parent caller deleting the source or anything, so bleh
         raise Exception( f'Woah, "{source}" and "{dest}" are the same directory!' )
         
     
@@ -630,8 +609,6 @@ def MergeTree( source, dest, text_update_hook = None ):
         
         # I had a thing here that tried to optimise if dest existed but was empty, but it wasn't neat
         
-        num_errors = 0
-        
         for ( root, dirnames, filenames ) in os.walk( source ):
             
             if text_update_hook is not None:
@@ -655,40 +632,58 @@ def MergeTree( source, dest, text_update_hook = None ):
             
             for filename in filenames:
                 
-                if num_errors > 5:
-                    
-                    raise Exception( 'Too many errors, directory move abandoned.' )
-                    
-                
                 pauser.Pause()
                 
                 source_path = os.path.join( root, filename )
                 dest_path = os.path.join( dest_root, filename )
                 
-                ok = MergeFile( source_path, dest_path )
-                
-                if not ok:
+                try:
                     
-                    num_errors += 1
+                    MergeFile( source_path, dest_path )
+                    
+                except Exception as e:
+                    
+                    raise Exception( f'While trying to merge "{source}" into the already-existing "{dest}", moving "{source_path}" to "{dest_path}" failed!' ) from e
                     
                 
             
         
-        if num_errors == 0:
-            
-            DeletePath( source )
-            
+        DeletePath( source )
         
     
 
-def MirrorFile( source, dest ):
+def MirrorFile( source, dest ) -> bool:
+    """
+    Copies a file unless it already exists with same date and size.
+    
+    :return: Whether an actual file copy/overwrite happened.
+    """
+    
+    if not os.path.exists( source ):
+        
+        raise Exception( f'Cannot file-mirror "{source}" to "{dest}"--the source does not exist!' )
+        
+    
+    if os.path.isdir( source ):
+        
+        raise Exception( f'Cannot file-mirror "{source}" to "{dest}"--the source is a directory, not a file!' )
+        
+    
+    if os.path.isdir( dest ):
+        
+        raise Exception( f'Cannot file-mirror "{source}" to "{dest}"--the destination is a directory, not a file!' )
+        
     
     if os.path.exists( source ) and os.path.exists( dest ) and os.path.samefile( source, dest ):
         
-        return True
+        return False
         
     
-    if not PathsHaveSameSizeAndDate( source, dest ):
+    if PathsHaveSameSizeAndDate( source, dest ):
+        
+        return False
+        
+    else:
         
         try:
             
@@ -698,15 +693,13 @@ def MirrorFile( source, dest ):
             
         except Exception as e:
             
-            HydrusData.ShowText( 'Trying to copy ' + source + ' to ' + dest + ' caused the following problem:' )
-            
             from hydrus.core import HydrusTemp
             
             if isinstance( e, OSError ) and 'Errno 28' in str( e ) and dest.startswith( HydrusTemp.GetCurrentTempDir() ):
                 
-                message = 'It looks like I failed to copy a file into your temporary folder because I ran out of disk space!'
+                message = 'The recent failed file copy looks like it was because your temporary folder ran out of disk space!'
                 message += '\n' * 2
-                message += 'This folder is on your system drive, so either free up space on that or use the "--temp_dir" launch command to tell hydrus to use a different location for the temporary folder. (Check the advanced help for more info!)'
+                message += 'This folder is normally on your system drive, so either free up space on that or use the "--temp_dir" launch command to tell hydrus to use a different location for the temporary folder. (Check the advanced help for more info!)'
                 message += '\n' * 2
                 message += 'If your system drive appears to have space but your temp folder still maxed out, then there are probably special rules about how big a file we are allowed to put in there. Use --temp_dir.'
                 
@@ -718,15 +711,33 @@ def MirrorFile( source, dest ):
                 HydrusData.ShowText( message )
                 
             
-            HydrusData.ShowException( e )
-            
-            return False
+            raise
             
         
+        return True
+        
     
-    return True
-    
+
 def MirrorTree( source, dest, text_update_hook = None, is_cancelled_hook = None ):
+    """
+    Makes the destination directory look exactly like the source using fast MirrorFile tech.
+    It deletes surplus stuff in the dest!
+    """
+    
+    if not os.path.exists( source ):
+        
+        raise Exception( f'Cannot directory-mirror "{source}" to "{dest}"--the source does not exist!' )
+        
+    
+    if os.path.isfile( source ):
+        
+        raise Exception( f'Cannot directory-mirror "{source}" to "{dest}"--the source is a file, not a directory!' )
+        
+    
+    if os.path.isfile( dest ):
+        
+        raise Exception( f'Cannot directory-mirror "{source}" to "{dest}"--the destination is a file, not a directory!' )
+        
     
     if os.path.exists( source ) and os.path.exists( dest ) and os.path.samefile( source, dest ):
         
@@ -736,8 +747,6 @@ def MirrorTree( source, dest, text_update_hook = None, is_cancelled_hook = None 
     pauser = HydrusThreading.BigJobPauser()
     
     MakeSureDirectoryExists( dest )
-    
-    num_errors = 0
     
     for ( root, dirnames, filenames ) in os.walk( source ):
         
@@ -771,11 +780,6 @@ def MirrorTree( source, dest, text_update_hook = None, is_cancelled_hook = None 
         
         for filename in filenames:
             
-            if num_errors > 5:
-                
-                raise Exception( 'Too many errors, directory copy abandoned.' )
-                
-            
             pauser.Pause()
             
             source_path = os.path.join( root, filename )
@@ -784,11 +788,13 @@ def MirrorTree( source, dest, text_update_hook = None, is_cancelled_hook = None 
             
             surplus_dest_paths.discard( dest_path )
             
-            ok = MirrorFile( source_path, dest_path )
-            
-            if not ok:
+            try:
                 
-                num_errors += 1
+                MirrorFile( source_path, dest_path )
+                
+            except Exception as e:
+                
+                raise Exception( f'While trying to mirror "{source}" into "{dest}", moving "{source_path}" to "{dest_path}" failed!' ) from e
                 
             
         
