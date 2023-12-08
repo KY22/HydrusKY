@@ -23,6 +23,7 @@ from hydrus.client import ClientConstants as CC
 from hydrus.client import ClientFilesPhysical
 from hydrus.client.importing.options import FileImportOptions
 from hydrus.client.gui import ClientGUIDialogs
+from hydrus.client.gui import ClientGUIDialogsMessage
 from hydrus.client.gui import ClientGUIDialogsQuick
 from hydrus.client.gui import ClientGUIFunctions
 from hydrus.client.gui import ClientGUIScrolledPanels
@@ -2369,11 +2370,8 @@ class ManageOptionsPanel( ClientGUIScrolledPanels.ManagePanel ):
             self._use_system_ffmpeg = QW.QCheckBox( system_panel )
             self._use_system_ffmpeg.setToolTip( 'Check this to always default to the system ffmpeg in your path, rather than using the static ffmpeg in hydrus\'s bin directory. (requires restart)' )
             
-            self._disable_cv_for_gifs = QW.QCheckBox( system_panel )
-            self._disable_cv_for_gifs.setToolTip( 'OpenCV is good at rendering gifs, but if you have problems with it and your graphics card, check this and the less reliable and slower PIL will be used instead. EDIT: OpenCV is much better these days--this is mostly not needed.' )
-            
             self._load_images_with_pil = QW.QCheckBox( system_panel )
-            self._load_images_with_pil.setToolTip( 'OpenCV is much faster than PIL, but it is sometimes less reliable. Switch this on if you experience crashes or other unusual problems while importing or viewing certain images. EDIT: OpenCV is much better these days--this is mostly not needed.' )
+            self._load_images_with_pil.setToolTip( 'We are dropping CV and moving to PIL exclusively. If you want to help test, please turn this on and send hydev any images that render wrong!' )
             
             #
             
@@ -2457,7 +2455,6 @@ class ManageOptionsPanel( ClientGUIScrolledPanels.ManagePanel ):
             self._animation_start_position.setValue( int( HC.options['animation_start_position'] * 100.0 ) )
             self._hide_uninteresting_local_import_time.setChecked( self._new_options.GetBoolean( 'hide_uninteresting_local_import_time' ) )
             self._hide_uninteresting_modified_time.setChecked( self._new_options.GetBoolean( 'hide_uninteresting_modified_time' ) )
-            self._disable_cv_for_gifs.setChecked( self._new_options.GetBoolean( 'disable_cv_for_gifs' ) )
             self._load_images_with_pil.setChecked( self._new_options.GetBoolean( 'load_images_with_pil' ) )
             self._use_system_ffmpeg.setChecked( self._new_options.GetBoolean( 'use_system_ffmpeg' ) )
             self._always_loop_animations.setChecked( self._new_options.GetBoolean( 'always_loop_gifs' ) )
@@ -2560,8 +2557,7 @@ class ManageOptionsPanel( ClientGUIScrolledPanels.ManagePanel ):
             
             rows.append( ( 'Set a new mpv.conf on dialog ok?:', self._mpv_conf_path ) )
             rows.append( ( 'Prefer system FFMPEG:', self._use_system_ffmpeg ) )
-            rows.append( ( 'BUGFIX: Load gifs with PIL instead of OpenCV (slower, bad transparency):', self._disable_cv_for_gifs ) )
-            rows.append( ( 'BUGFIX: Load images with PIL (slower):', self._load_images_with_pil ) )
+            rows.append( ( 'IN TESTING: Load images with PIL:', self._load_images_with_pil ) )
             
             gridbox = ClientGUICommon.WrapInGrid( system_panel, rows )
             
@@ -2696,7 +2692,7 @@ class ManageOptionsPanel( ClientGUIScrolledPanels.ManagePanel ):
             
             if len( unset_filetypes ) == 0:
                 
-                QW.QMessageBox.warning( self, 'Warning', 'You cannot add any more specific filetype options!' )
+                ClientGUIDialogsMessage.ShowWarning( self, 'You cannot add any more specific filetype options!' )
                 
                 return
                 
@@ -2799,7 +2795,6 @@ class ManageOptionsPanel( ClientGUIScrolledPanels.ManagePanel ):
             
             self._new_options.SetBoolean( 'hide_uninteresting_local_import_time', self._hide_uninteresting_local_import_time.isChecked() )
             self._new_options.SetBoolean( 'hide_uninteresting_modified_time', self._hide_uninteresting_modified_time.isChecked() )
-            self._new_options.SetBoolean( 'disable_cv_for_gifs', self._disable_cv_for_gifs.isChecked() )
             self._new_options.SetBoolean( 'load_images_with_pil', self._load_images_with_pil.isChecked() )
             self._new_options.SetBoolean( 'use_system_ffmpeg', self._use_system_ffmpeg.isChecked() )
             self._new_options.SetBoolean( 'always_loop_gifs', self._always_loop_animations.isChecked() )
@@ -2897,7 +2892,7 @@ class ManageOptionsPanel( ClientGUIScrolledPanels.ManagePanel ):
             self._new_options = new_options
             
             self._start_note_editing_at_end = QW.QCheckBox( self )
-            self._start_note_editing_at_end.setToolTip( 'Otherwise, start with the caret at the start of the document.' )
+            self._start_note_editing_at_end.setToolTip( 'Otherwise, start the text cursor at the start of the document.' )
             
             self._start_note_editing_at_end.setChecked( self._new_options.GetBoolean( 'start_note_editing_at_end' ) )
             
@@ -2905,7 +2900,7 @@ class ManageOptionsPanel( ClientGUIScrolledPanels.ManagePanel ):
             
             rows = []
             
-            rows.append( ( 'Start editing notes with caret at the end of the document: ', self._start_note_editing_at_end ) )
+            rows.append( ( 'Start editing notes with the text cursor at the end of the document: ', self._start_note_editing_at_end ) )
             
             gridbox = ClientGUICommon.WrapInGrid( self, rows )
             
@@ -3834,7 +3829,9 @@ class ManageOptionsPanel( ClientGUIScrolledPanels.ManagePanel ):
                 
             except Exception as e:
                 
-                QW.QMessageBox.critical( self, 'Critical', 'Could not apply style: {}'.format( repr( e ) ) )
+                HydrusData.PrintException( e )
+                
+                ClientGUIDialogsMessage.ShowCritical( self, 'Critical', f'Could not apply style: {e}' )
                 
             
             try:
@@ -3850,7 +3847,9 @@ class ManageOptionsPanel( ClientGUIScrolledPanels.ManagePanel ):
                 
             except Exception as e:
                 
-                QW.QMessageBox.critical( self, 'Critical', 'Could not apply stylesheet: {}'.format( repr( e ) ) )
+                HydrusData.PrintException( e )
+                
+                ClientGUIDialogsMessage.ShowCritical( self, 'Critical', f'Could not apply stylesheet: {e}' )
                 
             
         
@@ -4291,7 +4290,7 @@ class ManageOptionsPanel( ClientGUIScrolledPanels.ManagePanel ):
                     
                     if namespace in ( '', ':' ):
                         
-                        QW.QMessageBox.warning( self, 'Not allowed', 'Sorry, that namespace means unnamespaced/default namespaced, which are already listed.' )
+                        ClientGUIDialogsMessage.ShowWarning( self, 'Sorry, that namespace means unnamespaced/default namespaced, which are already listed.' )
                         
                         return
                         
@@ -4300,7 +4299,7 @@ class ManageOptionsPanel( ClientGUIScrolledPanels.ManagePanel ):
                     
                     if namespace in existing_namespaces:
                         
-                        QW.QMessageBox.warning( self, 'Already exists', 'Sorry, that namespace is already listed!' )
+                        ClientGUIDialogsMessage.ShowWarning( self, 'Sorry, that namespace is already listed!' )
                         
                         return
                         
@@ -4634,7 +4633,7 @@ class ManageOptionsPanel( ClientGUIScrolledPanels.ManagePanel ):
                     
                     if tag_slice in ( '', ':' ):
                         
-                        QW.QMessageBox.warning( self, 'Warning', 'Sorry, you cannot re-add unnamespaced or namespaced!' )
+                        ClientGUIDialogsMessage.ShowWarning( self, 'Sorry, you cannot re-add unnamespaced or namespaced!' )
                         
                         return
                         
@@ -4648,7 +4647,7 @@ class ManageOptionsPanel( ClientGUIScrolledPanels.ManagePanel ):
                     
                     if tag_slice in existing_tag_slices:
                         
-                        QW.QMessageBox.warning( self, 'Warning', 'Sorry, that namespace already exists!' )
+                        ClientGUIDialogsMessage.ShowWarning( self, 'Sorry, that namespace already exists!' )
                         
                         return
                         
@@ -5038,9 +5037,11 @@ class ManageOptionsPanel( ClientGUIScrolledPanels.ManagePanel ):
                 HG.client_controller.pub( 'reset_thumbnail_cache' )
                 
             
-        except:
+        except Exception as e:
             
-            QW.QMessageBox.critical( self, 'Error', traceback.format_exc() )
+            HydrusData.PrintException( e )
+            
+            ClientGUIDialogsMessage.ShowCritical( self, 'Problem saving options!', str( e ) )
             
         
     
@@ -5203,7 +5204,7 @@ class ManageURLsPanel( CAC.ApplicationCommandProcessorMixin, ClientGUIScrolledPa
             
         except HydrusExceptions.DataMissing as e:
             
-            QW.QMessageBox.warning( self, 'Warning', str(e) )
+            ClientGUIDialogsMessage.ShowWarning( self, str(e) )
             
             return
             
@@ -5345,7 +5346,7 @@ class ManageURLsPanel( CAC.ApplicationCommandProcessorMixin, ClientGUIScrolledPa
                 
             except Exception as e:
                 
-                QW.QMessageBox.warning( self, 'Warning', 'I could not add that URL: {}'.format( e ) )
+                ClientGUIDialogsMessage.ShowCritical( self, 'Problem with URL!', f'I could not add that URL: {e}' )
                 
             
         

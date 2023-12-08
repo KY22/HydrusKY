@@ -7,6 +7,117 @@ title: Changelog
 !!! note
     This is the new changelog, only the most recent builds. For all versions, see the [old changelog](old_changelog.html).
 
+## [Version 555](https://github.com/hydrusnetwork/hydrus/releases/tag/v555)
+
+### Ugoira/CBZ/Zip
+
+* the Ugoira/CBZ conversion last week went ok! we found too many false-positive Ugoiras, however, so I have decided to make that test stricter. Ugoiras now have to have zero-indexed filesnames, and always zero-filled to six digits. all your Ugoiras will get scanned again to see if they should better be CBZ
+* all zip files that are not openable (passworded, corrupt) are now detected early and just set as 'zip'
+
+### OpenCV
+
+* after discussing it with users, I have made the decision to slowly remove the image library OpenCV from the program. it has served us well, but it has always been a difficult-to-install bloat, and the super-compatible PIL actually does the job better these days. we'll simplify our rendering pipeline while also, with luck, improving HDR format support in future
+* thanks to a user, a critical OpenCV call involved in generating similar-files search metadata (perceptual hashes DCT) is now replaced with non-OpenCV tech
+* PIL can now load images in int32 or float32 greyscale, with or without ICC Profiles, and it shouldn't look too crazy (OpenCV was handling these before)
+* deleted all the old OpenCV gif rendering and metadata scanning tech
+* **if you would like to help test, please turn on `options->media->IN TESTING: Load images with PIL`. this used to be just a BUGFIX thing, but now it emulates where we actually want to end up. please send me any image files that render weird**
+
+### better boot error handling
+
+* if an error happens very early during boot, before the main Application event loop and splash screen are started, hydrus will now try and spin up a very small App and text dialog to show you the error visually! of course, if the error is Qt-related, then this won't work, ha ha ha, but you'll still always get the crash log
+* the client will now boot if the 'already-running' file exists but is incomprehensible--it'll just log that it was. also, if any other problem occurs during the 'already-running' check, hydrus assumes it is not already running and prints the error to the log
+* improved the 'can we write to the database folder?' test a little more. previously, if the db directory on boot was both missing and its parent was read-only, it would raise an error. now we correctly recognise that state as 'not writeable'
+* also, the fallback to the userpath db directory now only happens if you do not set a `-d/--db_dir` launch parameter. if you specifically set a launch path and that place is missing or read only, the program will not boot! I am more comfortable doing this now that we have the dialog to better display what happened
+* unified the 'what db dir are we using?' tests to one place
+* also cleaned up some of the boot failure code, which was spamming things haphazardly
+
+### string splitting and joining
+
+* the String Splitter and Joiner now interpret `\n` in their splitter/joiner text as newline (and other replacements like `\t` for tab; anything python supports). in order to not break existing parsers, the old splitter and joiner strings will be encoded on update (any `\` will become `\\`)
+* added some unit tests to test this behaviour for both String Processor types
+
+### misc
+
+* the system predicate parser is now plugged into the excellent `dateparser` library that we already use in downloader parsing. this thing can eat pretty much any date string you can throw at it, so if you type "system:archived time: since 01/05/2011" or "system:archived time: before 30 hours ago", it'll all work for almost any combination you can think of. it'll probably even work in your native language! the one big caveat is if you give a longer duration timestamp in the form 'x time units( ago)', rather than a specific date, it'll convert it to days/hours, ignoring years and months. since this stuff causes a ton of headaches, I am likely going to switch all the time-delta time predicates here to work on days/hours/seconds, and if you want to put 60 or 365 days, knowing what inaccuracy that implies means, then you can, rather than have me continually fret over and fail to deliver various leap year calculation problems. _calendarium delenda est_
+* fixed some thumbnail rendering for another class of damaged gif--this time, gifs that are so garbagified that they change their resolution from one frame to the next and/or produce a sizeless, shapeless frame of a handful of bytes. this is now detected and the bad data discarded!
+* if a video seems to have 0/None duration, the main native ffmpeg renderer (which is also used for thumbnail generation) can now handle it. the 'start x% in' value will be crazy, but it'll work
+* fixed an error with mpv trying to inspect the duration of null media during various states of media viewer transition
+
+### boring cleanup
+
+* gave a quick pass over the ~250 small 'just show some text and a system icon' dialogs work across the program. unified all calls through one location, improved some strings and string formatting, added more exception logging, unified the dialog titles, differentiated information/warning/critical flags better, made 'critical' messages log their titles and text, and made it all thread safe in a nice invisible way to callers
+* fixed some borked page/popup permission checks in the client api
+* if a file transitions from 'no transparency' to 'has transparency', the client will now queue a thumbnail regen, just in case that tech has been recently added
+* improved the formatting of what the main error-logging method actually prints to the log
+* slimmed down some of the watcher/subscription fixed-checking-time code
+* misc formatting cleanup and surplus import clearout
+* fixed the discord link in the PTR help document
+
+## [Version 554](https://github.com/hydrusnetwork/hydrus/releases/tag/v554)
+
+### checker options fixes
+
+* **sorry for any jank 'static check interval' watcher or subscription timings you saw last week! I screwed something up and it slipped through testing**
+* the 'static check interval' logic is much much simpler. rather than try to always keep to the same check period, even if the actual check is delayed, it just works off 'last check time + period', every time. the clever stuff was generally confusing and failing in a variety of ways
+* fixed a bug in the new static check time code that was stopping certain in-limbo watchers from calculating their correct next check time on program load
+* fixed a bug in the new static check time code that was causing too many checks in long-paused-and-now-unpaused downloaders
+* some new unit tests will make sure these errors do not happen again
+* in the checker options UI, if you uncheck 'just check at a static, regular interval', and leave the faster/slower values as the same when you OK, then the dialog now asks you if that is what you want
+* in the checker options UI, the 'slower than' value will now automatically update itself to be no smaller than the 'faster than' value
+
+### job status fixes and cleanup (mostly boring)
+
+* **sorry for any 'Cancel/IsCancellable' related errors you saw last week! I screwed something else up**
+* fixed a dumb infinite recursion error in the new job status cancellable 'safety' checks that was happening when it was time to auto-dismiss a cancellable job due to program/thread shutdown or a maintenance mode change. this also fixes some non-dismissing popup messages (usually subscriptions) that weren't setting their cancel status correctly
+* this happened because the code here was ancient and ugly. I have renamed, simplified, and reworked the logical dangerzone variables and methods in the job status object so we don't run into this problem again. 'Cancel' and 'Finish' no longer take a seconds parameter, 'Delete' is now 'FinishAndDismiss', 'IsDeleted' is now 'IsDismissed', 'IsDeletable' is now merged into a cleaner 'IsDone', 'IsWorking' is removed, 'SetCancellable' and 'SetPausable' are removed (these will always be in the init, and will determine what type of job we have), and the various new Client API calls and help are updated for this
+* also, the job status methods now check their backstop 'cancel' tests far less often, and there's a throttle to make sure they can only run once a second anyway
+* also ditched the needless threading events for simple bools
+* also cleared up about 40 pointless Finish/FinishAndDismiss duplicate calls across the program
+* also fixed up the job status object to do its various yield pauses more sanely
+
+### cbz and ugoira detection and thumbnails
+
+* CBZ files are now detected! there is no very strict standard of what is or isn't a CBZ (it is basically just a zip of images and maybe some metadata files), but I threw together a 'yeah that looks like a cbz' test that now runs on every zip. there will probably be several false positives, but with luck fewer false negatives, which I think is the way we want to lean here. if you have just some zip of similarly named images, it'll now be counted as a CBZ, but I think we'll nonetheless want to give those all the upcoming CBZ tech anyway, even if they aren't technically intended to be 'CBZ', whatever that actually means here other than the different file extension
+* the client looks for the cover image in your CBZ and uses that for the thumbnail! it also uses this file's resolution as the CBZ resolution
+* Ugoira files are now detected! there is a firmer standard of what an Ugoira is, but it is still tricky as we are just talking about a different list of zipped image files here. I expect zero false negatives and some false positives (unfortunately, it'll be CBZs with zero-padded numerical-only filenames). as all ugoiras are valid CBZs but few CBZs are valid ugoiras, the Ugoira test runs first
+* the client now gets a thumbnail for Ugoiras. It'll also use the x%-in setting that other animations and videos use! it also fetches resolution and 'num frames'. duration can't be inferred just yet, but we hope to have some options (and actual rendering) happening in the medium-term future
+* this is all an experiment. let me know how it goes, and send in any examples of it failing awfully. there is lots more to do. if things don't explode with this much, I'll see about .cbr and cb7, which seems totally doable, and then I can seriously plan out UI for actual view and internal navigation. I can't promise proper reader features like bookmarks or anything, but I'll keep on pushing
+* all your existing zips will be scheduled for a filetype re-scan on update
+
+### animations
+
+* the native FFMPEG renderer pipeline is now capable of transparency. APNGs rendered in the native viewer now have correct transparency and can pass 'has transparency' checks
+* all your apngs will be scheduled for the 'has transparency' check, just like pngs and gifs and stuff a couple weeks ago. thanks to the user who submitted some transparency-having apngs to test with!
+* the thumbnails for animated gifs are now taken using the FFMPEG renderer, which puts them x% in, just like APNG and other video. transparency in these thumbnails also seems to be good!  am not going to regen everyone's animated gif thumbs yet--I'll do some more IRL testing--but this will probably come in a few weeks. let me know if you see a bevy of newly imported gifs with crazy thumbs
+* I also overhauled the native GIF renderer. what used to be a cobbled-together RGB OpenCV solution with a fallback to bad PIL code is now a proper only-PIL RGBA solution, and the transparency seems to be great now (the OpenCV code had no transparency, and the PIL fallback tried but generally drew the last frame on top of the previous, giving a noclip effect). the new renderer also skips to an unrendered area faster
+* given the file maintenance I/O Error problems we had the past couple weeks, I also made this cleaner GIF renderer much more robust; it will generally just rewind itself or give a black frame if it runs into truncation problems, no worries, and for gifs that just have one weird frame that doesn't break seek, it should be able to skip past those now, repeating the last good frame until it hits something valid
+* as a side thing, the FFMPEG GIF renderer seems capable of doing almost everything the PIL renderer can now. I can flip the code to using the FFMPEG pipeline and gifs come through fine, transparency included. I prefer the PIL for now, but depending on how things go, I may add options to use the FFMPEG bridge as a testbed/fallback in future
+* added some PIL animated gif rendering tech to handle a gif that out of nowhere produces a giga 85171x53524 frame, eating up multiple GB of memory and taking twenty seconds to failrender
+* fixed yet another potential source of the false positive I/O Errors caused by the recent 'has transparency' checking, this time not just in malformed animated gif frames, but some busted static images too
+* improved the PIL loading code a little more, converting more possible I/O Errors and other weird damaged file states to the correct hydrus-internal exception types with nicer error texts
+* the 'disable CV for gifs' option is removed
+
+### file pre-import checks
+
+* the 'is this file free to work on' test that runs before files are added to the manual or import folder file list now has an additional file-open check. this improves reliability over NAS connections, where the file may be used by a remote process, and also improves detection for files where the current user only has read permissions
+* import folders now have a 'recent modified time skip period' setting, defaulting to 60 seconds. any file that has a modified date newer than that many seconds ago will not be imported on the current check. this helps to avoid importing files that are currently being downloaded/copied into the folder when the import folder runs (when that folder/download process is otherwise immune to the existing 'already in use' checks)
+* import folders now repeat-check folders that have many previously-seen files much faster
+
+### misc
+
+* the 'max gif size' setting in the quiet and loud file import options now defaults to 'no limit'. it used to be 32MB, to catch various trash webm re-encodes, but these days it catches more false positives than it is worth, and 32MB is less of a deal these days too
+* the test on boot to see if the given database location is writeable-to should now give an error when that location is on a non--existing location (e.g. a removable usb drive that is not currently plugged in). previously, it could, depending on the situation, either proceed and go crazy later or wait indefinitely on a CPU-heavy busy-wait for the drive to be plugged back in. unfortunately, because at this stage there is no logfile location and no UI, if your custom db dir does not and cannot exist, the program terminates instantly and silently writes a crash log to your desktop. I have made a plan to improve this in future
+* also cleaned up all the db_dir boot code generally. the various validity tests should now only happen once per potential location
+* the function that converts an export phrase into a filename will now elide long unicode filenames correctly. filenames with complex unicode characters will take more than one byte per character (and most OSes have ~255 byte filename limit), which requires a trickier check. also, on Windows, where there is a 260-character total path limit, the combined directory+filename length is checked better, and just checked on Windows. all errors raised here are better
+* added some unit tests to check the new path eliding tech
+* brushed up the 'getting started with ratings' help a little
+
+### client api
+
+* thanks to a user, the Client API now has the ability to see and interact with the current popup messages in the popup toaster!
+* fixed a stupid typo that I made in the new Client API options call. added a unit test to catch this in future, too
+* the client api version is now 57
+
 ## [Version 553](https://github.com/hydrusnetwork/hydrus/releases/tag/v553)
 
 ### animated gif fixes
@@ -322,92 +433,3 @@ title: Changelog
 * cleaned up some image loading code
 * deleted ancient and no-longer-used client db code regarding imageboard definitions, status texts, and more
 * removed the ancient `OPENCV_OK` fallback code, which was only used, superfluously, in a couple of final places. OpenCV is not optional to run hydrus, server or client
-
-## [Version 545](https://github.com/hydrusnetwork/hydrus/releases/tag/v545)
-
-### blurhash
-
-* thanks to a user's work, hydrus now calculates the [blurhash](https://blurha.sh/) of files with a thumbnail! (issue #394)
-* if a file has no thumbnail but does have a blurhash (e.g. missing files, or files you previously deleted and are looking at in a clever view), it now presents a thumbnail generated from that blurhash
-* all existing thumbnail-having files are scheduled for a blurhash calculation (this is a new job in the file maintenance system). if you have hundreds of thousands of files, expect it to take a couple of weeks/months to clear. if you need to hurry this along, the queue is under _database->file maintenance_
-* any time a file's thumbnail changes, the blurhash is scheduled for a regen
-* for this first version, the blurhash is very small and simple, either 15 or 16 cells for ~34 bytes. if we end up using it a lot somewhere, I'd be open to making a size setting so you can set 8x8 or higher grids for actually decent blur-thumbs
-* a new _help->debug_ report mode switches to blurhashes instead of normal thumbs
-
-### file history search
-
-* I did to the file history chart (_help->view file history_) what I did to mr bones a couple weeks ago. you can now search your history of imports, archives, and deletes for creator x, filetype y, or any other search you can think of
-* I hacked this all together right at the end of my week, so please bear with me if there are bugs or dumb permitted domains/results. the default action when you first open it up should all work the same way as before, no worries™, but let me know how you get on and I'll fix it!
-* there's more to do here. we'll want a hideable search panel, a widget to control the resolution of the chart (currently fixed at 7680 to look good blown up on a 4k), and it'd be nice to have a selectable date range
-* in the longer term future, it'd be nice to have more lines of data and that chart tech you see on financial sites where it shows you the current value where your mouse is
-
-### client api
-
-* the `file_metadata` call now says the new blurhash. if you pipe it into a blurhash library and blow it up to an appopriate ratio canvas, it _should_ just work. the typical use is as a placeholder while you wait for thumbs/files to download
-* a new `include_blurhash` parameter will include the blurhash when `only_return_basic_information` is true
-* `file_metadata` also shows the file's `pixel_hash` now. the algorithm here is proprietary to hydrus, but you can throw it into 'system:similar files' to find pixel dupes. I expect to add perceptual hashes too
-* the help is updated to talk about this
-* I updated the unit tests to deal with this
-* the error when the api fails to parse the client api header is now a properly handled 400 (previously it was falling to the 500 backstop)
-* the client api version is now 53
-
-### misc
-
-* I'm sorry to say I'm removing the Deviant Art artist search and login script for all new users, since they are both broken. DA have been killing their nice old API in pieces, and they finally took down the old artist gallery fetch. :(. there may be a way to finagle-parse their new phone-friendly, live-loading, cloud-deployed engine, but when I look at it, it seems like a much bigger mess than hydrus's parsing system can happily handle atm. the 'correct' way to programatically parse DA is through their new OAuth API, which we simply do not support. individual page URLs seem to still work, but I expect them to go soon too. Sorry folks, try gallery-dl for now--they have a robust OAuth solution
-* thanks to a user, we now have 'epub' ebook support! no 'num_words' support yet, but it looks like epubs are really just zips with some weird metadata files and a bunch of html inside, so I think this'll be doable with a future hacky parser. all your existing zip files wil be scheduled for a metadata rescan to see if they are actually epubs (this'll capture any secret kritas and procreates, too, I think)
-* the main UI-level media object is now aware of a file's pixel hash. this is now used in the duplicate filter's 'these are pixel duplicates' statements to save CPU. the jank old on-the-fly calculation code is all removed now, and if these values are missing from the media object, a message will now be shown saying the pixel dupe status could not be determined. we have had multiple rounds of regen over the past year and thus almost all clients have full database data here, so fingers crossed we won't see this error state much if at all, but let me know if you do and I'll figure out a button to accelerate the fix
-* the thumbnail _right-click->open->similar files_ menu now has an entry for 'open the selection in a new duplicate filter page', letting you quickly resolve the duplicates that involve the selected files
-* pixel hash and blurhash are now listed, with the actual hash value, in the _share->copy->hash_ thumbnail right-click menu
-* thanks to a user, 'MPO' jpegs (some weird multi-picture jpeg that we can't page through yet) now parse their EXIF correctly and should rotate on a metadata-reparse. since these are rare, I'm not going to schedule a rescan over everyone's jpegs, but if you see a jpeg that is rotated wrong, try hitting _manage->regenerate->file metadata_ on its thumbnail menu
-* I may have fixed a rare hang when highlighting a downloader/watcher during very busy network time that involves that includes that importer
-* added a warning to the 'getting started with installing' and 'database migration' help about running the SQLite database off a compressed filesystem--don't do it!
-* fixed thumbnail generation for greyspace PSDs (and perhaps some others)
-
-### boring cleanup
-
-* I cleaned some code and added some tests around the new blurhash tech and thumbs in general
-* a variety of metadata changes such as 'has exif', 'has icc profile' now trigger a live update on thumbnails currently loaded into the UI
-* cleaned up some old file metadata loading code
-* re-sorted the job list dropdown in the file maintenance dialog
-* some file maintenance database work should be a bit faster
-* fixed some behind the scenes stuff when the file history chart has no file info to show
-
-## [Version 544](https://github.com/hydrusnetwork/hydrus/releases/tag/v544)
-
-### webp vulnerability
-
-* the main webp library (libwebp) that many programs use for webp support had a remote execution (very bad) vulnerability. you probably noticed your chrome/firefox updated this week, which was fixing this. we use the same thing via the `Pillow` library, which also rolled out a fix. I'm not sure how vulnerable hydrus ever was, since we are usually jank about how we do anything, but best to be safe about these things. there were apparently exploits for this floating around
-* the builds today have the fix, so if you use them, update as normal and you are good
-* if you run from source, **rebuild your venv at your earliest convenience**, and you'll get the new version of Pillow and be good. note, if you use the advanced setup, that there is a new question about `Pillow`
-* unfortunately, Windows 7 users (or anyone else running from source on Python 3.7) cannot get the fix! it needs Pillow 10.0.1, which is >=Python 3.8. it seems many large programs are dropping support for Win 7 this year, so while I will continue to support it for a reasonable while longer, I think the train may be running out of track bros
-
-### max size in file storage system
-
-* the `migrate database` dialog now allows you to set a 'max size' for all but one of your media locations. if you have a 500GB drive you want to store some stuff on, you no longer have to balance the weights in your head--just set a max size of 450GB and hydrus will figure it out for you. it is not super precise (and it isn't healthy to fill drives up to 98% anyway), so make sure you leave some padding
-* also, please note that this will not automatically rebalance _yet_. right now, the only way files move between locations is through the 'move files now' button on the dialog, so if you have a location that is full up according to its max size rule and then spend a month importing many files, it will go over its limit until and unless you revisit 'migrate database' and move files again. I hope to have automatic background rebalancing in the near future
-* updated the 'database migration' help to talk about this and added a new migration example
-* the 'edit num bytes' widget now supports terabytes (TB)
-* I fleshed out the logic and fixed several bugs in the migration code, mostly to do with the new max size stuff and distributing weights appropriately in various situations
-
-### misc
-
-* when an image file fails to render in the media viewer, it now draws a bordered box with a brief 'failed to render' note. previously, it janked with a second of lag, made some popups, and left the display on eternal blank hang. now it finishes its job cleanly and returns a 'nah m8' 'image' result
-* I reworked the Mr Bones layout a bit. the search is now on the left, and the rows of the main count table are separated for readability
-* it turns out that bitmap (.bmp) files can support ICC Profiles, so I've told hydrus to look for them in new bitmaps and retroactively scan all your existing ones
-* fixed an issue with the recent PSD code updates that was breaking boot for clients running from source without the psd-tools library (this affected the Docker build)
-* updated all the 'setup_venv' scripts. all the formatting and text has had a pass, and there is now a question on (n)ew or (old) Pillow
-* to stop FFMPEG's false positives where it can think a txt file is an mpeg, the main hydrus filetype scanning routine will no longer send files with common text extensions to ffmpeg. if you do have an mp3 called music.txt, rename it before import!
-* thanks to a user, the inkbunny file page parser fetches the correct source time again (#1431)
-* thanks to a user, the old sankaku gallery parser can find the 'next page' again
-* removed the broken sankaku login script for new users. I recommend people move to Hydrus Companion for all tricky login situations (#1435)
-* thanks to a user, procreate file parsing, which had the width/height flipped, is fixed. all existing procreate files will regen their metadata and thumbs
-
-### client api
-
-* thanks to a user, the Client API now has a `/get_files/render` command, which gives you a 100% zoom png render of the given file. useful if you want to display a PSD on a web page!
-* I screwed up Mr Bones's Client API request last week. this is now fixed
-* Mr Bones now supports a full file search context on the Client API, just like the main UI now. same parameters as `/get_files/search_files`, the help talks about it. He also cancels his work early if the request is terminated
-* Mr Bones gets several new unit tests to guarantee long-term ride reliability
-* the Client API (and all hydrus servers) now return proper JSON on an error. there's the error summary, specific exception name, and http status code. the big bad 500-error-of-last-resort still tacks on the large serverside traceback to the summary, so we'll see if that is still annoying and split it off if needed
-* the new `/add_tags/get_siblings_and_parents` now properly cleans the tags you give it, trimming whitespace and lowercasing letters and so on
-* the client api version is now 52

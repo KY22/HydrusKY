@@ -10,12 +10,12 @@ from hydrus.core import HydrusExceptions
 from hydrus.core import HydrusPaths
 from hydrus.core import HydrusData
 from hydrus.core import HydrusGlobals as HG
-from hydrus.core import HydrusTime
 
 from hydrus.client import ClientConstants as CC
 from hydrus.client import ClientLocation
 from hydrus.client import ClientPaths
 from hydrus.client import ClientThreading
+from hydrus.client.gui import ClientGUIDialogsMessage
 from hydrus.client.gui import ClientGUIDialogsQuick
 from hydrus.client.gui import ClientGUIScrolledPanelsEdit
 from hydrus.client.gui import ClientGUITopLevelWindowsPanels
@@ -82,7 +82,7 @@ def CopyHashesToClipboard( win: QW.QWidget, hash_type: str, medias: typing.Seque
                 message += ' It could be that some of the local files are currently missing this information in the hydrus database. A file maintenance job (under the database menu) can repopulate this data.'
                 
             
-            QW.QMessageBox.warning( win, 'Warning', message )
+            ClientGUIDialogsMessage.ShowWarning( win, message )
             
         
     
@@ -112,7 +112,7 @@ def CopyHashesToClipboard( win: QW.QWidget, hash_type: str, medias: typing.Seque
         
         HG.client_controller.pub( 'message', job_status )
         
-        job_status.Delete( 2 )
+        job_status.FinishAndDismiss( 2 )
         
     
 def CopyMediaURLs( medias ):
@@ -357,9 +357,7 @@ def OpenURLs( urls ):
             
             if job_status is not None:
                 
-                job_status.Finish()
-                
-                job_status.Delete( 1 )
+                job_status.FinishAndDismiss( 1 )
                 
             
         

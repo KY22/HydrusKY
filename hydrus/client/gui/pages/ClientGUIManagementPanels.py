@@ -29,6 +29,7 @@ from hydrus.client import ClientTime
 from hydrus.client.gui import ClientGUIAsync
 from hydrus.client.gui import ClientGUICore as CGC
 from hydrus.client.gui import ClientGUIDialogs
+from hydrus.client.gui import ClientGUIDialogsMessage
 from hydrus.client.gui import ClientGUIDialogsQuick
 from hydrus.client.gui import ClientGUIFunctions
 from hydrus.client.gui import ClientGUIMenus
@@ -1793,8 +1794,7 @@ class ManagementPanelImporterMultipleGallery( ManagementPanelImporter ):
                     
                     self._gallery_importers_listctrl.UpdateDatas()
                     
-                    job_status.Finish()
-                    job_status.Delete()
+                    job_status.FinishAndDismiss()
                     
                 
             
@@ -2058,7 +2058,7 @@ class ManagementPanelImporterMultipleGallery( ManagementPanelImporter ):
             
         else:
             
-            QW.QMessageBox.warning( self, 'Warning', 'No presented files for that selection!' )
+            ClientGUIDialogsMessage.ShowWarning( self, 'No presented files for that selection!' )
             
         
     
@@ -2789,8 +2789,7 @@ class ManagementPanelImporterMultipleWatcher( ManagementPanelImporter ):
                     
                     self._watchers_listctrl.UpdateDatas()
                     
-                    job_status.Finish()
-                    job_status.Delete()
+                    job_status.FinishAndDismiss()
                     
                 
             
@@ -3049,7 +3048,7 @@ class ManagementPanelImporterMultipleWatcher( ManagementPanelImporter ):
             
         else:
             
-            QW.QMessageBox.warning( self, 'Warning', 'No presented files for that selection!' )
+            ClientGUIDialogsMessage.ShowWarning( self, 'No presented files for that selection!' )
             
         
     
@@ -4579,7 +4578,7 @@ class ManagementPanelPetitions( ManagementPanel ):
                 
                 job_status.SetStatusText( 'Hey, the server did not have that type of petition after all. Please hit refresh counts.' )
                 
-                job_status.Delete( 5 )
+                job_status.FinishAndDismiss( 5 )
                 
                 HG.client_controller.pub( 'message', job_status )
                 
@@ -5447,7 +5446,7 @@ class ManagementPanelPetitions( ManagementPanel ):
                             
                         finally:
                             
-                            job_status.Delete()
+                            job_status.FinishAndDismiss()
                             
                         
                         HG.client_controller.CallBlockingToQt( self, qt_petition_cleared, outgoing_petition )
@@ -5603,7 +5602,7 @@ class ManagementPanelQuery( ManagementPanel ):
             
             if len( file_search_context.GetPredicates() ) > 0:
                 
-                self._query_job_status = ClientThreading.JobStatus()
+                self._query_job_status = ClientThreading.JobStatus( cancellable = True )
                 
                 sort_by = self._media_sort_widget.GetSort()
                 

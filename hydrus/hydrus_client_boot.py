@@ -51,57 +51,7 @@ try:
     
     result = argparser.parse_args()
     
-    if result.db_dir is None:
-        
-        db_dir = HC.DEFAULT_DB_DIR
-        
-        if not HydrusPaths.DirectoryIsWriteable( db_dir ) or HC.RUNNING_FROM_MACOS_APP:
-            
-            if HC.USERPATH_DB_DIR is None:
-                
-                raise Exception( 'The default db path "{}" was not writeable, and the userpath could not be determined!'.format( HC.DEFAULT_DB_DIR ) )
-                
-            
-            db_dir = HC.USERPATH_DB_DIR
-            
-        
-    else:
-        
-        db_dir = result.db_dir
-        
-    
-    db_dir = HydrusPaths.ConvertPortablePathToAbsPath( db_dir, HC.BASE_DIR )
-    
-    if not HydrusPaths.DirectoryIsWriteable( db_dir ):
-        
-        message = 'The given db path "{}" is not a writeable-to!'.format( db_dir )
-        
-        db_dir = HC.USERPATH_DB_DIR
-        
-        raise Exception( message )
-        
-    
-    try:
-        
-        HydrusPaths.MakeSureDirectoryExists( db_dir )
-        
-    except:
-        
-        message = 'Could not ensure db path "{}" exists! Check the location is correct and that you have permission to write to it!'.format( db_dir )
-        
-        db_dir = HC.USERPATH_DB_DIR
-        
-        raise Exception( message )
-        
-    
-    if not os.path.isdir( db_dir ):
-        
-        message = 'The given db path "{}" is not a directory!'.format( db_dir )
-        
-        db_dir = HC.USERPATH_DB_DIR
-        
-        raise Exception( message )
-        
+    db_dir = HydrusPaths.FigureOutDBDir( result.db_dir )
     
     HG.db_journal_mode = result.db_journal_mode
     
@@ -180,9 +130,11 @@ try:
     
 except Exception as e:
     
+    title = 'Critical boot error occurred! Details written to crash.log in either your db dir, userdir, or desktop!'
+    
     try:
         
-        HydrusData.DebugPrint( 'Critical boot error occurred! Details written to crash.log!' )
+        HydrusData.DebugPrint( title )
         HydrusData.PrintException( e )
         
     except:
@@ -192,9 +144,7 @@ except Exception as e:
     
     import traceback
     
-    error_trace = traceback.format_exc()
-    
-    print( error_trace )
+    error_trace = str( e ) + '\n\n' + traceback.format_exc()
     
     if 'db_dir' in locals() and os.path.exists( db_dir ):
         
@@ -216,10 +166,27 @@ except Exception as e:
     
     with open( dest_path, 'w', encoding = 'utf-8' ) as f:
         
+        f.write( title )
+        
+        f.write( '\n\n' )
+        
         f.write( error_trace )
         
     
-    print( 'Critical boot error occurred! Details written to hydrus_crash.log in either db dir or user dir!' )
+    try:
+        
+        from qtpy import QtWidgets
+        
+        app = QtWidgets.QApplication( sys.argv )
+        
+        from hydrus.client.gui import ClientGUIDialogsMessage
+        
+        ClientGUIDialogsMessage.ShowCritical( None, title, error_trace )
+        
+    except:
+        
+        HydrusData.DebugPrint( 'Could not start up Qt to show the error visually!' )
+        
     
     sys.exit( 1 )
     

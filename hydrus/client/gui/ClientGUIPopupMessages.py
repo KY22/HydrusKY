@@ -18,6 +18,7 @@ from hydrus.client import ClientData
 from hydrus.client import ClientLocation
 from hydrus.client import ClientThreading
 from hydrus.client.gui import ClientGUIAsync
+from hydrus.client.gui import ClientGUIDialogsMessage
 from hydrus.client.gui import ClientGUIDialogsQuick
 from hydrus.client.gui import ClientGUIFunctions
 from hydrus.client.gui import ClientGUITopLevelWindows
@@ -212,7 +213,7 @@ class PopupMessage( PopupWindow ):
         
         self._job_status.SetVariable( 'popup_yes_no_answer', False )
         
-        self._job_status.Delete()
+        self._job_status.FinishAndDismiss()
         
         self._yes.hide()
         self._no.hide()
@@ -240,7 +241,7 @@ class PopupMessage( PopupWindow ):
         
         self._job_status.SetVariable( 'popup_yes_no_answer', True )
         
-        self._job_status.Delete()
+        self._job_status.FinishAndDismiss()
         
         self._yes.hide()
         self._no.hide()
@@ -327,10 +328,7 @@ class PopupMessage( PopupWindow ):
                     
                     if len( presented_hashes ) == 0:
                         
-                        if self._job_status.IsDone():
-                            
-                            self.TryToDismiss()
-                            
+                        self.TryToDismiss()
                         
                     
                 
@@ -381,16 +379,16 @@ class PopupMessage( PopupWindow ):
         return self._job_status
         
     
-    def IsDeleted( self ):
+    def IsDismissed( self ):
         
-        return self._job_status.IsDeleted()
+        return self._job_status.IsDismissed()
         
     
     def TryToDismiss( self ):
         
-        if self._job_status.IsDeletable():
+        if self._job_status.IsDone():
             
-            self._job_status.Delete()
+            self._job_status.FinishAndDismiss()
             
             PopupWindow.TryToDismiss( self )
             
@@ -661,14 +659,14 @@ class JobStatusPopupQueue( object ):
         
         with self._lock:
             
-            removees = [ job_status.GetKey() for job_status in self._job_status_ordered_dict_queue.values() if job_status.IsDeleted() ]
+            removees = [ job_status.GetKey() for job_status in self._job_status_ordered_dict_queue.values() if job_status.IsDismissed() ]
             
             for job_status_key in removees:
                 
                 del self._job_status_ordered_dict_queue[ job_status_key ]
                 
             
-            self._job_statuses_in_view = { job_status for job_status in self._job_statuses_in_view if not job_status.IsDeleted() }
+            self._job_statuses_in_view = { job_status for job_status in self._job_statuses_in_view if not job_status.IsDismissed() }
             
         
     
@@ -678,9 +676,9 @@ class JobStatusPopupQueue( object ):
             
             for job_status in self._job_status_ordered_dict_queue.values():
                 
-                if job_status.IsDeletable():
+                if job_status.IsDone():
                     
-                    job_status.Delete()
+                    job_status.FinishAndDismiss()
                     
                 
             
@@ -759,7 +757,7 @@ class JobStatusPopupQueue( object ):
     
     def TryToMergeJobStatus( self, job_status: ClientThreading.JobStatus ) -> bool:
         
-        if not job_status.HasVariable( 'attached_files_mergable' ):
+        if not job_status.GetIfHasVariable( 'attached_files_mergable' ):
             
             return False
             
@@ -772,7 +770,7 @@ class JobStatusPopupQueue( object ):
             
             for existing_job_status in self._job_status_ordered_dict_queue.values():
                 
-                if existing_job_status.HasVariable( 'attached_files_mergable' ):
+                if existing_job_status.GetIfHasVariable( 'attached_files_mergable' ):
                     
                     result = existing_job_status.GetFiles()
                     
@@ -863,7 +861,7 @@ class PopupMessageManager( QW.QFrame ):
         
         HG.client_controller.CallLaterQtSafe( self, 0.5, 'initialise message', self.AddMessage, job_status )
         
-        HG.client_controller.CallLaterQtSafe( self, 1.0, 'delete initial message', job_status.Delete )
+        HG.client_controller.CallLaterQtSafe( self, 1.0, 'delete initial message', job_status.FinishAndDismiss )
         
     
     def _CheckPending( self ):
@@ -943,9 +941,9 @@ class PopupMessageManager( QW.QFrame ):
     
     def _SizeAndPositionAndShow( self ):
         
+        gui_frame = self.parentWidget()
+        
         try:
-            
-            gui_frame = self.parentWidget()
             
             gui_is_hidden = not gui_frame.isVisible()
             
@@ -1003,7 +1001,7 @@ class PopupMessageManager( QW.QFrame ):
             
             HydrusData.Print( traceback.format_exc() )
             
-            QW.QMessageBox.critical( gui_frame, 'Error', text )
+            ClientGUIDialogsMessage.ShowCritical( gui_frame, 'Popup Message Manager failure!', text )
             
             self._update_job.Cancel()
             
@@ -1065,7 +1063,7 @@ class PopupMessageManager( QW.QFrame ):
             
             if message_window:
                 
-                if message_window.IsDeleted():
+                if message_window.IsDismissed():
                     
                     self._RemovePopupWindow( message_window )
                     
@@ -1141,12 +1139,12 @@ class PopupMessageManager( QW.QFrame ):
         
         job_status = window.GetJobStatus()
         
-        if not job_status.IsDeletable():
+        if not job_status.IsDone():
             
             return
             
         
-        job_status.Delete()
+        job_status.FinishAndDismiss()
         
         self._message_vbox.removeWidget( window )
         
@@ -1188,7 +1186,7 @@ class PopupMessageManager( QW.QFrame ):
                 continue
                 
             
-            if message_window.GetJobStatus().IsDeleted():
+            if message_window.GetJobStatus().IsDismissed():
                 
                 removees.append( message_window )
                 
@@ -1433,7 +1431,7 @@ class PopupMessageDialogPanel( QW.QWidget ):
             
         else:
             
-            QW.QMessageBox.warning( self, 'Warning', 'Unfortunately, this job cannot be cancelled. If it really is taking too long, please kill the client through task manager.' )
+            ClientGUIDialogsMessage.ShowWarning( self, 'Unfortunately, this job cannot be cancelled. If it really is taking too long, please kill the client through task manager.' )
             
             return False
             

@@ -9,6 +9,7 @@ from hydrus.core import HydrusGlobals as HG
 from hydrus.core import HydrusTime
 
 from hydrus.client import ClientConstants as CC
+from hydrus.client.gui import ClientGUIDialogsMessage
 from hydrus.client.gui import ClientGUIDialogsQuick
 from hydrus.client.gui import ClientGUIFileSeedCache
 from hydrus.client.gui import ClientGUIScrolledPanels
@@ -193,6 +194,10 @@ class EditImportFolderPanel( ClientGUIScrolledPanels.EditPanel ):
         
         self._period = ClientGUITime.TimeDeltaButton( self._folder_box, min = 3 * 60, days = True, hours = True, minutes = True )
         
+        self._last_modified_time_skip_period = ClientGUITime.TimeDeltaButton( self._folder_box, min = 1, days = True, hours = True, minutes = True, seconds = True )
+        tt = 'If a file has a modified time more recent than this long ago, it will not be imported in the current check. Helps to avoid importing files that are in the process of downloading/copying (usually on a NAS where other "already in use" checks may fail).'
+        self._last_modified_time_skip_period.setToolTip( tt )
+        
         self._paused = QW.QCheckBox( self._folder_box )
         
         self._check_now = QW.QCheckBox( self._folder_box )
@@ -273,6 +278,9 @@ class EditImportFolderPanel( ClientGUIScrolledPanels.EditPanel ):
         self._check_regularly.setChecked( check_regularly )
         
         self._period.SetValue( period )
+        
+        self._last_modified_time_skip_period.SetValue( import_folder.GetLastModifiedTimeSkipPeriod() )
+        
         self._paused.setChecked( paused )
         
         self._show_working_popup.setChecked( show_working_popup )
@@ -318,6 +326,7 @@ class EditImportFolderPanel( ClientGUIScrolledPanels.EditPanel ):
         rows.append( ( 'currently paused (if set, will not ever do any work): ', self._paused ) )
         rows.append( ( 'check regularly?: ', self._check_regularly ) )
         rows.append( ( 'check period: ', self._period ) )
+        rows.append( ( 'recent modified time skip period: ', self._last_modified_time_skip_period ) )
         rows.append( ( 'check on manage dialog ok: ', self._check_now ) )
         rows.append( ( 'show a popup while working: ', self._show_working_popup ) )
         rows.append( ( 'publish presented files to a popup button: ', self._publish_files_to_popup_button ) )
@@ -390,7 +399,7 @@ class EditImportFolderPanel( ClientGUIScrolledPanels.EditPanel ):
         
         if service_key in existing_service_keys:
             
-            QW.QMessageBox.critical( self, 'Error', 'You already have an entry for that service key! Please try editing it instead!' )
+            ClientGUIDialogsMessage.ShowWarning( self, 'You already have an entry for that service key! Please try editing it instead!' )
             
             return
             
@@ -464,7 +473,7 @@ class EditImportFolderPanel( ClientGUIScrolledPanels.EditPanel ):
         
         if not os.path.exists( path ):
             
-            QW.QMessageBox.warning( self, 'Warning', 'The path you have entered--"'+path+'"--does not exist! The dialog will not force you to correct it, but this import folder will do no work as long as the location is missing!' )
+            ClientGUIDialogsMessage.ShowWarning( self, f'The path you have entered--"{path}"--does not exist! The dialog will not force you to correct it, but this import folder will do no work as long as the location is missing!' )
             
         
         if HC.BASE_DIR.startswith( path ) or HG.client_controller.GetDBDir().startswith( path ):
@@ -483,7 +492,7 @@ class EditImportFolderPanel( ClientGUIScrolledPanels.EditPanel ):
             
             if not os.path.exists( path ):
                 
-                QW.QMessageBox.warning( self, 'Warning', 'The path you have entered for your successful file move location--"'+path+'"--does not exist! The dialog will not force you to correct it, but you should not let this import folder run until you have corrected or created it!' )
+                ClientGUIDialogsMessage.ShowWarning( self, f'The path you have entered for your successful file move location--"{path}"--does not exist! The dialog will not force you to correct it, but you should not let this import folder run until you have corrected or created it!' )
                 
             
         
@@ -498,7 +507,7 @@ class EditImportFolderPanel( ClientGUIScrolledPanels.EditPanel ):
             
             if not os.path.exists( path ):
                 
-                QW.QMessageBox.warning( self, 'Warning', 'The path you have entered for your redundant file move location--"'+path+'"--does not exist! The dialog will not force you to correct it, but you should not let this import folder run until you have corrected or created it!' )
+                ClientGUIDialogsMessage.ShowWarning( self, f'The path you have entered for your redundant file move location--"{path}"--does not exist! The dialog will not force you to correct it, but you should not let this import folder run until you have corrected or created it!' )
                 
             
         
@@ -513,7 +522,7 @@ class EditImportFolderPanel( ClientGUIScrolledPanels.EditPanel ):
             
             if not os.path.exists( path ):
                 
-                QW.QMessageBox.warning( self, 'Warning', 'The path you have entered for your deleted file move location--"'+path+'"--does not exist! The dialog will not force you to correct it, but you should not let this import folder run until you have corrected or created it!' )
+                ClientGUIDialogsMessage.ShowWarning( self, f'The path you have entered for your deleted file move location--"{path}"--does not exist! The dialog will not force you to correct it, but you should not let this import folder run until you have corrected or created it!' )
                 
             
         
@@ -528,7 +537,7 @@ class EditImportFolderPanel( ClientGUIScrolledPanels.EditPanel ):
             
             if not os.path.exists( path ):
                 
-                QW.QMessageBox.warning( self, 'Warning', 'The path you have entered for your failed file move location--"'+path+'"--does not exist! The dialog will not force you to correct it, but you should not let this import folder run until you have corrected or created it!' )
+                ClientGUIDialogsMessage.ShowWarning( self, f'The path you have entered for your failed file move location--"{path}"--does not exist! The dialog will not force you to correct it, but you should not let this import folder run until you have corrected or created it!' )
                 
             
         
@@ -632,6 +641,7 @@ class EditImportFolderPanel( ClientGUIScrolledPanels.EditPanel ):
             
         
         period = self._period.GetValue()
+        
         check_regularly = self._check_regularly.isChecked()
         
         paused = self._paused.isChecked()
@@ -645,6 +655,8 @@ class EditImportFolderPanel( ClientGUIScrolledPanels.EditPanel ):
         tag_service_keys_to_filename_tagging_options = dict( self._filename_tagging_options.GetData() )
         
         self._import_folder.SetTuple( name, path, file_import_options, tag_import_options, tag_service_keys_to_filename_tagging_options, actions, action_locations, period, check_regularly, paused, check_now, show_working_popup, publish_files_to_popup_button, publish_files_to_page )
+        
+        self._import_folder.SetLastModifiedTimeSkipPeriod( self._last_modified_time_skip_period.GetValue() )
         
         metadata_routers = self._metadata_routers_button.GetValue()
         

@@ -32,6 +32,7 @@ from hydrus.client import ClientServices
 from hydrus.client import ClientThreading
 from hydrus.client.caches import ClientCaches
 from hydrus.client.db import ClientDB
+from hydrus.client.gui import ClientGUIDialogsMessage
 from hydrus.client.gui import ClientGUISplash
 from hydrus.client.gui import QtPorting as QP
 
@@ -267,8 +268,8 @@ class Controller( HydrusController.HydrusController ):
         
         if not self._doing_fast_exit:
             
-            self.SafeShowCriticalMessage( 'shutdown error', text )
-            self.SafeShowCriticalMessage( 'shutdown error', traceback.format_exc() )
+            self.BlockingSafeShowCriticalMessage( 'shutdown error', text )
+            self.BlockingSafeShowCriticalMessage( 'shutdown error', traceback.format_exc() )
             
         
         self._doing_fast_exit = True
@@ -297,7 +298,7 @@ class Controller( HydrusController.HydrusController ):
                         
                         job_status.SetStatusText( 'enabling I/O now' )
                         
-                        job_status.Delete()
+                        job_status.FinishAndDismiss()
                         
                         return
                         
@@ -307,7 +308,7 @@ class Controller( HydrusController.HydrusController ):
                 
                 if HydrusTime.TimeHasPassed( wake_time ):
                     
-                    job_status.Delete()
+                    job_status.FinishAndDismiss()
                     
                     return
                     
@@ -383,6 +384,16 @@ class Controller( HydrusController.HydrusController ):
             
         
     
+    def BlockingSafeShowCriticalMessage( self, title, message ):
+        
+        ClientGUIDialogsMessage.ShowCritical( self.gui, title, message )
+        
+    
+    def BlockingSafeShowMessage( self, message ):
+        
+        ClientGUIDialogsMessage.ShowInformation( self.gui, message )
+        
+    
     def CallBlockingToQt( self, win, func, *args, **kwargs ):
         
         def qt_code( win: QW.QWidget, job_status: ClientThreading.JobStatus ):
@@ -422,18 +433,9 @@ class Controller( HydrusController.HydrusController ):
                 
             
         
-        job_status = ClientThreading.JobStatus( cancel_on_shutdown = False )
+        job_status = ClientThreading.JobStatus( cancellable = True, cancel_on_shutdown = False )
         
         QP.CallAfter( qt_code, win, job_status )
-        
-        i = 0
-        
-        while not job_status.IsDone() and i < 8:
-            
-            time.sleep( 0.02 )
-            
-            i += 1
-            
         
         # I think in some cases with the splash screen we may actually be pushing stuff here after model shutdown
         # but I also don't want a hang, as we have seen with some GUI async job that got fired on shutdown and it seems some event queue was halted or deadlocked
@@ -1043,7 +1045,7 @@ class Controller( HydrusController.HydrusController ):
             
             column_list_manager._dirty = True
             
-            self.SafeShowCriticalMessage( 'Problem loading object', 'Your list manager was missing on boot! I have recreated a new empty one with default settings. Please check that your hard drive and client are ok and let the hydrus dev know the details if there is a mystery.' )
+            self.BlockingSafeShowCriticalMessage( 'Problem loading object', 'Your list manager was missing on boot! I have recreated a new empty one with default settings. Please check that your hard drive and client are ok and let the hydrus dev know the details if there is a mystery.' )
             
         
         self.column_list_manager = column_list_manager
@@ -1073,7 +1075,7 @@ class Controller( HydrusController.HydrusController ):
             
             client_api_manager._dirty = True
             
-            self.SafeShowCriticalMessage( 'Problem loading object', 'Your client api manager was missing on boot! I have recreated a new empty one. Please check that your hard drive and client are ok and let the hydrus dev know the details if there is a mystery.' )
+            self.BlockingSafeShowCriticalMessage( 'Problem loading object', 'Your client api manager was missing on boot! I have recreated a new empty one. Please check that your hard drive and client are ok and let the hydrus dev know the details if there is a mystery.' )
             
         
         self.client_api_manager = client_api_manager
@@ -1094,7 +1096,7 @@ class Controller( HydrusController.HydrusController ):
             
             bandwidth_manager.SetDirty()
             
-            self.SafeShowCriticalMessage( 'Problem loading object', 'Your bandwidth manager was missing on boot! I have recreated a new one. It may have your bandwidth record, but some/all may be missing. Your rules have been reset to default. Please check that your hard drive and client are ok and let the hydrus dev know the details if there is a mystery.' )
+            self.BlockingSafeShowCriticalMessage( 'Problem loading object', 'Your bandwidth manager was missing on boot! I have recreated a new one. It may have your bandwidth record, but some/all may be missing. Your rules have been reset to default. Please check that your hard drive and client are ok and let the hydrus dev know the details if there is a mystery.' )
             
         
         from hydrus.client.networking import ClientNetworkingSessions
@@ -1111,7 +1113,7 @@ class Controller( HydrusController.HydrusController ):
             
             session_manager.SetDirty()
             
-            self.SafeShowCriticalMessage( 'Problem loading object', 'Your session manager was missing on boot! I have recreated a new one. It may have your sessions, or some/all may be missing. Please check that your hard drive and client are ok and let the hydrus dev know the details if there is a mystery.' )
+            self.BlockingSafeShowCriticalMessage( 'Problem loading object', 'Your session manager was missing on boot! I have recreated a new one. It may have your sessions, or some/all may be missing. Please check that your hard drive and client are ok and let the hydrus dev know the details if there is a mystery.' )
             
         
         from hydrus.client.networking import ClientNetworkingDomain
@@ -1126,7 +1128,7 @@ class Controller( HydrusController.HydrusController ):
             
             domain_manager._dirty = True
             
-            self.SafeShowCriticalMessage( 'Problem loading object', 'Your domain manager was missing on boot! I have recreated a new empty one. Please check that your hard drive and client are ok and let the hydrus dev know the details if there is a mystery.' )
+            self.BlockingSafeShowCriticalMessage( 'Problem loading object', 'Your domain manager was missing on boot! I have recreated a new empty one. Please check that your hard drive and client are ok and let the hydrus dev know the details if there is a mystery.' )
             
         
         domain_manager.Initialise()
@@ -1143,7 +1145,7 @@ class Controller( HydrusController.HydrusController ):
             
             login_manager._dirty = True
             
-            self.SafeShowCriticalMessage( 'Problem loading object', 'Your login manager was missing on boot! I have recreated a new empty one. Please check that your hard drive and client are ok and let the hydrus dev know the details if there is a mystery.' )
+            self.BlockingSafeShowCriticalMessage( 'Problem loading object', 'Your login manager was missing on boot! I have recreated a new empty one. Please check that your hard drive and client are ok and let the hydrus dev know the details if there is a mystery.' )
             
         
         login_manager.Initialise()
@@ -1184,7 +1186,7 @@ class Controller( HydrusController.HydrusController ):
             
             tag_display_manager._dirty = True
             
-            self.SafeShowCriticalMessage( 'Problem loading object', 'Your tag display manager was missing on boot! I have recreated a new empty one. Please check that your hard drive and client are ok and let the hydrus dev know the details if there is a mystery.' )
+            self.BlockingSafeShowCriticalMessage( 'Problem loading object', 'Your tag display manager was missing on boot! I have recreated a new empty one. Please check that your hard drive and client are ok and let the hydrus dev know the details if there is a mystery.' )
             
         
         self.tag_display_manager = tag_display_manager
@@ -1209,7 +1211,7 @@ class Controller( HydrusController.HydrusController ):
             
             favourite_search_manager._dirty = True
             
-            self.SafeShowCriticalMessage( 'Problem loading object', 'Your favourite searches manager was missing on boot! I have recreated a new empty one. Please check that your hard drive and client are ok and let the hydrus dev know the details if there is a mystery.' )
+            self.BlockingSafeShowCriticalMessage( 'Problem loading object', 'Your favourite searches manager was missing on boot! I have recreated a new empty one. Please check that your hard drive and client are ok and let the hydrus dev know the details if there is a mystery.' )
             
         
         self.favourite_search_manager = favourite_search_manager
@@ -1353,12 +1355,21 @@ class Controller( HydrusController.HydrusController ):
         if self.db.IsFirstStart():
             
             message = 'Hi, this looks like the first time you have started the hydrus client.'
-            message += os.linesep * 2
+            message += '\n' * 2
             message += 'Don\'t forget to check out the help if you haven\'t already, by clicking help->help--it has an extensive \'getting started\' section, including how to update and the importance of backing up your database.'
-            message += os.linesep * 2
+            message += '\n' * 2
             message += 'To dismiss popup messages like this, right-click them.'
             
             HydrusData.ShowText( message )
+            
+            if HC.WE_SWITCHED_TO_USERPATH:
+                
+                message = f'Hey, it also looks like the default database location at "{HC.DEFAULT_DB_DIR}" was not writable-to, so the client has fallen back to using your userpath at "{HC.USERPATH_DB_DIR}"'
+                message += '\n' * 2
+                message += 'If that is fine with you, no problem. But if you were expecting to load an existing database and the above "first start" popup is a surprise, then your old db path is probably read-only. Fix that and try again. If it helps, hit up help->about to see the directories hydrus is currently using.'
+                
+                HydrusData.ShowText( message )
+                
             
         
         if self.db.IsDBUpdated():
@@ -1705,21 +1716,6 @@ class Controller( HydrusController.HydrusController ):
             
         
         HydrusData.DebugPrint( 'shutting down controller' + HC.UNICODE_ELLIPSIS )
-        
-    
-    def SafeShowCriticalMessage( self, title, message ):
-        
-        HydrusData.DebugPrint( title )
-        HydrusData.DebugPrint( message )
-        
-        if QC.QThread.currentThread() == QW.QApplication.instance().thread():
-            
-            QW.QMessageBox.critical( None, title, message )
-            
-        else:
-            
-            self.CallBlockingToQt( self.app, QW.QMessageBox.critical, None, title, message )
-            
         
     
     def SaveDirtyObjectsImportant( self ):
@@ -2236,7 +2232,7 @@ class Controller( HydrusController.HydrusController ):
             text += '\n' * 2
             text += str( e )
             
-            self.SafeShowCriticalMessage( 'boot error', text )
+            self.BlockingSafeShowCriticalMessage( 'boot error', text )
             
             QP.CallAfter( QW.QApplication.exit, 1 )
             
@@ -2251,7 +2247,7 @@ class Controller( HydrusController.HydrusController ):
             
             HydrusData.DebugPrint( trace )
             
-            self.SafeShowCriticalMessage( 'boot error', text )
+            self.BlockingSafeShowCriticalMessage( 'boot error', text )
             
             if 'malformed' in trace:
                 
@@ -2259,10 +2255,10 @@ class Controller( HydrusController.HydrusController ):
                 
                 HydrusData.DebugPrint( hell_message )
                 
-                self.SafeShowCriticalMessage( 'boot error', hell_message )
+                self.BlockingSafeShowCriticalMessage( 'boot error', hell_message )
                 
             
-            self.SafeShowCriticalMessage( 'boot error', trace )
+            self.BlockingSafeShowCriticalMessage( 'boot error', trace )
             
             QP.CallAfter( QW.QApplication.exit, 1 )
             

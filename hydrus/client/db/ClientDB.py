@@ -15,7 +15,6 @@ from qtpy import QtWidgets as QW
 from hydrus.core import HydrusConstants as HC
 from hydrus.core import HydrusData
 from hydrus.core import HydrusDB
-from hydrus.core import HydrusDBBase
 from hydrus.core import HydrusExceptions
 from hydrus.core import HydrusGlobals as HG
 from hydrus.core import HydrusLists
@@ -56,6 +55,7 @@ from hydrus.client.db import ClientDBMappingsCounts
 from hydrus.client.db import ClientDBMappingsCountsUpdate
 from hydrus.client.db import ClientDBMappingsStorage
 from hydrus.client.db import ClientDBMaster
+from hydrus.client.db import ClientDBModule
 from hydrus.client.db import ClientDBNotesMap
 from hydrus.client.db import ClientDBRatings
 from hydrus.client.db import ClientDBRepositories
@@ -169,12 +169,6 @@ from hydrus.client.networking import ClientNetworkingBandwidthLegacy
 # ▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▓▓██▓▓▓▒▒▓▓▓▓▒▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▒▒▒▒▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▒▒▒▓▓        ▒░▓░  ░░ ▒▓▒▒▒▒▒▒
 # ▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒░░░░▒▒░░▓▓▒▓▓▓▒▒▒▒▒▒▒▒▒▒▒▒▒▒▓▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▓▓▓▓▓  ░▒▒▒▒       ▓████▒     ▒▒▒▒▒▒▒▒
 
-def BlockingSafeShowMessage( message ):
-    
-    HydrusData.DebugPrint( message )
-    
-    HG.client_controller.CallBlockingToQt( HG.client_controller.app, QW.QMessageBox.warning, None, 'Warning', message )
-    
 def report_content_speed_to_job_status( job_status, rows_done, total_rows, precise_timestamp, num_rows, row_name ):
     
     it_took = HydrusTime.GetNowPrecise() - precise_timestamp
@@ -1769,7 +1763,7 @@ class DB( HydrusDB.HydrusDB ):
         
         HydrusData.DebugPrint( message )
         
-        self._controller.SafeShowCriticalMessage( 'hydrus db failed', message )
+        self._controller.BlockingSafeShowCriticalMessage( 'hydrus db failed', message )
         
     
     def _DoAfterJobWork( self ):
@@ -2432,9 +2426,7 @@ class DB( HydrusDB.HydrusDB ):
             
             job_status.SetStatusText( 'done!' )
             
-            job_status.Finish()
-            
-            job_status.Delete( 5 )
+            job_status.FinishAndDismiss( 5 )
             
         
     
@@ -6883,9 +6875,7 @@ class DB( HydrusDB.HydrusDB ):
             
             job_status.SetStatusText( 'done!' )
             
-            job_status.Finish()
-            
-            job_status.Delete( 5 )
+            job_status.FinishAndDismiss( 5 )
             
         
     
@@ -6910,9 +6900,7 @@ class DB( HydrusDB.HydrusDB ):
             
             job_status.SetStatusText( 'done!' )
             
-            job_status.Finish()
-            
-            job_status.Delete( 5 )
+            job_status.FinishAndDismiss( 5 )
             
             self._cursor_transaction_wrapper.pub_after_job( 'notify_new_tag_display_application' )
             self._cursor_transaction_wrapper.pub_after_job( 'notify_new_force_refresh_tags_data' )
@@ -6985,9 +6973,7 @@ class DB( HydrusDB.HydrusDB ):
             
             job_status.SetStatusText( 'done!' )
             
-            job_status.Finish()
-            
-            job_status.Delete( 5 )
+            job_status.FinishAndDismiss( 5 )
             
         
     
@@ -7065,9 +7051,7 @@ class DB( HydrusDB.HydrusDB ):
             
             job_status.SetStatusText( 'done!' )
             
-            job_status.Finish()
-            
-            job_status.Delete( 5 )
+            job_status.FinishAndDismiss( 5 )
             
         
     
@@ -7171,9 +7155,7 @@ class DB( HydrusDB.HydrusDB ):
             
             job_status.SetStatusText( 'done!' )
             
-            job_status.Finish()
-            
-            job_status.Delete( 5 )
+            job_status.FinishAndDismiss( 5 )
             
             self._cursor_transaction_wrapper.pub_after_job( 'notify_new_tag_display_application' )
             self._cursor_transaction_wrapper.pub_after_job( 'notify_new_force_refresh_tags_data' )
@@ -7253,9 +7235,7 @@ class DB( HydrusDB.HydrusDB ):
             
             job_status.SetStatusText( 'done!' )
             
-            job_status.Finish()
-            
-            job_status.Delete( 5 )
+            job_status.FinishAndDismiss( 5 )
             
             self._cursor_transaction_wrapper.pub_after_job( 'notify_new_force_refresh_tags_data' )
             
@@ -7356,9 +7336,7 @@ class DB( HydrusDB.HydrusDB ):
             
             job_status.SetStatusText( 'done!' )
             
-            job_status.Finish()
-            
-            job_status.Delete( 5 )
+            job_status.FinishAndDismiss( 5 )
             
             HydrusData.ShowText( 'Now the mappings cache regen is done, you might want to restart the program.' )
             
@@ -7457,9 +7435,7 @@ class DB( HydrusDB.HydrusDB ):
             
             job_status.SetStatusText( 'done!' )
             
-            job_status.Finish()
-            
-            job_status.Delete( 5 )
+            job_status.FinishAndDismiss( 5 )
             
             self._cursor_transaction_wrapper.pub_after_job( 'notify_new_force_refresh_tags_data' )
             
@@ -7499,7 +7475,7 @@ class DB( HydrusDB.HydrusDB ):
             message += os.linesep * 2
             message += 'If you want to go ahead, click ok on this message and the client will fill these tables with the correct data. It may take some time. If you want to solve this problem otherwise, kill the hydrus process now.'
             
-            BlockingSafeShowMessage( message )
+            self._controller.BlockingSafeShowMessage( message )
             
             for tag_service_id in missing_tag_service_ids:
                 
@@ -7531,7 +7507,7 @@ class DB( HydrusDB.HydrusDB ):
             message += os.linesep * 2
             message += 'If you want to go ahead, click ok on this message and the client will fill these tables with the correct data. It may take some time. If you want to solve this problem otherwise, kill the hydrus process now.'
             
-            BlockingSafeShowMessage( message )
+            self._controller.BlockingSafeShowMessage( message )
             
             for tag_service_id in missing_tag_service_ids:
                 
@@ -7566,7 +7542,7 @@ class DB( HydrusDB.HydrusDB ):
             message += os.linesep * 2
             message += 'If you want to go ahead, click ok on this message and the client will fill these tables with the correct data. It may take some time. If you want to solve this problem otherwise, kill the hydrus process now.'
             
-            BlockingSafeShowMessage( message )
+            self._controller.BlockingSafeShowMessage( message )
             
             for tag_service_id in missing_tag_service_ids:
                 
@@ -7596,7 +7572,7 @@ class DB( HydrusDB.HydrusDB ):
             message += os.linesep * 2
             message += 'If you want to go ahead, click ok on this message and the client will fill these tables with the correct data. It may take some time. If you want to solve this problem otherwise, kill the hydrus process now.'
             
-            BlockingSafeShowMessage( message )
+            self._controller.BlockingSafeShowMessage( message )
             
             for tag_service_id in missing_tag_service_ids:
                 
@@ -7628,7 +7604,7 @@ class DB( HydrusDB.HydrusDB ):
             message += os.linesep * 2
             message += 'If you want to go ahead, click ok on this message and the client will fill these tables with the correct data. It may take some time. If you want to solve this problem otherwise, kill the hydrus process now.'
             
-            BlockingSafeShowMessage( message )
+            self._controller.BlockingSafeShowMessage( message )
             
             for ( file_service_id, tag_service_id ) in missing_tag_search_service_pairs:
                 
@@ -7654,7 +7630,7 @@ class DB( HydrusDB.HydrusDB ):
             message += os.linesep * 2
             message += 'If you do not already know what caused this, it was likely a hard drive fault--either due to a recent abrupt power cut or actual hardware failure. Check \'help my db is broke.txt\' in the install_dir/db directory as soon as you can.'
             
-            BlockingSafeShowMessage( message )
+            self._controller.BlockingSafeShowMessage( message )
             
             new_options = ClientOptions.ClientOptions()
             
@@ -7939,9 +7915,7 @@ class DB( HydrusDB.HydrusDB ):
             
             job_status.SetStatusText( 'done!' )
             
-            job_status.Finish()
-            
-            job_status.Delete( 5 )
+            job_status.FinishAndDismiss( 5 )
             
         
     
@@ -8000,9 +7974,7 @@ class DB( HydrusDB.HydrusDB ):
             
             job_status.SetStatusText( 'done!' )
             
-            job_status.Finish()
-            
-            job_status.Delete( 5 )
+            job_status.FinishAndDismiss( 5 )
             
             self._cursor_transaction_wrapper.pub_after_job( 'notify_new_force_refresh_tags_data' )
             
@@ -8012,14 +7984,14 @@ class DB( HydrusDB.HydrusDB ):
         
         message = 'This client\'s database is version {}, but the software is version {}! This situation only sometimes works, and when it does not, it can break things! If you are not sure what is going on, or if you accidentally installed an older version of the software to a newer database, force-kill this client in Task Manager right now. Otherwise, ok this dialog box to continue.'.format( HydrusData.ToHumanInt( version ), HydrusData.ToHumanInt( HC.SOFTWARE_VERSION ) )
         
-        BlockingSafeShowMessage( message )
+        self._controller.BlockingSafeShowMessage( message )
         
     
     def _ReportUnderupdatedDB( self, version ):
         
         message = 'This client\'s database is version {}, but the software is significantly later, {}! Trying to update many versions in one go can be dangerous due to bitrot. I suggest you try at most to only do 10 versions at once. If you want to try a big jump anyway, you should make sure you have a backup beforehand so you can roll back to it in case the update makes your db unbootable. If you would rather try smaller updates, or you do not have a backup, force-kill this client in Task Manager right now. Otherwise, ok this dialog box to continue.'.format( HydrusData.ToHumanInt( version ), HydrusData.ToHumanInt( HC.SOFTWARE_VERSION ) )
         
-        BlockingSafeShowMessage( message )
+        self._controller.BlockingSafeShowMessage( message )
         
     
     def _ResetRepository( self, service ):
@@ -8292,9 +8264,7 @@ class DB( HydrusDB.HydrusDB ):
             
             job_status.SetStatusText( 'done!' )
             
-            job_status.Finish()
-            
-            job_status.Delete( 5 )
+            job_status.FinishAndDismiss( 5 )
             
             self._cursor_transaction_wrapper.pub_after_job( 'notify_new_tag_display_application' )
             self._cursor_transaction_wrapper.pub_after_job( 'notify_new_force_refresh_tags_data' )
@@ -9928,6 +9898,57 @@ class DB( HydrusDB.HydrusDB ):
                 
             
         
+        if version == 553:
+            
+            try:
+                
+                self._controller.frame_splash_status.SetSubtext( f'scheduling some maintenance work' )
+                
+                all_local_hash_ids = self.modules_files_storage.GetCurrentHashIdsList( self.modules_services.combined_local_file_service_id )
+                
+                with self._MakeTemporaryIntegerTable( all_local_hash_ids, 'hash_id' ) as temp_hash_ids_table_name:
+                    
+                    hash_ids = self._STS( self._Execute( f'SELECT hash_id FROM {temp_hash_ids_table_name} CROSS JOIN files_info USING ( hash_id ) WHERE mime IN {HydrusData.SplayListForDB( [ HC.ANIMATION_APNG ] )};', ) )
+                    self.modules_files_maintenance_queue.AddJobs( hash_ids, ClientFiles.REGENERATE_FILE_DATA_JOB_FILE_HAS_TRANSPARENCY )
+                    
+                    hash_ids = self._STS( self._Execute( f'SELECT hash_id FROM {temp_hash_ids_table_name} CROSS JOIN files_info USING ( hash_id ) WHERE mime IN {HydrusData.SplayListForDB( [ HC.APPLICATION_ZIP ] )};', ) )
+                    self.modules_files_maintenance_queue.AddJobs( hash_ids, ClientFiles.REGENERATE_FILE_DATA_JOB_FILE_METADATA )
+                    
+                
+            except Exception as e:
+                
+                HydrusData.PrintException( e )
+                
+                message = 'Some file updates failed to schedule! This is not super important, but hydev would be interested in seeing the error that was printed to the log.'
+                
+                self.pub_initial_message( message )
+                
+            
+        
+        if version == 554:
+            
+            try:
+                
+                self._controller.frame_splash_status.SetSubtext( f'scheduling some maintenance work' )
+                
+                all_local_hash_ids = self.modules_files_storage.GetCurrentHashIdsList( self.modules_services.combined_local_file_service_id )
+                
+                with self._MakeTemporaryIntegerTable( all_local_hash_ids, 'hash_id' ) as temp_hash_ids_table_name:
+                    
+                    hash_ids = self._STS( self._Execute( f'SELECT hash_id FROM {temp_hash_ids_table_name} CROSS JOIN files_info USING ( hash_id ) WHERE mime IN {HydrusData.SplayListForDB( [ HC.ANIMATION_UGOIRA ] )};', ) )
+                    self.modules_files_maintenance_queue.AddJobs( hash_ids, ClientFiles.REGENERATE_FILE_DATA_JOB_FILE_METADATA )
+                    
+                
+            except Exception as e:
+                
+                HydrusData.PrintException( e )
+                
+                message = 'Some file updates failed to schedule! This is not super important, but hydev would be interested in seeing the error that was printed to the log.'
+                
+                self.pub_initial_message( message )
+                
+            
+        
         self._controller.frame_splash_status.SetTitleText( 'updated db to v{}'.format( HydrusData.ToHumanInt( version + 1 ) ) )
         
         self._Execute( 'UPDATE version SET version = ?;', ( version + 1, ) )
@@ -10392,9 +10413,7 @@ class DB( HydrusDB.HydrusDB ):
             
             job_status.SetStatusText( 'done!' )
             
-            job_status.Finish()
-            
-            job_status.Delete( 10 )
+            job_status.FinishAndDismiss( 10 )
             
         
     
