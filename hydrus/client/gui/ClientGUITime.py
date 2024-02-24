@@ -12,6 +12,7 @@ from hydrus.core import HydrusGlobals as HG
 from hydrus.core import HydrusTime
 
 from hydrus.client import ClientConstants as CC
+from hydrus.client import ClientGlobals as CG
 from hydrus.client import ClientTime
 from hydrus.client.gui import ClientGUIDialogsMessage
 from hydrus.client.gui import ClientGUIFunctions
@@ -83,7 +84,7 @@ class EditCheckerOptions( ClientGUIScrolledPanels.EditPanel ):
         
         #
         
-        if HG.client_controller.new_options.GetBoolean( 'advanced_mode' ):
+        if CG.client_controller.new_options.GetBoolean( 'advanced_mode' ):
             
             never_faster_than_min = 1
             never_slower_than_min = 1
@@ -183,7 +184,7 @@ class EditCheckerOptions( ClientGUIScrolledPanels.EditPanel ):
         QP.AddToLayout( vbox, defaults_panel, CC.FLAGS_EXPAND_PERPENDICULAR )
         QP.AddToLayout( vbox, gridbox, CC.FLAGS_EXPAND_SIZER_PERPENDICULAR )
         
-        if HG.client_controller.new_options.GetBoolean( 'advanced_mode' ):
+        if CG.client_controller.new_options.GetBoolean( 'advanced_mode' ):
             
             label = 'As you are in advanced mode, these options have extremely low limits. This is intended only for testing and small scale private network tasks. Do not use very fast check times for real world use on public websites, as it is wasteful and rude, hydrus will be overloaded with high-CPU parsing work, and you may get your IP banned.'
             
@@ -681,6 +682,9 @@ class DateTimesCtrl( QW.QWidget ):
         datetime_value_range.AddValueQtDateTime( QC.QDateTime.currentDateTime() )
         
         self._original_datetime_value_range = datetime_value_range
+        self._current_datetime_value_range = self._original_datetime_value_range
+        
+        self._we_have_initialised_with_setvalue = False
         
         self._none_time = QW.QCheckBox( self )
         
@@ -792,12 +796,12 @@ class DateTimesCtrl( QW.QWidget ):
             
         else:
             
-            timestamp = best_qt_datetime.toSecsSinceEpoch()
+            timestamp = best_qt_datetime.toMSecsSinceEpoch() / 1000
             
         
         text = json.dumps( timestamp )
         
-        HG.client_controller.pub( 'clipboard', 'text', text )
+        CG.client_controller.pub( 'clipboard', 'text', text )
         
     
     def _NoneClicked( self ):
@@ -812,7 +816,7 @@ class DateTimesCtrl( QW.QWidget ):
         
         try:
             
-            raw_text = HG.client_controller.GetClipboardText()
+            raw_text = CG.client_controller.GetClipboardText()
             
         except HydrusExceptions.DataMissing as e:
             
@@ -839,7 +843,7 @@ class DateTimesCtrl( QW.QWidget ):
                     
                 
             
-            looks_good = timestamp is None or isinstance( timestamp, float )
+            looks_good = timestamp is None or isinstance( timestamp, ( int, float ) )
             
             if not looks_good:
                 
@@ -857,7 +861,7 @@ class DateTimesCtrl( QW.QWidget ):
                 qt_datetime = QC.QDateTime.fromMSecsSinceEpoch( timestamp_ms, QC.QTimeZone.systemTimeZone() )
                 
             
-            datetime_value_range = self._original_datetime_value_range.DuplicateWithNewQtDateTime( qt_datetime )
+            datetime_value_range = self._current_datetime_value_range.DuplicateWithNewQtDateTime( qt_datetime )
             
         except Exception as e:
             
@@ -890,7 +894,7 @@ class DateTimesCtrl( QW.QWidget ):
         
         if self._none_time.isChecked():
             
-            return self._original_datetime_value_range.DuplicateWithNewQtDateTime( None )
+            return self._current_datetime_value_range.DuplicateWithNewQtDateTime( None )
             
         
         qt_date = self._date.selectedDate()
@@ -906,7 +910,7 @@ class DateTimesCtrl( QW.QWidget ):
             qt_datetime = now
             
         
-        datetime_value_range = self._original_datetime_value_range.DuplicateWithNewQtDateTime( qt_datetime )
+        datetime_value_range = self._current_datetime_value_range.DuplicateWithNewQtDateTime( qt_datetime )
         
         datetime_value_range.SetStepMS( int( self._step.GetValue() * 1000 ) )
         
@@ -925,7 +929,14 @@ class DateTimesCtrl( QW.QWidget ):
             return
             
         
-        self._original_datetime_value_range = datetime_value_range
+        if not self._we_have_initialised_with_setvalue:
+            
+            self._original_datetime_value_range = datetime_value_range
+            
+            self._we_have_initialised_with_setvalue = True
+            
+        
+        self._current_datetime_value_range = datetime_value_range
         
         value_to_set_visually = datetime_value_range.GetBestVisualValue()
         
@@ -1306,7 +1317,7 @@ class TimestampDataStubCtrl( QW.QWidget ):
         
         self._current_file_service = ClientGUICommon.BetterChoice( self )
         
-        for service in HG.client_controller.services_manager.GetServices( HC.REAL_FILE_SERVICES ):
+        for service in CG.client_controller.services_manager.GetServices( HC.REAL_FILE_SERVICES ):
             
             self._current_file_service.addItem( service.GetName(), service.GetServiceKey() )
             
@@ -1315,7 +1326,7 @@ class TimestampDataStubCtrl( QW.QWidget ):
         
         self._deleted_file_service = ClientGUICommon.BetterChoice( self )
         
-        for service in HG.client_controller.services_manager.GetServices( HC.FILE_SERVICES_WITH_DELETE_RECORD ):
+        for service in CG.client_controller.services_manager.GetServices( HC.FILE_SERVICES_WITH_DELETE_RECORD ):
             
             self._deleted_file_service.addItem( service.GetName(), service.GetServiceKey() )
             

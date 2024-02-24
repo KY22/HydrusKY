@@ -5,10 +5,11 @@ import typing
 
 from hydrus.core import HydrusConstants as HC
 from hydrus.core import HydrusData
-from hydrus.core import HydrusGlobals as HG
+from hydrus.core import HydrusExceptions
 from hydrus.core import HydrusThreading
 from hydrus.core import HydrusTime
 
+from hydrus.client import ClientGlobals as CG
 from hydrus.client.gui import QtPorting as QP
 
 class JobStatus( object ):
@@ -33,14 +34,15 @@ class JobStatus( object ):
         
         self._i_am_an_ongoing_job = self._pausable or self._cancellable
         
+        self._done_event = threading.Event()
+        
         if self._i_am_an_ongoing_job:
             
-            self._i_am_done = False
             self._job_finish_time = None
             
         else:
             
-            self._i_am_done = True
+            self._done_event.set()
             self._job_finish_time = HydrusTime.GetNowFloat()
             
         
@@ -76,7 +78,7 @@ class JobStatus( object ):
         
         if self._cancel_tests_regular_checker.Due():
             
-            if not self._i_am_done:
+            if not self._done_event.is_set():
                 
                 if self._cancel_on_shutdown and HydrusThreading.IsThreadShuttingDown():
                     
@@ -85,7 +87,7 @@ class JobStatus( object ):
                     return
                     
                 
-                if HG.client_controller.ShouldStopThisWork( self._maintenance_mode, self._stop_time ):
+                if CG.client_controller.ShouldStopThisWork( self._maintenance_mode, self._stop_time ):
                     
                     self.Cancel()
                     
@@ -156,13 +158,14 @@ class JobStatus( object ):
     
     def Finish( self ):
         
-        self._i_am_done = True
         self._job_finish_time = HydrusTime.GetNowFloat()
         
         self._paused = False
         
         self._pausable = False
         self._cancellable = False
+        
+        self._done_event.set()
         
     
     def FinishAndDismiss( self, seconds = None ):
@@ -182,6 +185,11 @@ class JobStatus( object ):
     def GetCreationTime( self ):
         
         return self._creation_time
+        
+    
+    def GetDoneEvent( self ) -> threading.Event:
+        
+        return self._done_event
         
     
     def GetErrorException( self ) -> Exception:
@@ -287,7 +295,7 @@ class JobStatus( object ):
         
         self._CheckCancelTests()
         
-        return self._i_am_done
+        return self._done_event.is_set()
         
     
     def IsPausable( self ):

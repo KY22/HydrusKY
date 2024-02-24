@@ -15,6 +15,7 @@ from hydrus.core import HydrusTime
 
 from hydrus.client import ClientConstants as CC
 from hydrus.client import ClientData
+from hydrus.client import ClientGlobals as CG
 from hydrus.client import ClientLocation
 from hydrus.client import ClientTime
 from hydrus.client.metadata import ClientTags
@@ -440,7 +441,7 @@ class FileSystemPredicates( object ):
         
         self._file_viewing_stats_predicates = []
         
-        new_options = HG.client_controller.new_options
+        new_options = CG.client_controller.new_options
         
         for predicate in system_predicates:
             
@@ -928,7 +929,7 @@ class FileSystemPredicates( object ):
         
         if self._limit is None and apply_implicit_limit:
             
-            forced_search_limit = HG.client_controller.new_options.GetNoneableInteger( 'forced_search_limit' )
+            forced_search_limit = CG.client_controller.new_options.GetNoneableInteger( 'forced_search_limit' )
             
             return forced_search_limit
             
@@ -1021,6 +1022,7 @@ class FileSystemPredicates( object ):
     
     def MustNotBeLocal( self ): return self._not_local
     
+
 SEARCH_TYPE_AND = 0
 SEARCH_TYPE_OR = 1
 
@@ -2237,8 +2239,8 @@ class Predicate( HydrusSerialisable.SerialisableBase ):
         
         if self._predicate_type == PREDICATE_TYPE_OR_CONTAINER:
             
-            or_connector = HG.client_controller.new_options.GetString( 'or_connector' )
-            or_connector_namespace = HG.client_controller.new_options.GetNoneableString( 'or_connector_custom_namespace_colour' )
+            or_connector = CG.client_controller.new_options.GetString( 'or_connector' )
+            or_connector_namespace = CG.client_controller.new_options.GetNoneableString( 'or_connector_custom_namespace_colour' )
             
             texts_and_namespaces = []
             
@@ -2930,7 +2932,7 @@ class Predicate( HydrusSerialisable.SerialisableBase ):
                     
                     try:
                         
-                        service = HG.client_controller.services_manager.GetService( service_key )
+                        service = CG.client_controller.services_manager.GetService( service_key )
                         
                         name = service.GetName()
                         
@@ -3049,7 +3051,7 @@ class Predicate( HydrusSerialisable.SerialisableBase ):
                     
                     try:
                         
-                        service = HG.client_controller.services_manager.GetService( service_key )
+                        service = CG.client_controller.services_manager.GetService( service_key )
                         
                         base += service.GetName()
                         

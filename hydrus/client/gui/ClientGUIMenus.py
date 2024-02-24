@@ -9,7 +9,8 @@ from hydrus.core import HydrusData
 from hydrus.core import HydrusGlobals as HG
 from hydrus.core import HydrusProfiling
 from hydrus.core import HydrusText
-from hydrus.core import HydrusTime
+
+from hydrus.client import ClientGlobals as CG
 
 from hydrus.client.gui import QtPorting as QP
 
@@ -26,11 +27,6 @@ def AppendMenu( menu, submenu, label ):
 def AppendMenuIconItem( menu: QW.QMenu, label: str, description: str, icon: QG.QIcon, callable, *args, **kwargs ):
     
     menu_item = QW.QAction( menu )
-    
-    if HC.PLATFORM_MACOS:
-        
-        menu_item.setMenuRole( QW.QAction.ApplicationSpecificRole )
-        
     
     SetMenuTexts( menu_item, label, description )
     
@@ -52,11 +48,6 @@ def AppendMenuCheckItem( menu, label, description, initial_value, callable, *arg
     
     menu_item = QW.QAction( menu )
     
-    if HC.PLATFORM_MACOS:
-        
-        menu_item.setMenuRole( QW.QAction.ApplicationSpecificRole )
-        
-    
     SetMenuTexts( menu_item, label, description )
     
     menu_item.setCheckable( True )
@@ -68,14 +59,14 @@ def AppendMenuCheckItem( menu, label, description, initial_value, callable, *arg
     
     return menu_item
     
-def AppendMenuItem( menu, label, description, callable, *args, **kwargs ):
+def AppendMenuItem( menu, label, description, callable, *args, role: QW.QAction.MenuRole = None, **kwargs ):
     
     menu_item = QW.QAction( menu )
     
     if HC.PLATFORM_MACOS:
         
-        menu_item.setMenuRole( QW.QAction.ApplicationSpecificRole )
-        
+        menu_item.setMenuRole( role if role is not None else QW.QAction.MenuRole.NoRole )
+    
     
     SetMenuTexts( menu_item, label, description )
     
@@ -104,17 +95,12 @@ def AppendMenuLabel( menu, label, description = '', copy_text = '' ):
         
     
     menu_item = QW.QAction( menu )
-
-    if HC.PLATFORM_MACOS:
-        
-        menu_item.setMenuRole( QW.QAction.ApplicationSpecificRole )
-        
     
     SetMenuTexts( menu_item, label, description )
     
     menu.addAction( menu_item )
     
-    BindMenuItem( menu_item, HG.client_controller.pub, 'clipboard', 'text', copy_text )
+    BindMenuItem( menu_item, CG.client_controller.pub, 'clipboard', 'text', copy_text )
     
     return menu_item
     
@@ -202,7 +188,7 @@ class StatusBarRedirectFilter( QC.QObject ):
             
             if event.type() == QC.QEvent.StatusTip:
                 
-                QW.QApplication.instance().sendEvent( HG.client_controller.gui, event )
+                QW.QApplication.instance().sendEvent( CG.client_controller.gui, event )
                 
                 return True
                 

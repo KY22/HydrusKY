@@ -9,13 +9,12 @@ from hydrus.core import HydrusData
 from hydrus.core import HydrusExceptions
 from hydrus.core import HydrusGlobals as HG
 from hydrus.core import HydrusSerialisable
-from hydrus.core import HydrusTime
 
 from hydrus.client import ClientApplicationCommand as CAC
 from hydrus.client import ClientData
+from hydrus.client import ClientGlobals as CG
 from hydrus.client.gui import ClientGUICore as CGC
 from hydrus.client.gui import ClientGUIFunctions
-from hydrus.client.gui import QtPorting as QP
 
 SHORTCUT_TYPE_KEYBOARD_CHARACTER = 0
 SHORTCUT_TYPE_MOUSE = 1
@@ -39,7 +38,7 @@ SHORTCUT_MODIFIER_ALT = 1
 SHORTCUT_MODIFIER_SHIFT = 2
 SHORTCUT_MODIFIER_KEYPAD = 3
 SHORTCUT_MODIFIER_GROUP_SWITCH = 4
-SHORTCUT_MODIFIER_META = 5 # This is 'Control' in macOS, which is for system level stuff. They use 'Command' for Control stuff, which is helpfully mapped to Control in Qt. Just name nonsense
+SHORTCUT_MODIFIER_META = 5 # This is 'Control' in macOS, which is for system level stuff. They use 'Command/Cmd' for Ctrl stuff, which is helpfully mapped to Ctrl in Qt, so you usually don't have to change anything. Just name nonsense
 
 SHORTCUT_KEY_SPECIAL_SPACE = 0
 SHORTCUT_KEY_SPECIAL_BACKSPACE = 1
@@ -500,6 +499,7 @@ def ConvertQtKeyToShortcutKey( key_qt ):
             
         
     
+
 def ConvertKeyEventToShortcut( event ):
     
     key_qt = event.key()
@@ -537,7 +537,22 @@ def ConvertKeyEventToShortcut( event ):
         
         if event.modifiers() & QC.Qt.KeypadModifier:
             
-            modifiers.append( SHORTCUT_MODIFIER_KEYPAD )
+            do_it = True
+            
+            if CG.client_controller.new_options.GetBoolean( 'shortcuts_merge_non_number_numpad' ):
+                
+                it_is_a_number = ord( '0' ) <= key_ord <= ord( '9' )
+                
+                if not it_is_a_number:
+                    
+                    do_it = False
+                    
+                
+            
+            if do_it:
+                
+                modifiers.append( SHORTCUT_MODIFIER_KEYPAD )
+                
             
         
         shortcut_press_type = SHORTCUT_PRESS_TYPE_PRESS
@@ -700,11 +715,6 @@ def ConvertMouseEventToShortcut( event: QG.QMouseEvent ):
         if event.modifiers() & QC.Qt.GroupSwitchModifier:
             
             modifiers.append( SHORTCUT_MODIFIER_GROUP_SWITCH )
-            
-        
-        if event.modifiers() & QC.Qt.KeypadModifier:
-            
-            modifiers.append( SHORTCUT_MODIFIER_KEYPAD )
             
         
         shortcut = Shortcut( SHORTCUT_TYPE_MOUSE, key, shortcut_press_type, modifiers )
@@ -1164,6 +1174,7 @@ class Shortcut( HydrusSerialisable.SerialisableBase ):
         raise HydrusExceptions.VetoException( 'Sorry, cannot increment that shortcut!' )
         
     
+
 HydrusSerialisable.SERIALISABLE_TYPES_TO_OBJECT_TYPES[ HydrusSerialisable.SERIALISABLE_TYPE_SHORTCUT ] = Shortcut
 
 class ShortcutSet( HydrusSerialisable.SerialisableBaseNamed ):
@@ -1218,7 +1229,7 @@ class ShortcutSet( HydrusSerialisable.SerialisableBaseNamed ):
             
             # this never stored mouse actions, so skip
             
-            services_manager = HG.client_controller.services_manager
+            services_manager = CG.client_controller.services_manager
             
             for ( modifier, key, ( serialisable_service_key, data ) ) in serialisable_keyboard_actions:
                 
@@ -1274,7 +1285,7 @@ class ShortcutSet( HydrusSerialisable.SerialisableBaseNamed ):
             
         
     
-    def DeleteShortcut( self, shortcut ):
+    def DeleteShortcut( self, shortcut: Shortcut ):
         
         if shortcut in self._shortcuts_to_commands:
             
@@ -1282,7 +1293,7 @@ class ShortcutSet( HydrusSerialisable.SerialisableBaseNamed ):
             
         
     
-    def GetCommand( self, shortcut ):
+    def GetCommand( self, shortcut: Shortcut ):
         
         if shortcut in self._shortcuts_to_commands:
             
@@ -1314,7 +1325,12 @@ class ShortcutSet( HydrusSerialisable.SerialisableBaseNamed ):
         return list( self )
         
     
-    def SetCommand( self, shortcut, command ):
+    def HasCommand( self, shortcut: Shortcut ):
+        
+        return self.GetCommand( shortcut ) is not None
+        
+    
+    def SetCommand( self, shortcut: Shortcut, command: CAC.ApplicationCommand ):
         
         self._shortcuts_to_commands[ shortcut ] = command
         
@@ -1601,7 +1617,7 @@ class ShortcutsHandler( QC.QObject ):
             self._parent_currently_activated = True
             
         
-        self._activating_wait_job = HG.client_controller.CallLater( 0.2, do_it )
+        self._activating_wait_job = CG.client_controller.CallLater( 0.2, do_it )
         
     
     def FrameDeactivated( self ):

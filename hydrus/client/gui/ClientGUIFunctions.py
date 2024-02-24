@@ -10,6 +10,7 @@ from hydrus.core import HydrusData
 from hydrus.core import HydrusGlobals as HG
 from hydrus.core import HydrusText
 
+from hydrus.client import ClientGlobals as CG
 from hydrus.client.gui import ClientGUIDialogsMessage
 from hydrus.client.gui import QtInit
 from hydrus.client.gui import QtPorting as QP
@@ -259,7 +260,7 @@ def GetLighterDarkerColour( colour, intensity = 3 ):
         return colour.lighter( qt_intensity )
         
     
-def GetMouseScreen():
+def GetMouseScreen() -> typing.Optional[ QG.QScreen ]:
     
     return QW.QApplication.screenAt( QG.QCursor.pos() )
     
@@ -360,6 +361,12 @@ def MouseIsOnMyDisplay( window ):
     
     mouse_screen = GetMouseScreen()
     
+    # something's busted!
+    if mouse_screen is None:
+        
+        return True
+        
+    
     return mouse_screen is window_screen
     
 def MouseIsOverWidget( win: QW.QWidget ):
@@ -427,7 +434,7 @@ def SetBitmapButtonBitmap( button, bitmap ):
     
 def SetFocusLater( win: QW.QWidget ):
     
-    HG.client_controller.CallAfterQtSafe( win, 'set focus to a window', win.setFocus, QC.Qt.OtherFocusReason )
+    CG.client_controller.CallAfterQtSafe( win, 'set focus to a window', win.setFocus, QC.Qt.OtherFocusReason )
     
 def TLWIsActive( window ):
     
@@ -457,7 +464,7 @@ def TLWOrChildIsActive( win ):
 
 def UpdateAppDisplayName():
     
-    app_display_name = HG.client_controller.new_options.GetString( 'app_display_name' )
+    app_display_name = CG.client_controller.new_options.GetString( 'app_display_name' )
     
     QW.QApplication.instance().setApplicationDisplayName( '{} {}'.format( app_display_name, HC.SOFTWARE_VERSION ) )
     

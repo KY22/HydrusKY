@@ -7,6 +7,91 @@ title: Changelog
 !!! note
     This is the new changelog, only the most recent builds. For all versions, see the [old changelog](old_changelog.html).
 
+## [Version 563](https://github.com/hydrusnetwork/hydrus/releases/tag/v563)
+
+### macOS improvements
+
+* Thanks to a user, we have multiple improvements for macOS!
+* There is a new icon for the macOS .app build of hydrus
+* The macOS app will now appear as "Hydrus" in the menu bar instead of "Hydrus Network"
+* - Use the native global menu bar on macOS and some Linux desktop environments
+* - "options" will now appear as "Preferences..." and be under the Hydrus menu on macOS
+* - "exit" will now appear as "Quit Hydrus" and be under the Hydrus menu on macOS
+* "exit and force shutdown maintenance", "restart", and "shortcuts" will now be under the Hydrus menu on macOS
+* The hydrus system tray icon is now enabled for macOS and "minimise to system tray" will be in the Hydrus menu when in advanced mode
+* macOS debug dialog menus are now disabled by default
+* The macOS build of hydrus now uses pyoxidizer 0.24.0 and Python 3.10
+* The command palette and hyperlinks colors in the default Qt stylesheet now use palette based colors that should change based on the Qt style
+* one thing hydev did: on macOS, Cmd+W _should_ now close any dialog or non-main-gui window, just like the Escape key
+
+### shortcuts
+
+* by default, Alt+Home/End/Left/Right now does the new thumbnail rearranging. **assuming they do not conflict with an existing mapping, all users will recieve this on update**
+* by default, the shortcuts system now converts all non-number 'numpad' inputs (e.g. 'numpad Home', 'numpad Return', 'numpad Left') to just be normal inputs. a bunch of different keyboards have whack numpad assignments for non-numpad keys, so if it isn't a number, let's not, by default, make a fuss over the distinction. you can return to the old behaviour by unchecking the new checkbox under _file->shortcuts_
+* the default shortcuts now no longer spam numpad variants anywhere. existing users can delete the surplus mappings (under 'thumbnails' and maybe some of the 'media' sets) if they like
+
+### some UI QoL
+
+* the _tag service_ menu button that appears in the autocomplete panel and sometimes some other places in advanced mode now shows a proper check mark in its menu beside its current value
+* the _location context_ menu button on the other side of an autocomplete panel and some other places also now shows a check mark in its menu beside its current value
+* the `OR` button on search autocomplete that creates new OR predicates now inherits the current file search domain. it was previously defaulting at all times to the fallback file domain and 'all known tags'
+* the current search predicates list also now inherits the file search domain when you edit an OR predicate currently in use, same deal
+* removed the 'favourites' submenu from the taglist menu when no tags are selected
+* in any import context, the file log's arrow menu now supports deleting all the 'unknown' (outstanding, unstarted) items or setting them all to 'skipped'. the 'abort imports' button (with the stop icon) in HDD and urls import pages is removed
+
+### misc
+
+* fixed yet another dumb problem with the datetime control's paste button--although the paste was now 'working' on the UI side, the control wasn't saving that result on dialog ok. the fixes both the datetime button and the modified/file service time multi-column list editing
+* a core asynchronous thread-checking timer in the program has been rewritten from a 20ms-resolution busy-wait to a <1ms proper wait/notify system. a bunch of stuff that works in a thread is now much faster to recognise that blocking UI work is done, and it is more thread-polite about how it does it!
+* in the `setup_venv` scripts, if it needs to delete an old venv directory but fails to do so, the script now dumps out with an error saying 'hey, you probably have it open in a terminal/IDE, please close that and try again'. previously, it would just charge on and produce an odd file permission error as, e.g., the new venv setup tried to overwrite the in-use python exe
+* added a `help->debug->gui->isolate existing mpv widgets` command to force regeneration of mpv windows and help test-out/hack-fix various 'every other of my mpv views has no audio' and 'my mpv loses xxx property after a system sleep/wake cycle' problems. if I've been working with you on this stuff, please give it a go and let me know if new mpv window creation is good or what!
+* added a `BUGFIX: Disable off-screen window rescue` checkbox to `options->gui` that stops windows that think they are spawning off-screen from repositioning to a known safe screen. several Qt versions have had trouble with enumerating all the screens in a multiple monitor setup and thus the safe coordinate space, so if you have been hit by false positives here, you can now turn it off! (issue #1511)
+* fixed another couple instances of error texts with empty formatting braces `{}`
+
+### tag repository
+
+* mapping petitions fetched from the server will now max out at 500k mapping rows or 10k unique tags or ten seconds of construction time. we had a 250k-unique-tag petition this last week and it broke something, so I'm slapping a bunch of safety rails on. let me know if these are too strict, too liberal, or if it messes with the fetch workflow at all--I don't _think_ it will, but we'll see
+
+### build stuff
+
+* now they have had time to breathe, I optimised the recently split Github build scripts. the 'send to an ubuntu runner and then upload' step is now removed from all three, so they are natively uploaded in the first runner step. it works just a little nicer and faster now, although it did require learning how to truncate and export a variable to the Github Environment Variables file in Powershell, aiiieeeee
+* also, Github is moving from Node 16 to Node 20 soon, and I have moved two of the four actions we rely on to their newer v20 versions. a third action should be ready to update next week, and another, a general download file function, I have replaced with curl (for macOS) and Powershell's magical Invoke-WebRequest adventure
+
+## [Version 562](https://github.com/hydrusnetwork/hydrus/releases/tag/v562)
+
+### misc
+
+* page tab drag and drops will now not start unless the click has lasted more than 100ms
+* same for thumbnail drag and drop--it perviously did a 20 pixel deadzone, but time checks detect accidental/spastic clicks better and stops false negatives when you start dragging on certain edges
+* added a 'BUGFIX: disable page tab drag and drop' setting to _options->gui pages_. while adding this, I may have accidentally fixed the issue I wanted to investigate (rare hangs on page DnD)
+* the manage tags dialog now shows the current count of tags for each page tab, and, if there are outstanding changes, shows an asterisk
+* the `migrate database` dialog is renamed `move media files`
+
+### fixes
+
+* fixed the basic copy/paste in the single 'edit datetime' panel, wich was often raising a dumb error. this thing also now exports millisecond data (issue #1520)
+* I am pretty sure I fixed the column-resizing problem in the very new PySide6 (Qt) 6.6.1, which it seems AUR users were recently updated to in an automatic OS update. all columns were setting to 100px width on initialisation. I think it is now safe to try out 6.6.1. I am still not sure why it was doing this, but some extra safeguards seem to have fixed it and also not broken things for <=6.6.0, so let me know what you run into! if you were affected by this, recall that you can right-click on any multi-column list header and say 'reset widths' to get something sensible back here
+* when exporting files, the max size is now clipped another 84 characters (64 + 20 more, which usually ends up about 150 characters max for the output filename), in order to give padding for longer sidecar suffixes and also avoid going right to the filesystem limit, which broadly isn't sensible
+* I think I fixed an issue where the mouse could stay hidden, perhaps, just on Wayland, after closing the media viewer with your keyboard (issue #1518)
+* fixed inc/dec ratings in the media viewer not updating their tooltips on new media correctly
+* if you hit 'open this location' on the export files window and the location does not exist, you now get a nice messagebox rather than a semi-silent error
+
+### analyze
+
+* background: some databases that process the PTR superfast or otherwise import a lot of data to a new file domain sometimes encounter massively massively slow tag update actions (typically tag-delete when the tags involved have siblings/parents), so I want to make the critical 'ANALYZE' call more timely
+* the 'analyze' database maintenance call will be soft-called far more regularly during normal repository processing, not just on first sync
+* sped up how some pre-analyze calculation is done
+* the size limit for automatic database analyze maintenance is raised from 100k rows to 10M
+* I hope to do more work here in future, probably making a review panel like we did for vacuum
+* if your repository processing sometimes hangs your whole damn client for 10-15 minutes, hit _database->db maintenance->analyze->full_! this job may take 30-60 minutes to finish
+
+### boring code cleanup
+
+* finished the HG->CG.client_controller refactor I started last week. this was a thousand lines changed from one braindead format to another, but it will be a useful step towards untangling the hell-nest import hierarchy
+* did a scattering of the clientinterface typing, getting a feel for where I want to take this
+* deleted the old in-client server-test's 'boot' variant; this is no longer used and was always super hacky to maintain
+* I removed an old basic error raising routine that would sometimes kick in when a hash definition is missing. this routine now always fills in the missing data with garbage and does its best to recover the invalid situation automatically, with decent logging, while still informing the user that things are well busted m8. it isn't the user's job to fix this, and there is no good fix anyway, so no point halting work and giving it to the user to figure out!
+
 ## [Version 561](https://github.com/hydrusnetwork/hydrus/releases/tag/v561)
 
 ### rearranging thumbnails
@@ -398,103 +483,3 @@ title: Changelog
 * thanks to a user, the Client API now has the ability to see and interact with the current popup messages in the popup toaster!
 * fixed a stupid typo that I made in the new Client API options call. added a unit test to catch this in future, too
 * the client api version is now 57
-
-## [Version 553](https://github.com/hydrusnetwork/hydrus/releases/tag/v553)
-
-### animated gif fixes
-
-* fixed the **false positive** "serious I/O Error! This is a significant hard drive problem" problems saw in last week's animated gif 'has transparency' rescanning. it turns out the PIL animated gif renderer we rarely use was raising overly serious errors on a truncated frame (i.e. some borked file, not a borked OS hard drive access), and this was escalating up to the overall maintenance system, which was shutting down in panic. truncated gifs in the PIL renderer should now just either render the last frame over and over or rewind as soon as they hit a super problem
-* as well as rendering, the duration and frame-counter code also handles these borked frames better, so animated gifs that have a single borked frame should now A) import without an error and B) get more accurate frame counts
-* you may have seen this sort of error before where an mpv window seems to keep rendering the gif despite the scanbar hitting its right end. if you see a file like that, try right-clicking and hitting _manage->maintenance->regenerate file metadata_. might just fix it up!
-* if mpv encounters one of these busted gifs, a selection of quiet-but-spammy "I don't know what happened, but MPV just reported a weird error, here it is" logging no longer happens. we basically know what happened, and mpv seems good at recovering
-* fixed some PIL alpha gif rendering on backwards seek and loop
-
-### slideshow tech
-
-* _options->media_ has a new 'slideshow' section with five new options regarding slideshows and media with duration (video, audio). if you don't care too much, just leave them alone--they make slideshows transition better!
-* first, there's a checkbox to say 'always play duration-having media completely once through before moving on'. this was the previous behaviour, now default off
-* then there are two options, for a percentage of the current slideshow period and a flat seconds value, to say 'if the duration-having media is shorter than this amount of time, then move the slideshow on early'. this allows short gif loops to play a bit, but not for 15 minutes
-* then there is an option, for a percentage of the current slideshow period, to say 'if the duration-having media has a duration between this amount and 100% of the slideshow period, then move on once it has played once through'. this allows for clean slideshow transitions for media that is just a bit shorter than the slideshow period
-* then there is an option, again for a percentage of the slideshow period, to say 'if the duration-having media is _longer_ than the slideshow period plus this amount of time, then delay moving on until it is played once through'. this allows 35 second videos to complete fully in a 30 second slideshow while stopping a ten minute vid hogging its turn
-* completely rewrote the slideshow timer tech
-* did a little work bringing the experimental Qt media player up to proper slideshow capability, and neatened the associated code
-* yes, hydev did write all these options for his repurposed slideshow computer because he was annoyed about his vidya captures and 500ms loops playing jank on a 30m slideshow period
-
-### misc
-
-* the file-info-summary lines that appear in the top row thumbnail menu submenu now show if a file has audio/transparency/exif/other metadata/icc profile
-* the file-info-summary lines that appear in the top row thumbnail menu submenu and the top-center of the media viewer no longer list 'removed from x 5 days ago' for files that were moved internally between local file services. these statements were spammy and not helpful! if you really need them, are available in the 'manage times' dialog. sorry for the annoyance here
-* trying to move a file from local file service x to y no longer triggers the archive delete lock, if you have that enabled (this was prohibiting the delete from x after the copy to y is done)
-* the 'import options' button now labels itself with 'all default', 'all set', or 'some set' to quick-review what it is holding
-* the stupidly named advanced users' `OR*` button is now just `advanced`
-* the 'manage->regenerate' thumbnail menu is now called 'maintenance', and it always contains the whole file maintenance job list just as it appears in the main file maintenance panel. tooltips are the longer descriptions
-* if you reduce a static check time in a checker options (watchers or subscriptions), the next check time should now recalculate correctly immediately. previously, the new check period wasn't kicking in until the next, delayed cycle. I have preserved the logic that tries to keep a static check time regular (which was the core problem here), where if you check every 7 days on saturday night, then delaying one time and running it on sunday night won't delay the check time phase along to next sunday--the next week it will be due on saturday again
-* the system:rating edit panel has some tooltips that say 'Set "is" and leave rating null to search for "unrated".'. maybe this is annoying, maybe I should just add redundant 'unrated' checkboxes, let me know what you think
-* when the file maintenance routine runs into a serious error (like we had with the false positive transparent gifs), the popup messages now include a file button for the problem file for easy referral
-* if a file breaks MPV in a crashy-looking way, hydrus now makes a popup with a file button to it for easy referral
-* fixed a typo issue with the recent temp folder recovery code that broke the temp folder for file imports on the hydrus file repository. sorry for the trouble, this slipped through unit testing because that too has a hacky temp folder solution!
-
-### weird/specific stuff
-
-* I've spaced out many of the initial library loads across the core boot init routine. fingers crossed, the splash screen will open earlier and report more as things each import, rather than taking ages to appear and then suddenly initialising everything real quick (on slow computers). also, a monolithic UI init job is broken up into pieces, which should let the splash update itself a little smoother as your client loads its style and stuff
-* the file and database maintenance managers are now initialised in a better stage, and, like the subscription manager, they now do not start any work until the first session is fully loaded
-* while pouring over the server code trying to find a petition miscount bug and/or a petition summary fetch bug (which I was entirely unsuccessful at), I stopped it 404ing when there are unexpectedly no petitions to fetch--it should now just give an empty list and reset the count serverside, which is an old behaviour that wasn't working quite right in the modern system. this will cost less CPU than commanding the full service service_info number reset. I will have to investigate the core problem of miscounts more closely to figure out the base problem here
-* if two subscription jobs publish files to the same popup label (which merges the popup button to include both sets of files), this file list is now properly deduplicated (so if both subs picked up the same file(s), it now won't try to publish the same file twice). the basic popup button instantiation also clears out dupes
-* the 'additional tags'-only tag import options in a subscription query can now no longer be set 'default'. this choice was unintended and has no current meaning if set
-* building on last week, there are even fewer duplicate menu tooltips
-* updated and clarified the text in _options->external programs_. also, if you try to put a command that does not include "%path%", it'll moan at you with a yes/no dialog
-* when 'confirm sending files to trash' is off but 'use advanced file delete dialog' is also on, the advanced file delete dialog will now not pop up if there is only one normal local file service to delete from (it was always popping up before, since it exposes the physical file delete options and the dialog thought it wasn't a 'one-choice' delete)
-* the forced-wait throttle that happens on several exception catches is reduced from 1s to 200ms
-* I made the new job status queue properly thread-safe with a lock. I forgot to do it last week, whoops!
-* fixed the build script to construct a file named .tar.zst for the Ubuntu release, not .tar.gz
-
-## [Version 552](https://github.com/hydrusnetwork/hydrus/releases/tag/v552)
-
-### misc
-
-* 'system:has audio' and 'system:embedded metadata' are now combined under a new meta-system predicate 'system:file properties'. if you can't find your yes/no predicate, try looking there!
-* menu commands will no longer have their unadjusted label as their tooltip. all tooltips are either the full status bar description or the full label if it was long enough to be elided
-* the 'open externally' panel now shows the default filetype thumbnail for formats like zip and epub
-* 'system:number of character tags > 4' now parses correct when you type it (previously it wouldn't work with a namespace), including special handling for 'unnamespaced'
-* the various 'number of x' system predicates will now parse if you type 'num x', 'number x', or 'num of x'
-* to match the other entries, the '4k' resolution swap-in label is now '2160p'
-* added a little extra info on the manage tags dialog to 'getting started with tags'
-* if you have 'confirm sending files to trash' turned off, the delete dialog will now show on physical deletes (i.e. deletes from the trash)
-* updated the derpibooru parser to pull the new AI-based 'generator' and 'prompter' namespaces (converting both to the hydrus-appropriate 'creator')
-* thanks to a user, the Linux build is now archived with zstd instead of gzip. should be about the same size but faster to decompress
-
-### fixes
-
-* fixed a stupid typo in the folder copy/move tech last week that was not allowing some move/copies to start (as always, the thing that is so simple that you don't think to test it is the very thing that blows up). sorry for the trouble!
-* cleaned up the file/folder move/copy error statements a little more
-* fixed the 'default search page tag service' dropdown in _options->search_ not saving correctly
-* fixed the 'open externally' panel having out of position thumbnails when your thumbnail supersampling is set to other than 100%
-* fixed the import and display of images in signed 16-bit format (weird TIFFs, seems like).
-* any image with an unusual channel data type beyond uint16 and int16 is going to be, as the default thing to do, normalised to unsigned 8-bit. it may blow out the colour range, but it should show something!
-* the client handles files with (0x0) resolution better. they should now always import, and it'll _attempt_ to render them to a normal full size thumb. if it works (e.g. this is some misconfigured SVG), great, and if it doesn't, we'll get a nicely sized filetype.png or hydrus.png fallback
-* files with (0x0) resolution will now never show in the preview or media viewers. previously, the preview viewer would bail out half-way through setting the media, causing it to fall into an invalid state where it still showed the previous valid media but wouldn't 'click-off' it easily, and the media viewer would generally panic to its 'no media to show' state and lose navigation functionality. now, files that are 0x0 are included in the general 'can we show this?' pre-launch sanity checks
-
-### has_transparency
-
-* the database can now remember if a file has transparency. you can search this with the new 'system:has transparency' predicate, which is under the new 'system:file properties' and will also parse if you type 'system:has/no transparency/alpha'
-* note that my version of 'has transparency' discludes files that have an all-opaque alpha channel (i.e. one that lets no light through). RGBA is insufficient--I want an alpha channel with some actual translucency somewhere!
-* although many application image project types like PSD and XCF can have transparency, the various ways we render or thumbnail them are hacky and probably lock to RGB or RGBA always, so I'm going to start simple. this week, we test transparency for all the images that support it (basically anything but jpeg), and animated gif. the animated gif tech is new and actually looks through every frame of an RGBA gif until it hits interesting alpha to catch cases where it starts opaque and fades away
-* just like we had with 'has exif' and similar, 'has transparency' knowledge will be calculated instantly for all new files, but for the files you already have, we'll have to do some slow file maintenance in the background for a while to retroactively calculate it all. you don't have to do anything; the data will just populate over time
-* the duplicate filter now shows 'has transparency, the other is opaque' statements
-* while working on this, I encountered a number of files that seemed to be false positives--apparently normal, fully opaque images of anime girls that were somehow showing up as 'has interesting alpha'. upon inspecting them closely, I discovered the border pixels had a slight fade, or one pixel out of all of them was 98% opaque, or the single bottom right pixel was completely transparent. perhaps some of these are secret artist markers, but I imagine many are just an accidental drawing tablet smudge or dodgy crop tool calculations. I'm leaving them as 'has_transparency' for now, but maybe we'll want to tune this more in future, perhaps saying you have to be at least 0.3% transparent to count. anyway, as always, while I am interested in seeing files that seem to get a false positive/negative with this new 'has transparency' test, if you have the technical know-how, please check if they actually have no alpha yourself first. once you play around with this system, let me know what sort of pseudo-'false positive' rate you are getting, and we can talk about an appropriate threshold
-
-### client api
-
-* the 'file_metadata' call now includes a 'has_transparency' boolean! remember that it will be overly `false` for a while, until the file maintenance catches up
-* forgot to mention it last week, but thanks to a user there is a new `/manage_database/get_client_options` call that fetches a heap of different client options. this exposes a mess that may change with any update, but there may be something neat you can hook into. this week we fixed a thing that was breaking this call for probably all old clients
-* the client api version is now 56
-
-### boring cleanup
-
-* renamed JobKey to JobStatus across the program
-* in prep for Client API calls to interact with the popup system, the queue of JobStatuses waiting to be displayed in the popup toaster is now encapsulated in a separate class, outside of the Qt object dangerzone
-* sped up how the popup manager system inspects and cleans the JobStatus queue in general. should have better performance when you get hundreds or thousands of messages
-* cleaned up some awkward popup manager dismiss code
-* fixed a timing issue that meant popup messages were auto-dismissed from the popup toaster up to a second after they were being 'deleted' by their parent functiions. subscription flow felt more laggy because of this
-* fixed the file info manager's duplicate call to duplicate unusual metadata like has_exif and blurhash
-* removed some old code that isn't used any more

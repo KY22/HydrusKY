@@ -70,6 +70,7 @@ from hydrus.client.db import ClientDBTagSiblings
 from hydrus.client.db import ClientDBTagSuggestions
 from hydrus.client.db import ClientDBURLMap
 from hydrus.client.importing import ClientImportFiles
+from hydrus.client.interfaces import ClientControllerInterface
 from hydrus.client.media import ClientMediaManagers
 from hydrus.client.media import ClientMediaResult
 from hydrus.client.media import ClientMediaResultCache
@@ -226,7 +227,7 @@ class DB( HydrusDB.HydrusDB ):
     
     READ_WRITE_ACTIONS = [ 'service_info', 'system_predicates', 'missing_thumbnail_hashes' ]
     
-    def __init__( self, controller, db_dir, db_name ):
+    def __init__( self, controller: ClientControllerInterface.ClientControllerInterface, db_dir, db_name ):
         
         self._initial_messages = []
         
@@ -10086,6 +10087,54 @@ class DB( HydrusDB.HydrusDB ):
                 HydrusData.PrintException( e )
                 
                 message = 'Trying to update some downloaders failed! Please let hydrus dev know!'
+                
+                self.pub_initial_message( message )
+                
+            
+        
+        if version == 562:
+            
+            try:
+                
+                from hydrus.client.gui import ClientGUIShortcuts
+                from hydrus.client import ClientApplicationCommand as CAC
+                
+                thumbnails_shortcuts_set: ClientGUIShortcuts.ShortcutSet = self.modules_serialisable.GetJSONDumpNamed( HydrusSerialisable.SERIALISABLE_TYPE_SHORTCUT_SET, 'thumbnails' )
+                
+                jobs = [
+                    (
+                        ClientGUIShortcuts.Shortcut( ClientGUIShortcuts.SHORTCUT_TYPE_KEYBOARD_SPECIAL, ClientGUIShortcuts.SHORTCUT_KEY_SPECIAL_HOME, ClientGUIShortcuts.SHORTCUT_PRESS_TYPE_PRESS, [ ClientGUIShortcuts.SHORTCUT_MODIFIER_ALT ] ),
+                        CAC.ApplicationCommand.STATICCreateSimpleCommand( CAC.SIMPLE_REARRANGE_THUMBNAILS, ( CAC.REARRANGE_THUMBNAILS_TYPE_COMMAND, CAC.MOVE_HOME ) ) 
+                    ),
+                    (
+                        ClientGUIShortcuts.Shortcut( ClientGUIShortcuts.SHORTCUT_TYPE_KEYBOARD_SPECIAL, ClientGUIShortcuts.SHORTCUT_KEY_SPECIAL_END, ClientGUIShortcuts.SHORTCUT_PRESS_TYPE_PRESS, [ ClientGUIShortcuts.SHORTCUT_MODIFIER_ALT ] ),
+                        CAC.ApplicationCommand.STATICCreateSimpleCommand( CAC.SIMPLE_REARRANGE_THUMBNAILS, ( CAC.REARRANGE_THUMBNAILS_TYPE_COMMAND, CAC.MOVE_END ) ) 
+                    ),
+                    (
+                        ClientGUIShortcuts.Shortcut( ClientGUIShortcuts.SHORTCUT_TYPE_KEYBOARD_SPECIAL, ClientGUIShortcuts.SHORTCUT_KEY_SPECIAL_LEFT, ClientGUIShortcuts.SHORTCUT_PRESS_TYPE_PRESS, [ ClientGUIShortcuts.SHORTCUT_MODIFIER_ALT ] ),
+                        CAC.ApplicationCommand.STATICCreateSimpleCommand( CAC.SIMPLE_REARRANGE_THUMBNAILS, ( CAC.REARRANGE_THUMBNAILS_TYPE_COMMAND, CAC.MOVE_LEFT ) ) 
+                    ),
+                    (
+                        ClientGUIShortcuts.Shortcut( ClientGUIShortcuts.SHORTCUT_TYPE_KEYBOARD_SPECIAL, ClientGUIShortcuts.SHORTCUT_KEY_SPECIAL_RIGHT, ClientGUIShortcuts.SHORTCUT_PRESS_TYPE_PRESS, [ ClientGUIShortcuts.SHORTCUT_MODIFIER_ALT ] ),
+                        CAC.ApplicationCommand.STATICCreateSimpleCommand( CAC.SIMPLE_REARRANGE_THUMBNAILS, ( CAC.REARRANGE_THUMBNAILS_TYPE_COMMAND, CAC.MOVE_RIGHT ) ) 
+                    )
+                ]
+                
+                for ( shortcut, command ) in jobs:
+                    
+                    if not thumbnails_shortcuts_set.HasCommand( shortcut ):
+                        
+                        thumbnails_shortcuts_set.SetCommand( shortcut, command )
+                        
+                    
+                
+                self.modules_serialisable.SetJSONDump( thumbnails_shortcuts_set )
+                
+            except Exception as e:
+                
+                HydrusData.PrintException( e )
+                
+                message = 'Trying to update some shortcuts failed! Please let hydrus dev know!'
                 
                 self.pub_initial_message( message )
                 

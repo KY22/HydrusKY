@@ -4,10 +4,8 @@ from qtpy import QtGui as QG
 
 from hydrus.core import HydrusConstants as HC
 from hydrus.core import HydrusData
-from hydrus.core import HydrusExceptions
-from hydrus.core import HydrusGlobals as HG
-from hydrus.core import HydrusTime
 
+from hydrus.client import ClientGlobals as CG
 from hydrus.client.gui import ClientGUIFunctions
 from hydrus.client.gui import ClientGUIShortcuts
 from hydrus.client.gui import QtPorting as QP
@@ -17,12 +15,20 @@ FUZZY_PADDING = 10
 
 def GetSafePosition( position: QC.QPoint, frame_key ):
     
+    if CG.client_controller.new_options.GetBoolean( 'disable_get_safe_position_test' ):
+        
+        return ( position, None )
+        
+    
     # some window managers size the windows just off screen to cut off borders
     # so choose a test position that's a little more lenient
     
     fuzzy_point = QC.QPoint( FUZZY_PADDING, FUZZY_PADDING )
     
     test_position = position + fuzzy_point
+    
+    # note that some version of Qt cannot figure this out, they just deliver None for a particular monitor!
+    # https://github.com/hydrusnetwork/hydrus/issues/1511
     
     screen = QW.QApplication.screenAt( test_position )
     
@@ -81,7 +87,7 @@ def GetSafeSize( tlw: QW.QWidget, min_size: QC.QSize, gravity ) -> QC.QSize:
         # so borrow main gui's
         if frame_padding.isEmpty():
             
-            main_gui = HG.client_controller.gui
+            main_gui = CG.client_controller.gui
             
             if main_gui is not None and QP.isValid( main_gui ) and not main_gui.isFullScreen():
                 
@@ -139,7 +145,7 @@ def GetSafeSize( tlw: QW.QWidget, min_size: QC.QSize, gravity ) -> QC.QSize:
     
 def ExpandTLWIfPossible( tlw: QW.QWidget, frame_key, desired_size_delta: QC.QSize ):
     
-    new_options = HG.client_controller.new_options
+    new_options = CG.client_controller.new_options
     
     ( remember_size, remember_position, last_size, last_position, default_gravity, default_position, maximised, fullscreen ) = new_options.GetFrameLocation( frame_key )
     
@@ -188,7 +194,7 @@ def SaveTLWSizeAndPosition( tlw: QW.QWidget, frame_key ):
         return
         
     
-    new_options = HG.client_controller.new_options
+    new_options = CG.client_controller.new_options
     
     ( remember_size, remember_position, last_size, last_position, default_gravity, default_position, maximised, fullscreen ) = new_options.GetFrameLocation( frame_key )
     
@@ -220,7 +226,7 @@ def SaveTLWSizeAndPosition( tlw: QW.QWidget, frame_key ):
     
 def SetInitialTLWSizeAndPosition( tlw: QW.QWidget, frame_key ):
     
-    new_options = HG.client_controller.new_options
+    new_options = CG.client_controller.new_options
     
     ( remember_size, remember_position, last_size, last_position, default_gravity, default_position, maximised, fullscreen ) = new_options.GetFrameLocation( frame_key )
     
@@ -382,11 +388,11 @@ class NewDialog( QP.Dialog ):
         
         self.setWindowTitle( title )
         
-        self._new_options = HG.client_controller.new_options
+        self._new_options = CG.client_controller.new_options
         
-        self.setWindowIcon( QG.QIcon( HG.client_controller.frame_icon_pixmap ) )
+        self.setWindowIcon( QG.QIcon( CG.client_controller.frame_icon_pixmap ) )
         
-        HG.client_controller.ResetIdleTimer()
+        CG.client_controller.ResetIdleTimer()
         
         self._widget_event_filter = QP.WidgetEventFilter( self )
         
@@ -552,13 +558,16 @@ class NewDialog( QP.Dialog ):
     
     def keyPressEvent( self, event ):
         
-        ( modifier, key ) = ClientGUIShortcuts.ConvertKeyEventToSimpleTuple( event )
-        
         current_focus = QW.QApplication.focusWidget()
         
         event_from_us = current_focus is not None and ClientGUIFunctions.IsQtAncestor( current_focus, self )
         
-        if event_from_us and key == QC.Qt.Key_Escape:
+        shortcut = ClientGUIShortcuts.ConvertKeyEventToShortcut( event )
+        
+        escape_shortcut = ClientGUIShortcuts.Shortcut( ClientGUIShortcuts.SHORTCUT_TYPE_KEYBOARD_SPECIAL, ClientGUIShortcuts.SHORTCUT_KEY_SPECIAL_ESCAPE, ClientGUIShortcuts.SHORTCUT_PRESS_TYPE_PRESS, [] )
+        command_w_shortcut = ClientGUIShortcuts.Shortcut( ClientGUIShortcuts.SHORTCUT_TYPE_KEYBOARD_CHARACTER, ord( 'W' ), ClientGUIShortcuts.SHORTCUT_PRESS_TYPE_PRESS, [ ClientGUIShortcuts.SHORTCUT_MODIFIER_CTRL ] )
+        
+        if event_from_us and ( shortcut == escape_shortcut or ( HC.PLATFORM_MACOS and shortcut == command_w_shortcut ) ):
             
             self._TryEndModal( QW.QDialog.Rejected )
             
@@ -595,11 +604,11 @@ class Frame( QW.QWidget ):
         
         self.setAttribute( QC.Qt.WA_DeleteOnClose )
         
-        self._new_options = HG.client_controller.new_options
+        self._new_options = CG.client_controller.new_options
         
-        self.setWindowIcon( QG.QIcon( HG.client_controller.frame_icon_pixmap ) )
+        self.setWindowIcon( QG.QIcon( CG.client_controller.frame_icon_pixmap ) )
         
-        HG.client_controller.ResetIdleTimer()
+        CG.client_controller.ResetIdleTimer()
         
         self._widget_event_filter = QP.WidgetEventFilter( self )
         
@@ -622,13 +631,13 @@ class MainFrame( QW.QMainWindow ):
         
         self.setWindowTitle( title )
         
-        self._new_options = HG.client_controller.new_options
+        self._new_options = CG.client_controller.new_options
         
-        self.setWindowIcon( QG.QIcon( HG.client_controller.frame_icon_pixmap ) )
+        self.setWindowIcon( QG.QIcon( CG.client_controller.frame_icon_pixmap ) )
         
         self._widget_event_filter = QP.WidgetEventFilter( self )
         
-        HG.client_controller.ResetIdleTimer()
+        CG.client_controller.ResetIdleTimer()
         
     
     def CleanBeforeDestroy( self ):
@@ -659,13 +668,13 @@ class FrameThatResizes( Frame ):
         MainFrame.CleanBeforeDestroy( self )
         
         # maximise sends a pre-maximise size event that poisons last_size if this is immediate
-        HG.client_controller.CallLaterQtSafe( self, 0.1, 'save frame size and position: {}'.format( self._frame_key ), SaveTLWSizeAndPosition, self, self._frame_key )
+        CG.client_controller.CallLaterQtSafe( self, 0.1, 'save frame size and position: {}'.format( self._frame_key ), SaveTLWSizeAndPosition, self, self._frame_key )
         
     
     def EventSizeAndPositionChanged( self, event ):
         
         # maximise sends a pre-maximise size event that poisons last_size if this is immediate
-        HG.client_controller.CallLaterQtSafe( self, 0.1, 'save frame size and position: {}'.format( self._frame_key ), SaveTLWSizeAndPosition, self, self._frame_key )
+        CG.client_controller.CallLaterQtSafe( self, 0.1, 'save frame size and position: {}'.format( self._frame_key ), SaveTLWSizeAndPosition, self, self._frame_key )
         
         return True # was: event.ignore()
         
@@ -690,13 +699,13 @@ class MainFrameThatResizes( MainFrame ):
         MainFrame.CleanBeforeDestroy( self )
         
         # maximise sends a pre-maximise size event that poisons last_size if this is immediate
-        HG.client_controller.CallLaterQtSafe( self, 0.1, 'save frame size and position: {}'.format( self._frame_key ), SaveTLWSizeAndPosition, self, self._frame_key )
+        CG.client_controller.CallLaterQtSafe( self, 0.1, 'save frame size and position: {}'.format( self._frame_key ), SaveTLWSizeAndPosition, self, self._frame_key )
         
     
     def EventSizeAndPositionChanged( self, event ):
         
         # maximise sends a pre-maximise size event that poisons last_size if this is immediate
-        HG.client_controller.CallLaterQtSafe( self, 0.1, 'save frame size and position: {}'.format( self._frame_key ), SaveTLWSizeAndPosition, self, self._frame_key )
+        CG.client_controller.CallLaterQtSafe( self, 0.1, 'save frame size and position: {}'.format( self._frame_key ), SaveTLWSizeAndPosition, self, self._frame_key )
 
         return True # was: event.ignore()
         
