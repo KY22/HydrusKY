@@ -54,6 +54,20 @@ from hydrus.client.metadata import ClientContentUpdates
 from hydrus.client.metadata import ClientTags
 from hydrus.client.search import ClientSearch
 
+MAC_QUARTZ_OK = True
+
+if HC.PLATFORM_MACOS:
+    
+    try:
+        
+        from hydrus.client import ClientMacIntegration
+        
+    except:
+        
+        MAC_QUARTZ_OK = False
+        
+    
+
 FRAME_DURATION_60FPS = 1.0 / 60
 
 class ThumbnailWaitingToBeDrawn( object ):
@@ -1242,7 +1256,7 @@ class MediaPanel( CAC.ApplicationCommandProcessorMixin, ClientMedia.ListeningMed
             
             if media.GetLocationsManager().IsLocal():
                 
-                self.SetFocusedMedia( None )
+                self.focusMediaPaused.emit()
                 
                 hash = media.GetHash()
                 mime = media.GetMime()
@@ -1275,7 +1289,7 @@ class MediaPanel( CAC.ApplicationCommandProcessorMixin, ClientMedia.ListeningMed
                 
                 path = client_files_manager.GetFilePath( hash, mime )
                 
-                self._SetFocusedMedia( None )
+                self.focusMediaPaused.emit()
                 
                 ClientPaths.LaunchPathInWebBrowser( path )
                 
@@ -1297,9 +1311,35 @@ class MediaPanel( CAC.ApplicationCommandProcessorMixin, ClientMedia.ListeningMed
                 
                 path = client_files_manager.GetFilePath( hash, mime )
                 
-                self._SetFocusedMedia( None )
+                self.focusMediaPaused.emit()
                 
                 HydrusPaths.OpenFileLocation( path )
+                
+            
+        
+    def _MacQuicklook( self ):
+        
+        if HC.PLATFORM_MACOS and self._HasFocusSingleton():
+            
+            focused_singleton = self._GetFocusSingleton()
+            
+            if focused_singleton.GetLocationsManager().IsLocal():
+                
+                hash = focused_singleton.GetHash()
+                mime = focused_singleton.GetMime()
+                
+                client_files_manager = CG.client_controller.client_files_manager
+                
+                path = client_files_manager.GetFilePath( hash, mime )
+                
+                self.focusMediaPaused.emit()
+                
+                if not MAC_QUARTZ_OK:
+                    
+                    HydrusData.ShowText( 'Sorry, could not do the Quick Look integration--it looks like your venv does not support it. If you are running from source, try rebuilding it!' )
+                    
+                
+                ClientMacIntegration.show_quicklook_for_path( path )
                 
             
         
@@ -2552,6 +2592,10 @@ class MediaPanel( CAC.ApplicationCommandProcessorMixin, ClientMedia.ListeningMed
             elif action == CAC.SIMPLE_LAUNCH_THE_ARCHIVE_DELETE_FILTER:
                 
                 self._ArchiveDeleteFilter()
+                
+            elif action == CAC.SIMPLE_MAC_QUICKLOOK:
+                
+                self._MacQuicklook()
                 
             else:
                 
