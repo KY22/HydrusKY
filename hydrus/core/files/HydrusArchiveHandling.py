@@ -45,6 +45,10 @@ def GetCoverPagePath( zip_handle: zipfile.ZipFile ):
     
     for path in all_file_paths:
         
+        if path.startswith('__MACOSX/'):
+                
+            continue
+        
         if '.' in path:
             
             ext_with_dot = '.' + path.split( '.' )[-1]
@@ -160,6 +164,10 @@ def ZipLooksLikeCBZ( path_to_zip ):
                 
             
             filename = zip_info.filename
+            
+            if filename.startswith('__MACOSX/'):
+                
+                continue
             
             if '/' in filename:
                 
@@ -298,31 +306,5 @@ def MimeFromOpenDocument( path ):
         
     
 
-def MimeFromMicrosoftOpenXMLDocument( path ):
-    
-    try:
-        
-        content_types = GetZipAsPath( path, '[Content_Types].xml' ).read_text()
-        
-        if 'application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml' in content_types:
-            
-            return HC.APPLICATION_MICROSOFT_OPEN_XML_DOCX
-            
-        elif 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml' in content_types:
-            
-            return HC.APPLICATION_MICROSOFT_OPEN_XML_XLSX
-            
-        elif 'application/vnd.openxmlformats-officedocument.presentationml.presentation.main+xml' in content_types:
-            
-            return HC.APPLICATION_MICROSOFT_OPEN_XML_PPTX
-            
-        else:
-            
-            return None
-            
-        
-    except:
-        
-        return None
         
     
