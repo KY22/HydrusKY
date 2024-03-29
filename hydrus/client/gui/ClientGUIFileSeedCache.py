@@ -32,6 +32,7 @@ from hydrus.client.importing import ClientImportFileSeeds
 from hydrus.client.importing.options import PresentationImportOptions
 from hydrus.client.metadata import ClientContentUpdates
 from hydrus.client.metadata import ClientTagSorting
+from hydrus.client.networking import ClientNetworkingFunctions
 
 def ClearFileSeeds( win: QW.QWidget, file_seed_cache: ClientImportFileSeeds.FileSeedCache, statuses_to_remove ):
     
@@ -358,7 +359,7 @@ class EditFileSeedCachePanel( ClientGUIScrolledPanels.EditPanel ):
         QP.CallAfter( self._UpdateText )
         
     
-    def _ConvertFileSeedToListCtrlTuples( self, file_seed ):
+    def _ConvertFileSeedToListCtrlTuples( self, file_seed: ClientImportFileSeeds.FileSeed ):
         
         try:
             
@@ -373,14 +374,22 @@ class EditFileSeedCachePanel( ClientGUIScrolledPanels.EditPanel ):
             pretty_file_seed_index = '--'
             
         
-        file_seed_data = file_seed.file_seed_data
+        file_seed_data = file_seed.file_seed_data_for_comparison
         status = file_seed.status
         added = file_seed.created
         modified = file_seed.modified
         source_time = file_seed.source_time
         note = file_seed.note
         
-        pretty_file_seed_data = str( file_seed_data )
+        if file_seed.file_seed_type == ClientImportFileSeeds.FILE_SEED_TYPE_URL:
+            
+            pretty_file_seed_data = ClientNetworkingFunctions.ConvertURLToHumanString( file_seed_data )
+            
+        else:
+            
+            pretty_file_seed_data = file_seed_data
+            
+        
         pretty_status = CC.status_string_lookup[ status ] if status != CC.STATUS_UNKNOWN else ''
         pretty_added = ClientTime.TimestampToPrettyTimeDelta( added )
         pretty_modified = ClientTime.TimestampToPrettyTimeDelta( modified )
@@ -519,11 +528,16 @@ class EditFileSeedCachePanel( ClientGUIScrolledPanels.EditPanel ):
             
             if selected_file_seed.IsURLFileImport():
                 
+                main_url = selected_file_seed.file_seed_data
                 referral_url = selected_file_seed.GetReferralURL()
                 primary_urls = sorted( selected_file_seed.GetPrimaryURLs() )
                 source_urls = sorted( selected_file_seed.GetSourceURLs() )
                 
-                if referral_url is None and len( primary_urls ) + len( source_urls ) == 0:
+                for_server_url = CG.client_controller.network_engine.domain_manager.GetURLToFetch( main_url )
+                
+                nothing_interesting_going_on = main_url == for_server_url and referral_url is None and len( primary_urls ) == 0 and len( source_urls ) == 0
+                
+                if nothing_interesting_going_on:
                     
                     ClientGUIMenus.AppendMenuLabel( menu, 'no additional urls' )
                     
@@ -531,21 +545,23 @@ class EditFileSeedCachePanel( ClientGUIScrolledPanels.EditPanel ):
                     
                     url_submenu = ClientGUIMenus.GenerateMenu( menu )
                     
+                    if main_url != for_server_url:
+                        
+                        ClientGUIMenus.AppendMenuLabel( url_submenu, f'request url: {for_server_url}', copy_text = for_server_url )
+                        
+                    
                     if referral_url is not None:
                         
-                        ClientGUIMenus.AppendMenuLabel( url_submenu, 'referral url:' )
-                        ClientGUIMenus.AppendMenuLabel( url_submenu, referral_url )
+                        ClientGUIMenus.AppendMenuLabel( url_submenu, f'referral url: {referral_url}', copy_text = referral_url )
                         
                     
                     if len( primary_urls ) > 0:
                         
                         ClientGUIMenus.AppendSeparator( url_submenu )
                         
-                        ClientGUIMenus.AppendMenuLabel( url_submenu, 'primary urls:' )
-                        
                         for url in primary_urls:
                             
-                            ClientGUIMenus.AppendMenuLabel( url_submenu, url )
+                            ClientGUIMenus.AppendMenuLabel( url_submenu, f'primary url: {url}', copy_text = url )
                             
                         
                     
@@ -553,11 +569,9 @@ class EditFileSeedCachePanel( ClientGUIScrolledPanels.EditPanel ):
                         
                         ClientGUIMenus.AppendSeparator( url_submenu )
                         
-                        ClientGUIMenus.AppendMenuLabel( url_submenu, 'source urls:' )
-                        
                         for url in source_urls:
                             
-                            ClientGUIMenus.AppendMenuLabel( url_submenu, url )
+                            ClientGUIMenus.AppendMenuLabel( url_submenu, f'source url: {url}', copy_text = url )
                             
                         
                     

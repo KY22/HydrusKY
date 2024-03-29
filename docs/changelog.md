@@ -7,6 +7,83 @@ title: Changelog
 !!! note
     This is the new changelog, only the most recent builds. For all versions, see the [old changelog](old_changelog.html).
 
+## [Version 568](https://github.com/hydrusnetwork/hydrus/releases/tag/v568)
+
+### user contributions
+
+* thanks to a user, the new docx, pptx, and xlsx support is improved, with better thumbnails (better ratio, better icon itself, and sometimes an actual preview thumbnail for pptx), better file detection (fewer false positives with stuff like ppt templates), and word count for docx and pptx. I am queueing everyone's existing docx and pptx files for a metadata rescan and thumbnail regen on update
+* thanks to a user, the cbz scanner now ignores the `__MACOSX` folder
+* thanks to a user, setting the Qt style in *options->style* should be more reliable (fixing some name case sensitivity issues)
+* thanks to a user, there's a new 'default' dark mode QSS stylesheet that has nicer valid/invalid colours. we'll build on this and try to detect dark mode better in future and auto-switch to this as the base when the application is in dark mode.
+
+### misc improvements
+
+* added a 'tag in reverse' checkbox to the new incremental tagger panel. this simply applies the given iterator to the last file first and then works backwards, e.g. 5, 4, 3, 2, 1 for start=1, step=1 on five files
+* all _new_ system:url predicates will have slightly different (standardised) labels, and all these labels should parse correctly in the system predicate parser if you copy/paste
+* the file log's right-click menu, the part where it says 'additional urls', is now more compact and will show the 'request url', if that differs from the main url, either because of the new ephemeral parameters or an api/redirect. it is now much easier to debug the various 'what was actually sent to the server?' problems!
+* you should now be able to enter 'system:has url matching regex (regex with upper case)' and 'system:has url (url with upper case)' and it'll propagate through parsing. this definitely has not™ broken any other predicate parsing. you can enter url class names with upper case if you want, but url class names should now match regardless of letter case
+* if you have added, edited, or deleted any url classes and try to cancel the 'manage url classes' dialog, it will now ask if that is correct
+* added a new EXPERIMENTAL checkbox to _options->tag presentation_ that will replace emojis and other unicode symbol garbage with □. if you have crazy rendering for emoji stuff, try it out
+* the tag summary generators that make thumbnail banners now wash their tags through the 'render tag for user' system, which will apply this new emoji rule and 'replace underscores with spaces'
+* added the 'rating' parser from the default gelbooru 0.2.5 parser to the 0.2.0 parser; this should add for more 'rating' parsing from a variety of boorus
+
+### misc fixes
+
+* fixed a typo bug when deleting domain-based timestamps in the edit times dialog
+* fixed the 'system:has url matching class (blah)' predicate edit panel's initialisation. it was always initialising to the top of the list, not remembering the 'default' or 'I want to edit this' value it was initialising with
+* 'manage urls' now asks if it is ok to ok if you have any text still in the input
+* you can now open the 'extra info' button (up top of a media viewer) on a jpeg if that jpeg has no exif or other human-readable metadata (to see just the progressive and subsampling info)
+* updated the QuickSync link to its new home at https://breadthread.duckdns.org/
+
+### append random text
+
+* the String Converter has a new step type: 'append random text'. you supply the population (e.g. '0123456789abcdef') and the number of characters (e.g. 16), and it will append 'b2f96e8eda457a1e', and then the next time you check, '1fa591ad9786ea3b', etc... useful if you want to, say, make up a new token
+
+### URL storage/display changes
+
+* today I correct a foolish decision I made when I first implemented the hydrus downloader engine--handling and storing URLs internally as 'pretty' decoded text, rather than with the proper ugly '%20" stuff you sometimes see. I now store urls as the 'encoded' variant all the time, and only convert to the pretty version when the user sees it. this improves support for weird URLs and simplifies some behind the scenes. you do not need to do anything, and everything should work pretty much as before, but there is a chance some particularly funky URLs will redownload one more time if your subscription runs into them again (this change breaks some 'known url' checking logic, since what is stored is now slightly different, but this 99% doesn't affect Post URLs, so no big worries)
+* so, while URLs still show pretty in a file/search log, if you copy them to clipboard, you now get the encoded version--pretty much how your web browser address bar works. I have made it show 'pretty' in the file log and search log lists, 'copy url' menu labels, and hyperlink tooltips, but in the more technical 'manage url classes' and 'manage GUGs' and so on where you are actually editing a URL, it shows the encoded version. let me know if I have forgotten to display them pretty anywhere!
+* **IF YOU ARE AN ADVANCED USER WHO MAKES CRAZY URL CLASSES:** since URLs are now stored as the %-encoded version in all cases, component and parameter tests now apply to %-encoding (e.g. you are now testing for `post%5Bid%5D`, not `post[id]`). when your URL Classes update this week, I convert existing path component defaults, parameter names and defaults, and `fixed_text` String Matches for path component names and parameter values to their %-encoded value. I hope this will provide for a clean transition where it matters. unfortunately, if the String Matches were a regex or you were pulling a rabbit out of your hat with edge-case pre-%-encoded default values, I just can't auto-convert that, so please scroll down your crazier URL Classes and see if any say they don't match their example URLs!
+* there's also some GUG work. when you enter a query text like `male/female` or `blonde_hair%20blue_eyes`, some new logic tries to infer whether what you entered is pre-encoded or not. it should handle pretty much everything well unless you have a single-tag query with a legit percent character in the middle (in which case you'll have to enter `%25` instead, but we'll see if it ever happens)
+* these changes simplify the url parsing routine, eliminating plenty of nonsense hackery I've inserted over the years to make things like `6+girls blonde_hair`/`6%2Bgirls+blonde_hair` work with a merged system. this has mostly been a delicate cleanup job; long planned, finally triggered
+
+### allow all ephemeral parameters
+
+* URL Classes have a new checkbox, 'keep extra parameters for server', which will determine whether URLs should hang on to undefined parameters in the first stage of normalisation, which governs what is sent to the server. this is now default True on all new URL Classes! existing URL Classes will default True only if the URL Class is a Gallery/Watchable URL without an API/redirect converter (which was essentially the previous hardcoded behaviour). you cannot set this value if the URL has an API/redirect converter
+
+### allow specific ephemeral parameters
+
+* alternately, you can now specify single 'ephemeral token' parameters in the new parameter edit dialog. it is just a check box that says 'use this for the request, but don't save it'. these _are_ kept for the API/redirect URL
+* if you are feeling extremely big brain, there is now a String Processor for the default value, if both 'is ephemeral?' is checked and 'default value' is not 'None'. this lets you append/replace your fixed default value with the current time, or, now, just some random hex or something! hence we can now define our own basic one-time token generators for telling caches to give us original quality etc...
+
+### manage url classes dialog
+
+* there's a new read-only text field with the 'example url' and 'normalised url' section called 'request url'. this shows either the example URL with its extra, ephemeral parameters, or it will show the API/redirect URL. it shows what will be sent to the server
+* URL Class parameters now have their own edit panel, with everything available in one place, rather than the three-dialogs-in-a-row mess of before. also, the name and value widgets have locked normal/%-encoded text inputs that will live update each other, so you can paste whatever is convenient for you and see a preview either way
+* URL Class path components also have their own edit panel. same deal as for parameters, but a little simpler
+
+### client api
+
+* the `/add_urls/get_url_info` command now returns `request_url` value, which is either the 'for server' normalised URL, which may include ephemeral tokens, or the API/redirect URL, just as in the new 'manage url classes' dialog
+* the `/add_files/undelete_files` command now filters the files you give it to make sure that they are actually in your file storage. no more undeleting files you don't have!
+* added a new `/add_files/clear_file_deletion_record` command, which erases deletion records for physically deleted files
+* updated api help docs and unit tests for the above
+* client api version is now 63
+
+### boring stuff
+
+* the client is now much more robust if any of its URL Classes do not match their own example URLs. it will boot, to start with (lol), and you can now open the 'manage url classes' dialog without UI error popups. manage url classes now notes which URL Classes do not match their own example URLs, for easy skimming
+* the 'URL Class' class has a new buddy 'Parameter' class to handle param testing
+* simplified some of the guts of URL normalisation, from path/param clipping to how API URL generation is navigated
+* rewrote how the query string of a URL is deconstructed and scanned against your parameters. less chance of edge-case errors/merges and easier to expand in future
+* when you paste a URL, some new normalisation tech tries to figure out if it is pre-encoded or not
+* brushed up the URL Class unit tests to account for the above changes and added new tests for encoding, 'is ephemeral', 'keep extra params for server', default parameter string processors, and simple default parameter values (which must have been missed a long time ago)
+* also broke the monolithic url class unit test into eight smaller (albeit ugly for now) pieces
+* added a unit test for the new 'append random text' converter
+* cleaned up some misc URL Class code
+
+## Version 567 was cancelled, its changes folded into 568.
+
 ## [Version 566](https://github.com/hydrusnetwork/hydrus/releases/tag/v566)
 
 ### incremental tagging
@@ -406,39 +483,3 @@ title: Changelog
 * some 'number of tags' queries should be a little faster
 * the 'tag suggestions' options page has a bit of brushed up UI and some new explanation labels
 * unified the various thumbnail generation error reporting for all the different filetypes. it should also print the file's hash, too, since most of these error contexts only have a temporary path to talk about at this stage, which isn't useful after the fact
-
-## [Version 557](https://github.com/hydrusnetwork/hydrus/releases/tag/v557)
-
-### misc
-
-* optimised large tag filter edit UI. you can now paste 5,000 items into an empty tag filter blacklist in less than a second, and if you have a big tag filter, removing or adding one thing is now instant (previously, this stuff would lag 4 seconds or more, sometimes multiple minutes!!)
-* the ugoira 'num frames' counting method now discludes files ending in .js/.json, to catch future bundling of frame timings
-* the cbz scanning tech should now recognise cbzs with four or fewer pages
-* a legacy 'is this image all good?' check that happens on PIL-loading is now gone. this improves rendering for a variety of truncated files and clarifies some error messages (previously, this thing was just failing silently)
-* fixed the delete file pre-flight logic so users on the non-advanced delete dialog can now delete repository updates. previously, they saw the menu entry, but hitting it was a no-op
-
-### better hash predicate parsing
-
-* `system:hash` labels are a little different now. they'll say `system:hash (md5) is abcd...`, with the algorithm after the "hash". hash is omitted for sha256 (the hydrus default). this eases parsing
-* `system:similar to data` labels are a little different. they'll say 'distance' instead of 'max hamming', and the number and type of hashes they hold, and if they hold only pixel hashes, the distance is not stated
-* `system:hash` predicate parsing is now more flexible. you can put the hash type pretty much anywhere now.
-* `system:similar to` and `system:similar to data` predicate parsing is now more flexible. more combinations are allowed, and you can not include distance and it'll be fine
-* these three hash predicates now copy to clipboard with all their hashes explicitly enumerated, making strings that are fully parsable! this is a big step forward in a completely sealed import-export predicate parsing loop; now I have the tech set up to export a different phrase to clipboard than what you see in the label, I just need the examples of where it goes wrong. if there is a system predicate that copies to clipboard in a way that won't parse back, let me know and I'll see if I can fix it.
-* added more unit tests for this parsing
-
-### documentation and cleanup
-
-* wrote a guide on how to install 'Git for Windows' for the 'running from source' help. although most of the settings in its marathon 12-page install wizard can be left as default, the technical questions can be intimidating, so I've written them all out for a nice simple install. also brushed up some of the surrounding help here
-* added a warning to the regular 'installing and updating' help regarding the danger of test-running extract releases before updating (you can overwrite your database by accident)
-* thanks to a user, the filetypes help document is updated with Ugoira and CBZ info
-* all the 'HydrusFiletypeHandling' files are refactored to a new 'files' module. there's a bunch of them these days!
-* the hydrus.core.images module is moved beneath this 'files' module too
-* the file log list panel right-click menu now says 'open URLs'/'open files' locations' depending on whether you are looking at a URL import log or local HDD import log
-
-### client api
-
-* the `file_metadata` call now returns `filetype_forced` and, if so, also `original_mime` to talk about the new forced filetype system
-* the client api help and unit tests are updated to test this is working ok
-* fixed a typo that was causing too much work in the updated file info manager call (and was often returning 'null' results for half-cached `file_metadata` requests with `only_return_basic_information=true`)
-* thanks to a user, the `/add_urls/get_url_info` Client API call now has a cache timeout of ten minutes, and the `/add_urls/get_url_files` call now has a timeout of 30 seconds if all the files are 'already in db'. this should automatically reduce some overhead for several programs that talk to the Client API a lot about URLs
-* the client api version is now 58

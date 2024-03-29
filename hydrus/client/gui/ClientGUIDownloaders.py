@@ -1,5 +1,6 @@
 import os
 import typing
+import urllib.parse
 
 from qtpy import QtWidgets as QW
 from qtpy import QtGui as QG
@@ -13,6 +14,7 @@ from hydrus.core import HydrusSerialisable
 from hydrus.client import ClientConstants as CC
 from hydrus.client import ClientDefaults
 from hydrus.client import ClientGlobals as CG
+from hydrus.client import ClientParsing
 from hydrus.client import ClientStrings
 from hydrus.client.gui import ClientGUIDialogs
 from hydrus.client.gui import ClientGUIDialogsMessage
@@ -366,7 +368,7 @@ class EditGUGPanel( ClientGUIScrolledPanels.EditPanel ):
             
             example_url = gug.GetExampleURL()
             
-            example_url = CG.client_controller.network_engine.domain_manager.NormaliseURL( example_url )
+            example_url = CG.client_controller.network_engine.domain_manager.NormaliseURL( example_url, for_server = True )
             
             self._example_url.setText( example_url )
             
@@ -707,7 +709,7 @@ class EditGUGsPanel( ClientGUIScrolledPanels.EditPanel ):
         
         try:
             
-            example_url = CG.client_controller.network_engine.domain_manager.NormaliseURL( example_url )
+            example_url = CG.client_controller.network_engine.domain_manager.NormaliseURL( example_url, for_server = True )
             
             url_class = CG.client_controller.network_engine.domain_manager.GetURLClass( example_url )
             
@@ -913,6 +915,378 @@ class EditGUGsPanel( ClientGUIScrolledPanels.EditPanel ):
         return gugs
         
     
+
+class EditURLClassComponentPanel( ClientGUIScrolledPanels.EditPanel ):
+    
+    def __init__( self, parent: QW.QWidget, string_match: ClientStrings.StringMatch, default_value: typing.Optional[ str ] ):
+        
+        ClientGUIScrolledPanels.EditPanel.__init__( self, parent )
+        
+        from hydrus.client.gui import ClientGUIStringPanels
+        
+        string_match_panel = ClientGUICommon.StaticBox( self, 'value test' )
+        
+        self._string_match = ClientGUIStringPanels.EditStringMatchPanel( string_match_panel, string_match )
+        self._string_match.setToolTip( 'If the encoded value of the component matches this, the URL Class matches!' )
+        
+        self._pretty_default_value = ClientGUICommon.NoneableTextCtrl( self )
+        self._pretty_default_value.setToolTip( 'If the URL is missing this component, you can add it here, and the URL Class will still match and will normalise by adding this default value. This can be useful if you need to add a /art or similar to a URL that ends with either /username or /username/art--sometimes it is better to make that stuff explicit in all cases.' )
+        
+        self._default_value = ClientGUICommon.NoneableTextCtrl( self )
+        self._default_value.setToolTip( 'What actual value will be embedded into the URL sent to the server.' )
+        
+        #
+        
+        self.SetValue( string_match, default_value )
+        
+        #
+        
+        st = ClientGUICommon.BetterStaticText( string_match_panel, label = 'The String Match here will test against the value in the normalised, _%-encoded_ URL. If you have "post%20images", test for that, not "post images".' )
+        st.setWordWrap( True )
+        
+        string_match_panel.Add( st, CC.FLAGS_EXPAND_PERPENDICULAR )
+        string_match_panel.Add( self._string_match, CC.FLAGS_EXPAND_BOTH_WAYS )
+        
+        rows = []
+        
+        rows.append( string_match_panel )
+        rows.append( ( 'default value: ', self._pretty_default_value ) )
+        rows.append( ( 'default value, %-encoded: ', self._default_value ) )
+        
+        gridbox = ClientGUICommon.WrapInGrid( self, rows, add_stretch_at_end = False, expand_single_widgets = True )
+        
+        vbox = QP.VBoxLayout()
+        
+        QP.AddToLayout( vbox, gridbox, CC.FLAGS_EXPAND_SIZER_BOTH_WAYS )
+        
+        self.widget().setLayout( vbox )
+        
+        self._pretty_default_value.valueChanged.connect( self._PrettyDefaultValueChanged )
+        self._default_value.valueChanged.connect( self._DefaultValueChanged )
+        
+    
+    def _DefaultValueChanged( self ):
+        
+        default_value = self._default_value.GetValue()
+        
+        pretty_default_value = default_value if default_value is None else urllib.parse.unquote( default_value )
+        
+        self._pretty_default_value.blockSignals( True )
+        
+        self._pretty_default_value.SetValue( pretty_default_value )
+        
+        self._pretty_default_value.blockSignals( False )
+        
+    
+    def _GetValue( self ):
+        
+        string_match = self._string_match.GetValue()
+        default_value = self._default_value.GetValue()
+        
+        return ( string_match, default_value )
+        
+    
+    def _PrettyDefaultValueChanged( self ):
+        
+        pretty_default_value = self._pretty_default_value.GetValue()
+        
+        default_value = pretty_default_value if pretty_default_value is None else urllib.parse.quote( pretty_default_value )
+        
+        self._default_value.blockSignals( True )
+        
+        self._default_value.SetValue( default_value )
+        
+        self._default_value.blockSignals( False )
+        
+    
+    def GetValue( self ):
+        
+        ( string_match, default_value ) = self._GetValue()
+        
+        if default_value is not None and not string_match.Matches( default_value ):
+            
+            raise HydrusExceptions.VetoException( 'That default value does not match the rule!' )
+            
+        
+        return ( string_match, default_value )
+        
+    
+    def SetValue( self, string_match: ClientStrings.StringMatch, default_value: typing.Optional[ str ] ):
+        
+        self._default_value.blockSignals( True )
+        
+        if default_value is None:
+            
+            self._default_value.SetValue( default_value )
+            
+        else:
+            
+            try:
+                
+                self._default_value.SetValue( default_value )
+                
+            except:
+                
+                self._default_value.SetValue( default_value )
+                
+            
+        
+        self._default_value.blockSignals( False )
+        
+        self._DefaultValueChanged()
+        
+        self._string_match.SetValue( string_match )
+        
+    
+
+class EditURLClassParameterFixedNamePanel( ClientGUIScrolledPanels.EditPanel ):
+    
+    def __init__( self, parent: QW.QWidget, parameter: ClientNetworkingURLClass.URLClassParameterFixedName, dupe_names ):
+        
+        # maybe graduate this guy to a 'any type of parameter' panel and have a dropdown and show/hide fixed name etc..
+        
+        ClientGUIScrolledPanels.EditPanel.__init__( self, parent )
+        
+        self._dupe_names = dupe_names
+        
+        self._pretty_name = QW.QLineEdit( self )
+        self._pretty_name.setToolTip( 'The "key" of the key=value pair.' )
+        
+        self._name = QW.QLineEdit( self )
+        self._name.setToolTip( 'The "key" of the key=value pair. This encoded form is what is actually sent to the server!' )
+        
+        value_string_match_panel = ClientGUICommon.StaticBox( self, 'value test' )
+        
+        from hydrus.client.gui import ClientGUIStringPanels
+        
+        self._value_string_match = ClientGUIStringPanels.EditStringMatchPanel( value_string_match_panel, parameter.GetValueStringMatch() )
+        self._value_string_match.setToolTip( 'If the encoded value of the key=value pair matches this, the URL Class matches!' )
+        
+        self._is_ephemeral = QW.QCheckBox( self )
+        tt = 'THIS IS ADVANCED, DO NOT SET IF YOU ARE UNSURE! If this parameter is a one-time token or similar needed for the server request but not something you want to keep or use to compare, you can define it here.'
+        tt += '\n' * 2
+        tt += 'These tokens are also allowed _en masse_ in the main URL Class by setting "allow extra parameters for server", BUT if you need a whitelist, you will want to define them here. Also, if you need to pass this token on to an API/redirect converter, you have to define it here!'
+        self._is_ephemeral.setToolTip( tt )
+        
+        self._pretty_default_value = ClientGUICommon.NoneableTextCtrl( self )
+        self._pretty_default_value.setToolTip( 'If the URL is missing this key=value pair, you can add it here, and the URL Class will still match and will normalise with this default value. This can be useful for gallery URLs that have an implicit page=1 or index=0 for their first result--sometimes it is better to make that stuff explicit in all cases.' )
+        
+        self._default_value = ClientGUICommon.NoneableTextCtrl( self )
+        self._default_value.setToolTip( 'What actual value will be embedded into the URL sent to the server.' )
+        
+        self._default_value_string_processor = ClientGUIStringControls.StringProcessorButton( self, parameter.GetDefaultValueStringProcessor(), self._GetTestData )
+        tt = 'WARNING WARNING: Extremely Big Brain'
+        tt += '/n' * 2
+        tt += 'You can apply the parsing system\'s normal String Processor steps to your fixed default value here. For instance, you could append/replace the default value with random hex or today\'s date. This is obviously super advanced, so be careful.'
+        self._default_value_string_processor.setToolTip( tt )
+        
+        #
+        
+        self.SetValue( parameter )
+        
+        #
+        
+        st = ClientGUICommon.BetterStaticText( value_string_match_panel, label = 'The String Match here will test against the value in the normalised, _%-encoded_ URL. If you have "type=%E3%83%9D%E3%82%B9%E3%83%88", test for that, not "ポスト".' )
+        st.setWordWrap( True )
+        
+        value_string_match_panel.Add( st, CC.FLAGS_EXPAND_PERPENDICULAR )
+        value_string_match_panel.Add( self._value_string_match, CC.FLAGS_EXPAND_BOTH_WAYS )
+        
+        rows = []
+        
+        rows.append( ( 'name: ', self._pretty_name ) )
+        rows.append( ( 'name, %-encoded: ', self._name ) )
+        rows.append( value_string_match_panel )
+        rows.append( ( 'is ephemeral token?: ', self._is_ephemeral ) )
+        rows.append( ( 'default value: ', self._pretty_default_value ) )
+        rows.append( ( 'default value, %-encoded: ', self._default_value ) )
+        rows.append( ( 'default value string processor: ', self._default_value_string_processor ) )
+        
+        gridbox = ClientGUICommon.WrapInGrid( self, rows, add_stretch_at_end = False, expand_single_widgets = True )
+        
+        vbox = QP.VBoxLayout()
+        
+        QP.AddToLayout( vbox, gridbox, CC.FLAGS_EXPAND_SIZER_BOTH_WAYS )
+        
+        self.widget().setLayout( vbox )
+        
+        self._pretty_name.textChanged.connect( self._PrettyNameChanged )
+        self._name.textChanged.connect( self._NameChanged )
+        self._pretty_default_value.valueChanged.connect( self._PrettyDefaultValueChanged )
+        self._default_value.valueChanged.connect( self._DefaultValueChanged )
+        
+        self._is_ephemeral.clicked.connect( self._UpdateProcessorEnabled )
+        self._pretty_default_value.valueChanged.connect( self._UpdateProcessorEnabled )
+        self._default_value.valueChanged.connect( self._UpdateProcessorEnabled )
+        
+    
+    def _UpdateProcessorEnabled( self ):
+        
+        we_out_here = self._is_ephemeral.isChecked() and self._default_value.GetValue() is not None
+        
+        self._default_value_string_processor.setEnabled( we_out_here )
+        
+    
+    def _DefaultValueChanged( self ):
+        
+        default_value = self._default_value.GetValue()
+        
+        pretty_default_value = default_value if default_value is None else urllib.parse.unquote( default_value )
+        
+        self._pretty_default_value.blockSignals( True )
+        
+        self._pretty_default_value.SetValue( pretty_default_value )
+        
+        self._pretty_default_value.blockSignals( False )
+        
+    
+    def _GetTestData( self ) -> ClientParsing.ParsingTestData:
+        
+        default_value = self._default_value.GetValue()
+        
+        if default_value is None:
+            
+            default_value = 'test'
+            
+        
+        return ClientParsing.ParsingTestData( {}, texts = [ default_value ] )
+        
+    
+    def _GetValue( self ):
+        
+        name = self._name.text()
+        
+        value_string_match = self._value_string_match.GetValue()
+        
+        parameter = ClientNetworkingURLClass.URLClassParameterFixedName(
+            name = name,
+            value_string_match = value_string_match
+        )
+        
+        is_ephemeral = self._is_ephemeral.isChecked()
+        parameter.SetIsEphemeral( is_ephemeral )
+        
+        default_value = self._default_value.GetValue()
+        parameter.SetDefaultValue( default_value )
+        
+        if is_ephemeral and default_value is not None:
+            
+            default_value_string_processor = self._default_value_string_processor.GetValue()
+            parameter.SetDefaultValueStringProcessor( default_value_string_processor )
+            
+        
+        return parameter
+        
+    
+    def _NameChanged( self ):
+        
+        name = self._name.text()
+        
+        pretty_name = name if name is None else urllib.parse.unquote( name )
+        
+        self._pretty_name.blockSignals( True )
+        
+        self._pretty_name.setText( pretty_name )
+        
+        self._pretty_name.blockSignals( False )
+        
+    
+    def _PrettyDefaultValueChanged( self ):
+        
+        pretty_default_value = self._pretty_default_value.GetValue()
+        
+        default_value = pretty_default_value if pretty_default_value is None else urllib.parse.quote( pretty_default_value )
+        
+        self._default_value.blockSignals( True )
+        
+        self._default_value.SetValue( default_value )
+        
+        self._default_value.blockSignals( False )
+        
+    
+    def _PrettyNameChanged( self ):
+        
+        pretty_name = self._pretty_name.text()
+        
+        name = pretty_name if pretty_name is None else urllib.parse.quote( pretty_name )
+        
+        self._name.blockSignals( True )
+        
+        self._name.setText( name )
+        
+        self._name.blockSignals( False )
+        
+    
+    def GetValue( self ):
+        
+        parameter = self._GetValue()
+        
+        name = parameter.GetName()
+        
+        if name == '':
+            
+            raise HydrusExceptions.VetoException( 'Sorry, you have to set a key/name!' )
+            
+        
+        if name in self._dupe_names:
+            
+            raise HydrusExceptions.VetoException( 'Sorry, your key/name already exists, pick something else!' )
+            
+        
+        return parameter
+        
+    
+    def SetValue( self, parameter: ClientNetworkingURLClass.URLClassParameterFixedName ):
+        
+        self._name.blockSignals( True )
+        
+        try:
+            
+            self._name.setText( parameter.GetName() )
+            
+        except:
+            
+            self._name.setText( parameter.GetName() )
+            
+        
+        self._name.blockSignals( False )
+        
+        self._NameChanged()
+        
+        default_value = parameter.GetDefaultValue()
+        
+        self._default_value.blockSignals( True )
+        
+        if default_value is None:
+            
+            self._default_value.SetValue( default_value )
+            
+        else:
+            
+            try:
+                
+                self._default_value.SetValue( default_value )
+                
+            except:
+                
+                self._default_value.SetValue( default_value )
+                
+            
+        
+        self._default_value.blockSignals( False )
+        
+        self._DefaultValueChanged()
+        
+        self._value_string_match.SetValue( parameter.GetValueStringMatch() )
+        
+        self._is_ephemeral.setChecked( parameter.IsEphemeralToken() )
+        
+        self._default_value_string_processor.SetValue( parameter.GetDefaultValueStringProcessor() )
+        
+        self._UpdateProcessorEnabled()
+        
+    
+
 class EditURLClassPanel( ClientGUIScrolledPanels.EditPanel ):
     
     def __init__( self, parent: QW.QWidget, url_class: ClientNetworkingURLClass.URLClass ):
@@ -932,7 +1306,14 @@ class EditURLClassPanel( ClientGUIScrolledPanels.EditPanel ):
             self._url_type.addItem( HC.url_type_string_lookup[ u_t ], u_t )
             
         
-        ( url_type, preferred_scheme, netloc, path_components, parameters, api_lookup_converter, send_referral_url, referral_url_converter, example_url ) = url_class.ToTuple()
+        url_type = url_class.GetURLType()
+        preferred_scheme = url_class.GetPreferredScheme()
+        netloc = url_class.GetNetloc()
+        path_components = url_class.GetPathComponents()
+        parameters = url_class.GetParameters()
+        api_lookup_converter = url_class.GetAPILookupConverter()
+        ( send_referral_url, referral_url_converter ) = url_class.GetReferralURLInfo()
+        example_url = url_class.GetExampleURL()
         
         self._notebook = ClientGUICommon.BetterNotebook( self )
         
@@ -1037,6 +1418,12 @@ class EditURLClassPanel( ClientGUIScrolledPanels.EditPanel ):
         
         self._no_more_parameters_than_this.setToolTip( tt )
         
+        self._keep_extra_parameters_for_server = QW.QCheckBox( self._options_panel )
+        
+        tt = 'If checked, the URL not strip out undefined parameters in the normalisation process that occurs before a URL is sent to the server. In general, you probably want to keep this on, since these extra parameters can include temporary tokens and so on. Undefined parameters are removed when URLs are compared to each other (to detect dupes) or saved to the "known urls" storage in the database.'
+        
+        self._keep_extra_parameters_for_server.setToolTip( tt )
+        
         self._can_produce_multiple_files = QW.QCheckBox( self._options_panel )
         
         tt = 'If checked, the client will not rely on instances of this URL class to predetermine \'already in db\' or \'previously deleted\' outcomes. This is important for post types like pixiv pages (which can ultimately be manga, and represent many pages) and tweets (which can have multiple images).'
@@ -1131,12 +1518,19 @@ class EditURLClassPanel( ClientGUIScrolledPanels.EditPanel ):
         
         self._example_url_classes = ClientGUICommon.BetterStaticText( self )
         
+        self._for_server_normalised_url = QW.QLineEdit( self )
+        self._for_server_normalised_url.setReadOnly( True )
+        
+        tt = 'This is what should actually be sent to the server. It has some elements of full normalisation, but depending on your options, there may be additional, "ephemeral" data included. If you use an API/redirect, it will be that.'
+        
+        self._for_server_normalised_url.setToolTip( tt )
+        
         self._normalised_url = QW.QLineEdit( self )
         self._normalised_url.setReadOnly( True )
         
-        tt = 'The same url can be expressed in different ways. The parameters can be reordered, and descriptive \'sugar\' like "/123456/bodysuit-samus_aran" can be altered at a later date, say to "/123456/bodysuit-green_eyes-samus_aran". In order to collapse all the different expressions of a url down to a single comparable form, the client will \'normalise\' them based on the essential definitions in their url class. Parameters will be alphebatised and non-defined elements will be removed.'
-        tt += os.linesep * 2
-        tt += 'All normalisation will switch to the preferred scheme (http/https). The alphabetisation of parameters and stripping out of non-defined elements will occur for all URLs except Gallery URLs or Watchable URLs that do not use an API Lookup. (In general, you can define gallery and watchable urls a little more loosely since they generally do not need to be compared, but if you will be saving it with a file or need to perform some regex conversion into an API/Redirect URL, you\'ll want a rigorously defined url class that will normalise to something reliable and pretty.)'
+        tt = 'This is the fully normalised URL, which is what is saved to the database. It is used to compare to other URLs.'
+        tt += '/n' * 2
+        tt += 'We want to normalise to a single reliable URL because the same URL can be expressed in different ways. The parameters can be reordered, and descriptive \'sugar\' like "/123456/bodysuit-samus_aran" can be altered at a later date, say to "/123456/bodysuit-green_eyes-samus_aran". In order to collapse all the different expressions of a url down to a single comparable form, we remove any cruft and "normalise" things. The preferred scheme (http/https) will be switched to, and, typically, parameters will be alphabetised and non-defined elements will be removed.'
         
         self._normalised_url.setToolTip( tt )
         
@@ -1164,9 +1558,11 @@ class EditURLClassPanel( ClientGUIScrolledPanels.EditPanel ):
         self._no_more_path_components_than_this.setChecked( url_class.NoMorePathComponentsThanThis() )
         self._no_more_parameters_than_this.setChecked( url_class.NoMoreParametersThanThis() )
         
+        self._keep_extra_parameters_for_server.setChecked( url_class.KeepExtraParametersForServer() )
+        
         self._path_components.AddDatas( path_components )
         
-        self._parameters.AddDatas( list( parameters.items() ) )
+        self._parameters.AddDatas( parameters )
         
         self._parameters.Sort()
         
@@ -1261,8 +1657,9 @@ class EditURLClassPanel( ClientGUIScrolledPanels.EditPanel ):
         
         rows.append( ( 'if matching by subdomain, keep it when normalising?: ', self._keep_matched_subdomains ) )
         rows.append( ( 'alphabetise GET parameters when normalising?: ', self._alphabetise_get_parameters ) )
-        rows.append( ( 'do not allow any extra path components?: ', self._no_more_path_components_than_this ) )
-        rows.append( ( 'do not allow any extra parameters?: ', self._no_more_parameters_than_this ) )
+        rows.append( ( 'do not match on any extra path components?: ', self._no_more_path_components_than_this ) )
+        rows.append( ( 'do not match on any extra parameters?: ', self._no_more_parameters_than_this ) )
+        rows.append( ( 'keep extra parameters for server?: ', self._keep_extra_parameters_for_server ) )
         rows.append( ( 'keep fragment when normalising?: ', self._keep_fragment ) )
         rows.append( ( 'post page can produce multiple files?: ', self._can_produce_multiple_files ) )
         rows.append( ( 'associate a \'known url\' with resulting files?: ', self._should_be_associated_with_files ) )
@@ -1287,6 +1684,7 @@ class EditURLClassPanel( ClientGUIScrolledPanels.EditPanel ):
         rows = []
         
         rows.append( ( 'example url: ', self._example_url ) )
+        rows.append( ( 'request url: ', self._for_server_normalised_url ) )
         rows.append( ( 'normalised url: ', self._normalised_url ) )
         
         gridbox_2 = ClientGUICommon.WrapInGrid( self, rows )
@@ -1307,6 +1705,7 @@ class EditURLClassPanel( ClientGUIScrolledPanels.EditPanel ):
         self._alphabetise_get_parameters.clicked.connect( self._UpdateControls )
         self._no_more_path_components_than_this.clicked.connect( self._UpdateControls )
         self._no_more_parameters_than_this.clicked.connect( self._UpdateControls )
+        self._keep_extra_parameters_for_server.clicked.connect( self._UpdateControls )
         self._match_subdomains.clicked.connect( self._UpdateControls )
         self._keep_matched_subdomains.clicked.connect( self._UpdateControls )
         self._keep_fragment.clicked.connect( self._UpdateControls )
@@ -1327,77 +1726,31 @@ class EditURLClassPanel( ClientGUIScrolledPanels.EditPanel ):
     
     def _AddParameters( self ):
         
-        with ClientGUIDialogs.DialogTextEntry( self, 'edit the key', placeholder = 'key', allow_blank = False ) as dlg:
-            
-            if dlg.exec() == QW.QDialog.Accepted:
-                
-                key = dlg.GetValue()
-                
-            else:
-                
-                return
-                
-            
+        existing_names = self._GetExistingParameterNames()
         
-        existing_keys = self._GetExistingKeys()
+        parameter = ClientNetworkingURLClass.URLClassParameterFixedName()
         
-        if key in existing_keys:
+        with ClientGUITopLevelWindowsPanels.DialogEdit( self, 'edit parameter' ) as dlg:
             
-            ClientGUIDialogsMessage.ShowWarning( self, 'That key already exists!' )
-            
-            return
-            
-        
-        string_match = ClientStrings.StringMatch()
-        
-        with ClientGUITopLevelWindowsPanels.DialogEdit( self, 'edit value' ) as dlg:
-            
-            from hydrus.client.gui import ClientGUIStringPanels
-            
-            panel = ClientGUIStringPanels.EditStringMatchPanel( dlg, string_match )
+            panel = EditURLClassParameterFixedNamePanel( dlg, parameter, existing_names )
             
             dlg.SetPanel( panel )
             
             if dlg.exec() == QW.QDialog.Accepted:
                 
-                string_match = panel.GetValue()
+                parameter = panel.GetValue()
                 
-                with ClientGUIDialogs.DialogTextEntry( self, 'Enter optional \'default\' value for this parameter, which will be filled in if missing. Leave blank for none (recommended).', allow_blank = True ) as dlg_default:
-                    
-                    if dlg_default.exec() == QW.QDialog.Accepted:
-                        
-                        default = dlg_default.GetValue()
-                        
-                        if default == '':
-                            
-                            default = None
-                            
-                        elif not string_match.Matches( default ):
-                            
-                            ClientGUIDialogsMessage.ShowWarning( self, 'That default does not match the given rule! Clearing it to none!' )
-                            
-                            default = None
-                            
-                        
-                    else:
-                        
-                        return
-                        
-                    
+                self._parameters.AddDatas( ( parameter, ) )
+                
+                self._parameters.Sort()
+                
+                self._UpdateControls()
                 
             else:
                 
                 return
                 
             
-        
-        data = ( key, ( string_match, default ) )
-        
-        self._parameters.AddDatas( ( data, ) )
-        
-        self._parameters.Sort()
-        
-        self._UpdateControls()
         
     
     def _AddPathComponent( self ):
@@ -1408,23 +1761,29 @@ class EditURLClassPanel( ClientGUIScrolledPanels.EditPanel ):
         return self._EditPathComponent( ( string_match, default ) )
         
     
-    def _ConvertParameterToListCtrlTuples( self, data ):
+    def _ConvertParameterToListCtrlTuples( self, parameter: ClientNetworkingURLClass.URLClassParameterFixedName ):
         
-        ( key, ( string_match, default ) ) = data
+        name = parameter.GetName()
+        value_string_match = parameter.GetValueStringMatch()
         
-        pretty_key = key
-        pretty_string_match = string_match.ToString()
+        pretty_name = urllib.parse.unquote( name )
+        pretty_value_string_match = value_string_match.ToString()
         
-        if default is not None:
+        if parameter.HasDefaultValue():
             
-            pretty_string_match += ' (default "' + default + '")'
+            pretty_value_string_match += f' (default "{urllib.parse.unquote(parameter.GetDefaultValue( with_processing = True ))}")'
             
         
-        sort_key = pretty_key
-        sort_string_match = pretty_string_match
+        if parameter.IsEphemeralToken():
+            
+            pretty_value_string_match += ' (is ephemeral)'
+            
         
-        display_tuple = ( pretty_key, pretty_string_match )
-        sort_tuple = ( sort_key, sort_string_match )
+        sort_name = pretty_name
+        sort_string_match = pretty_value_string_match
+        
+        display_tuple = ( pretty_name, pretty_value_string_match )
+        sort_tuple = ( sort_name, sort_string_match )
         
         return ( display_tuple, sort_tuple )
         
@@ -1458,85 +1817,27 @@ class EditURLClassPanel( ClientGUIScrolledPanels.EditPanel ):
         
         for parameter in selected_params:
             
-            ( original_key, ( original_string_match, original_default ) ) = parameter
+            existing_names = set( self._GetExistingParameterNames() )
             
-            with ClientGUIDialogs.DialogTextEntry( self, 'edit the key', default = original_key, allow_blank = False ) as dlg:
-                
-                if dlg.exec() == QW.QDialog.Accepted:
-                    
-                    key = dlg.GetValue()
-                    
-                else:
-                    
-                    return
-                    
-                
-            
-            if key != original_key:
-                
-                existing_keys = self._GetExistingKeys()
-                
-                if key in existing_keys:
-                    
-                    ClientGUIDialogsMessage.ShowWarning( self, 'That key already exists!' )
-                    
-                    return
-                    
-                
+            existing_names.discard( parameter.GetName() )
             
             with ClientGUITopLevelWindowsPanels.DialogEdit( self, 'edit value' ) as dlg:
                 
-                from hydrus.client.gui import ClientGUIStringPanels
-                
-                panel = ClientGUIStringPanels.EditStringMatchPanel( dlg, original_string_match )
+                panel = EditURLClassParameterFixedNamePanel( self, parameter, existing_names )
                 
                 dlg.SetPanel( panel )
                 
                 if dlg.exec() == QW.QDialog.Accepted:
                     
-                    string_match = panel.GetValue()
+                    edited_parameter = panel.GetValue()
                     
-                    if original_default is None:
-                        
-                        original_default = ''
-                        
+                    self._parameters.DeleteDatas( ( parameter, ) )
                     
-                    with ClientGUIDialogs.DialogTextEntry( self, 'Enter optional \'default\' value for this parameter, which will be filled in if missing. Leave blank for none (recommended).', default = original_default, allow_blank = True ) as dlg_default:
-                        
-                        if dlg_default.exec() == QW.QDialog.Accepted:
-                            
-                            default = dlg_default.GetValue()
-                            
-                            if default == '':
-                                
-                                default = None
-                                
-                            elif not string_match.Matches( default ):
-                                
-                                ClientGUIDialogsMessage.ShowWarning( self, 'That default does not match the given rule! Clearing it to none!' )
-                                
-                                default = None
-                                
-                            
-                        else:
-                            
-                            return
-                            
-                        
+                    self._parameters.AddDatas( ( edited_parameter, ) )
                     
-                else:
-                    
-                    return
+                    edited_datas.append( edited_parameter )
                     
                 
-            
-            self._parameters.DeleteDatas( ( parameter, ) )
-            
-            new_parameter = ( key, ( string_match, default ) )
-            
-            self._parameters.AddDatas( ( new_parameter, ) )
-            
-            edited_datas.append( new_parameter )
             
         
         self._parameters.SelectDatas( edited_datas )
@@ -1548,62 +1849,36 @@ class EditURLClassPanel( ClientGUIScrolledPanels.EditPanel ):
     
     def _EditPathComponent( self, row ):
         
-        ( string_match, default ) = row
+        ( string_match, default_value ) = row
         
         with ClientGUITopLevelWindowsPanels.DialogEdit( self, 'edit path component' ) as dlg:
             
-            from hydrus.client.gui import ClientGUIStringPanels
-            
-            panel = ClientGUIStringPanels.EditStringMatchPanel( dlg, string_match )
+            panel = EditURLClassComponentPanel( dlg, string_match, default_value )
             
             dlg.SetPanel( panel )
             
             if dlg.exec() == QW.QDialog.Accepted:
                 
-                new_string_match = panel.GetValue()
+                ( new_string_match, new_default_value ) = panel.GetValue()
                 
-                if default is None:
-                    
-                    default = ''
-                    
+                QP.CallAfter( self._UpdateControls ) # seems sometimes this doesn't kick in naturally
                 
-                with ClientGUIDialogs.DialogTextEntry( self, 'Enter optional \'default\' value for this path component, which will be filled in if missing. Leave blank for none (recommended).', default = default, allow_blank = True ) as dlg_default:
-                    
-                    if dlg_default.exec() == QW.QDialog.Accepted:
-                        
-                        new_default = dlg_default.GetValue()
-                        
-                        if new_default == '':
-                            
-                            new_default = None
-                            
-                        elif not string_match.Matches( new_default ):
-                            
-                            ClientGUIDialogsMessage.ShowWarning( self, 'That default does not match the given rule! Clearing it to none!' )
-                            
-                            new_default = None
-                            
-                        
-                        new_row = ( new_string_match, new_default )
-                        
-                        QP.CallAfter( self._UpdateControls ) # seems sometimes this doesn't kick in naturally
-                        
-                        return new_row
-                        
-                    
+                new_row = ( new_string_match, new_default_value )
+                
+                return new_row
                 
             
             raise HydrusExceptions.VetoException()
             
         
     
-    def _GetExistingKeys( self ):
+    def _GetExistingParameterNames( self ) -> typing.Set[ str ]:
         
-        params = self._parameters.GetData()
+        parameters = self._parameters.GetData()
         
-        keys = { key for ( key, string_match ) in params }
+        fixed_names = { parameter.GetName() for parameter in parameters if isinstance( parameter, ClientNetworkingURLClass.URLClassParameterFixedName ) }
         
-        return keys
+        return fixed_names
         
     
     def _GetValue( self ):
@@ -1614,7 +1889,7 @@ class EditURLClassPanel( ClientGUIScrolledPanels.EditPanel ):
         preferred_scheme = self._preferred_scheme.GetValue()
         netloc = self._netloc.text()
         path_components = self._path_components.GetData()
-        parameters = dict( self._parameters.GetData() )
+        parameters = self._parameters.GetData()
         has_single_value_parameters = self._has_single_value_parameters.isChecked()
         single_value_parameters_string_match = self._single_value_parameters_string_match.GetValue()
         header_overrides = self._header_overrides.GetValue()
@@ -1671,6 +1946,10 @@ class EditURLClassPanel( ClientGUIScrolledPanels.EditPanel ):
         
         url_class.SetNoMoreParametersThanThis( no_more )
         
+        keep_extra_parameters_for_server = self._keep_extra_parameters_for_server.isChecked()
+        
+        url_class.SetKeepExtraParametersForServer( keep_extra_parameters_for_server )
+        
         return url_class
         
     
@@ -1696,11 +1975,16 @@ class EditURLClassPanel( ClientGUIScrolledPanels.EditPanel ):
                     
                 
             
-            for ( index, ( key, ( string_match, default ) ) ) in enumerate( self._parameters.GetData() ):
+            for parameter in self._parameters.GetData():
                 
-                if True in ( string_match.Matches( n ) for n in ( '0', '1', '10', '100', '42' ) ):
+                if isinstance( parameter, ClientNetworkingURLClass.URLClassParameterFixedName ):
                     
-                    choices.append( ( key + ' parameter', ( ClientNetworkingURLClass.GALLERY_INDEX_TYPE_PARAMETER, key ) ) )
+                    if True in ( parameter.MatchesValue( n ) for n in ( '0', '1', '10', '100', '42' ) ):
+                        
+                        name = parameter.GetName()
+                        
+                        choices.append( ( f'{name} parameter', ( ClientNetworkingURLClass.GALLERY_INDEX_TYPE_PARAMETER, name ) ) )
+                        
                     
                 
             
@@ -1733,6 +2017,18 @@ class EditURLClassPanel( ClientGUIScrolledPanels.EditPanel ):
         
         self._single_value_parameters_string_match.setEnabled( self._has_single_value_parameters.isChecked() )
         
+        nuke_keep_extra_params = self._no_more_parameters_than_this.isChecked() or self._api_lookup_converter.GetValue().MakesChanges()
+        
+        if nuke_keep_extra_params:
+            
+            self._keep_extra_parameters_for_server.setChecked( False )
+            self._keep_extra_parameters_for_server.setEnabled( False )
+            
+        else:
+            
+            self._keep_extra_parameters_for_server.setEnabled( True )
+            
+        
         #
         
         url_class = self._GetValue()
@@ -1748,22 +2044,7 @@ class EditURLClassPanel( ClientGUIScrolledPanels.EditPanel ):
             self._can_produce_multiple_files.setEnabled( False )
             
         
-        if url_class.ClippingIsAppropriate():
-            
-            if self._match_subdomains.isChecked():
-                
-                self._keep_matched_subdomains.setEnabled( True )
-                
-            else:
-                
-                self._keep_matched_subdomains.setChecked( False )
-                self._keep_matched_subdomains.setEnabled( False )
-                
-            
-        else:
-            
-            self._keep_matched_subdomains.setEnabled( False )
-            
+        self._keep_matched_subdomains.setEnabled( self._match_subdomains.isChecked() )
         
         try:
             
@@ -1825,6 +2106,10 @@ class EditURLClassPanel( ClientGUIScrolledPanels.EditPanel ):
                     
                 
             
+            for_server_normalised = url_class.Normalise( example_url, for_server = True )
+            
+            self._for_server_normalised_url.setText( for_server_normalised )
+            
             try:
                 
                 if url_class.UsesAPIURL():
@@ -1836,6 +2121,8 @@ class EditURLClassPanel( ClientGUIScrolledPanels.EditPanel ):
                         self._example_url_classes.setText( 'Matches own API/Redirect URL!' )
                         self._example_url_classes.setObjectName( 'HydrusInvalid' )
                         
+                    
+                    self._for_server_normalised_url.setText( api_lookup_url )
                     
                 else:
                     
@@ -1881,6 +2168,7 @@ class EditURLClassPanel( ClientGUIScrolledPanels.EditPanel ):
             self._example_url_classes.setText( 'Example does not match - '+reason )
             self._example_url_classes.setObjectName( 'HydrusInvalid' )
             
+            self._for_server_normalised_url.clear()
             self._normalised_url.clear()
             self._api_url.clear()
             
@@ -2054,6 +2342,8 @@ class EditURLClassesPanel( ClientGUIScrolledPanels.EditPanel ):
         
         self._UpdateURLClassCheckerText()
         
+        self._changes_made = False
+        
     
     def _Add( self ):
         
@@ -2084,12 +2374,22 @@ class EditURLClassesPanel( ClientGUIScrolledPanels.EditPanel ):
         
         self._list_ctrl.AddDatas( ( url_class, ) )
         
+        self._changes_made = True
+        
     
     def _ConvertDataToListCtrlTuples( self, url_class ):
         
         name = url_class.GetName()
         url_type = url_class.GetURLType()
-        example_url = url_class.Normalise( url_class.GetExampleURL() )
+        
+        try:
+            
+            example_url = url_class.Normalise( url_class.GetExampleURL() )
+            
+        except:
+            
+            example_url = 'DOES NOT MATCH OWN EXAMPLE URL!! ' + url_class.GetExampleURL()
+            
         
         pretty_name = name
         pretty_url_type = HC.url_type_string_lookup[ url_type ]
@@ -2124,6 +2424,8 @@ class EditURLClassesPanel( ClientGUIScrolledPanels.EditPanel ):
                     self._list_ctrl.AddDatas( ( url_class, ) )
                     
                     edited_datas.append( url_class )
+                    
+                    self._changes_made = True
                     
                 else:
                     
@@ -2198,6 +2500,24 @@ class EditURLClassesPanel( ClientGUIScrolledPanels.EditPanel ):
         return url_classes
         
     
+    def UserIsOKToCancel( self ):
+        
+        if self._changes_made or self._list_ctrl.HasDoneDeletes():
+            
+            message = 'You have made changes. Sure you are ok to cancel?'
+            
+            result = ClientGUIDialogsQuick.GetYesNo( self, message )
+            
+            if result != QW.QDialog.Accepted:
+                
+                return False
+                
+            
+        
+        return True
+        
+    
+
 class EditURLClassLinksPanel( ClientGUIScrolledPanels.EditPanel ):
     
     def __init__( self, parent: QW.QWidget, network_engine, url_classes, parsers, url_class_keys_to_parser_keys ):
