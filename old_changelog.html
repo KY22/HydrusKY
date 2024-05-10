@@ -35,6 +35,205 @@
             <h1 id="changelog"><a href="#changelog">changelog</a></h1>
             <ul>
                 <li>
+                    <h2 id="version_574"><a href="#version_574">version 574</a></h2>
+                    <ul>
+                        <li><h3>local hashes cache</h3></li>
+                        <li>we finally figured out the 'update 404' issue that some PTR-syncing users were getting, where PTR processing would halt with an error about an update file not being available on the server. long story short, SQLite was sometimes crossing a wire in the database on a crash, and this week I add some new maintenance code to fix this and catch it in future</li>
+                        <li>the local hash cache has a bunch of new resync/recovery code. it can now efficiently recover from missing hash_ids, excess hash_ids, desynced hash_ids, and even repopulate the master hash table if that guy has missing hash_ids (which can happen after severe db damage due to hard drive failure). it records all recovery info to the log</li>
+                        <li>the normal _database-&gt;regenerate-&gt;local hashes cache_ function now works entirely in this new resync code, making it significantly faster (previously it just deleted and re-added everything). this job also gets a nicer popup with a summary of any problems found</li>
+                        <li>when the client recovers from a bad shutdown, it now runs a quick sync on the latest hash_ids added to the local hashes cache to ensure that desync did not occur. fingers crossed, this will work super fast and ensure that we don't get the 404 problem (or related hash_id cross-wire problems) again</li>
+                        <li>on repository processing failure and a scheduling of update file maintenance, we now resync the update files in the local hash cache, meaning the 404 problem, if it does happen again, will now fix itself in the normal recovery code</li>
+                        <li>on update, everyone is going to get a full local hash cache resync, just to catch any lingering issues here. it should now work super fast!</li>
+                        <li>fixed an issue where the local hash and tags caches would not fully reset desynced results on a 'regenerate' call until a client restart</li>
+                        <li><h3>misc</h3></li>
+                        <li>thanks to a user, the default twitter downloader I added last week now gets full-size images. if you spammed a bunch of URLs last week, I apologise: please do a search for 'imported within the last 7 days/has a twitter url/height=1200px' and then copy/paste the results' tweet URLs into a new urls downloader. because of some special twitter settings, you shouldn't have to set 'download the file even if known url match' in the file import options; the downloader will discover the larger versions and download the full size files with no special settings needed. once done, assuming the file count is the same on both pages, go back to your first page and delete the 1200px tall files. then repeat for width=1200px!</li>
+                        <li>the filetype selector in system:filetype now expands to eat extra vertical space if the dialog is resized</li>
+                        <li>the filetype selector in file import options is moved a bit and also now expands to eat extra vertical space</li>
+                        <li>thanks to a user, the Microsoft document recognition now has fewer false negatives (it was detecting some docs as zips)</li>
+                        <li>when setting up an import folder, the dialog will now refuse to OK if you set a path that is 1) above the install dir or db dir or 2) above or below any of your file storage locations. shouldn't be possible to set up an import from your own file storage folder by accident any more</li>
+                        <li>added a new 'apply image ICC Profile colour adjustments' checkbox to _options-&gt;media_. this simply turns off ICC profile loading and application, for debug purposes</li>
+                        <li><h3>boring cleanup</h3></li>
+                        <li>the default SQLite page size is now 4096 bytes on Linux, the SQLite default. it was 1024 previously, but SQLite now recommend 4096 for all platforms. the next time Linux users vacuum any of their databases, they will get fixed. I do not think this is a big deal, so don't rush to force this</li>
+                        <li>fixed the last couple dozen missing layout flags across the program, which were ancient artifacts from the wx-&gt;Qt conversion</li>
+                        <li>fixed the WTFPL licence to be my copyright, lol</li>
+                        <li>deleted the local booru service management/UI code</li>
+                        <li>deleted the local booru service db/init code</li>
+                        <li>deleted the local booru service network code</li>
+                        <li>on update, the local booru service will be deleted from the database</li>
+                    </ul>
+                </li>
+                <li>
+                    <h2 id="version_573"><a href="#version_573">version 573</a></h2>
+                    <ul>
+                        <li><h3>new autocomplete tab, children</h3></li>
+                        <li>**this is an experiment. it is jank in form and workflow and may be buggy**</li>
+                        <li>the search/edit tag autocomplete dropdowns now have a third tab, 'children', which shows the tag children of the current tag context, whether that is the current search tags or what you are editing</li>
+                        <li>the idea is you type 'series:evangelion' but can't remember the character names; now you have a nice list of a bunch of stuff related to what was already entered</li>
+                        <li>note you can select this tab real quick just by hitting 'left arrow' on an empty text input</li>
+                        <li>this is a first draft, and I would like feedback and ideas, mostly around workflow improvement ideas. it seems to work ok if you have one or two tags with interesting children, but against a big list of stuff, it just becomes another multi-hundred list of spam blah that is difficult to navigate. maybe I could filter it to (and sort by?) the top n most count-heavy results?</li>
+                        <li>I wonder if it could also show children on the same level, so if you have 'shinji', it'll also show 'rei' and 'asuka'. I would call this relationship 'siblings', but then we'd be in an even bigger semantic mess</li>
+                        <li>also obviously please let me know if this fails anywhere. I think I have it hooked up correct, but some of the code around here is a bit old/messy so some scenario may not update properly</li>
+                        <li>don't worry about background lag if you regularly manage lots of tags--it only actually fetches the list of children when you switch to the tab, so you're only spending CPU if you actively engage with it</li>
+                        <li><h3>misc</h3></li>
+                        <li>a user and I figured out a new twitter tweet downloader using the excellent fxtwitter mirror service. it doesn't do search, but dropping a tweet URL on the client should work again. should handle quoted media and works for multi/mixed-image/video posts, too. note it will nest-pursue quoted tweets, so if there's like fifty in the nested chain, it'll get them all--let me know if this is a big pain and I'll figure out a different solution. I learned that there is another twitter downloader made by a different user on the discord; I have made the update code check for this and not replace it with this if you have it already, and I expect I'll integrate what that can do into these defaults next week</li>
+                        <li>the archive/delete and duplicate filters now yes/no confirm when you say to 'forget' at the end of a filtering run</li>
+                        <li>the duplicate filter page now only allows you to set the search location to local file domains--so it'll only ever try to search and show pairs for files you actually have</li>
+                        <li>fixed the system predicate parsing of `system:duration: has duration` and `system:duration: no duration` when entered by hand, and added a unit test to catch it in future</li>
+                        <li>the manage siblings/parents dialogs now have a little shorter minimum height</li>
+                        <li>updated some text around the PTR processing in the help--it is only the database proper, the .db files normally in `install_dir/db`, that needs to be on an SSD, and temporary processing slowdowns to 1 row/s are normal</li>
+                        <li>touched up some of the 'installing' and 'running from source' help, particularly for some Linux vagaries</li>
+                        <li><h3>some build stuff</h3></li>
+                        <li>all the builds and the setup_venv scripts are moved from 'python-mpv' to 'mpv', the new name for this library, and the version is updated to 1.0.6, which supports libmpv version &gt;=0.38.x. if you are a windows user and want to live on the edge, feel free to try out this very new libmpv2.dll here, which I have been testing and seems to work well: https://sourceforge.net/projects/mpv-player-windows/files/libmpv/mpv-dev-x86_64-20240421-git-b364e4a.7z/download</li>
+                        <li>updated the setup_venv scripts' Qt step to better talk about which Qt version to use for which Python version. it turns out Python 3.12 cannot run something I was recommending for &gt;=3.11, so the whole thing is a lot clearer now</li>
+                        <li><h3>boring stuff</h3></li>
+                        <li>refactored some question/button dialog stuff</li>
+                        <li>fixed up some file domain filtering code in the autocomplete filter and variable names to better specify what is being filtered where</li>
+                        <li><h3>local booru deconstruction</h3></li>
+                        <li>_reminder: I am removing the local booru, an ancient, mostly undocumented experiment._ if you used it, please check out https://github.com/floogulinc/hyshare for a replacement!</li>
+                        <li>the local booru service no longer boots as a server</li>
+                        <li>deleted the local booru share cache</li>
+                        <li>the local booru review services panel no longer shows nor allows management of its shares</li>
+                        <li>deleted the local booru unit tests</li>
+                        <li>deleted the local booru help and ancient screenshots</li>
+                    </ul>
+                </li>
+                <li>
+                    <h2 id="version_572"><a href="#version_572">version 572</a></h2>
+                    <ul>
+                        <li><h3>misc</h3></li>
+                        <li>added a new checkbox to _options-&gt;files and trash_ to say 'include skipped files when you remove files after archive/delete'</li>
+                        <li>thanks to a user, we now have an 'e621' stylsheet in _options-&gt;style_. this is the first default stylesheet that uses assets (some checkbox etc.. svgs), which means some users--I think just those who run from source--will need to be careful that their CWD is the hydrus install dir when they boot, or this won't load properly! if you try it and get errors in your log as it tries to load the svgs, let me know!</li>
+                        <li><h3>share menu</h3></li>
+                        <li>like the 'open' menu a couple weeks ago, the 'share' menu off of thumbnails or the media viewer is rewritten to nicer code. no major differences, but it has a clearer, universal layout, provides more options for 'the currently focused file' vs 'all selected files', is more careful about only providing commands it can deliver on (e.g. no file copy for remote files), and now everything it does is mappable in the shortcut system under the 'media' shortcut set</li>
+                        <li>you can now copy a file's thumbnail as a bitmap from this menu!</li>
+                        <li>the canvas now supports 'export files'. the 'export files' window just pops on top of it with the one file</li>
+                        <li>'copy file id' is no longer hidden by advanced mode--go nuts!</li>
+                        <li>the share menu no longer has 'share on local booru'. the local booru service was an interesting experiment, but I could never find time to properly dev it and there are better answers with the Client API or simple third-party image hosting services that you can drag and drop to. thus, I am finally sunsetting it. I'll strip away its features over the coming weeks until it is completely removed</li>
+                        <li><h3>shortcut updates</h3></li>
+                        <li>the 'copy file hash' shortcut actions, which used to be four separate things, have been collapsed to one action that has a 'hash type' dropdown (and a 'target' dropdown to select either all selected files or just the currently focused file, which will default to 'all selected' on update, which was the previous behaviour). you can also now set 'pixel_hash' or 'blurhash' as the hash type</li>
+                        <li>the 'copy file bitmap' shortcuts have similarly been collapsed down to one action with a dropdown, also with the new 'copy thumbnail' command</li>
+                        <li>the 'copy files', 'copy file paths', and 'copy file id' shortcuts now have a dropdown for whether you want all selected files or just the currently focused file. updated commands will default to 'all selected', which was the previous behaviour</li>
+                        <li>added a 'copy ipfs multihash' shortcut action, which has this new 'focused vs all selected' parameter and the ipfs service to copy from as its options</li>
+                        <li><h3>boring code cleanup</h3></li>
+                        <li>wrote a new command for copying arbitrary file hashes, with a new 'file command target'</li>
+                        <li>simplified the media hash copying code</li>
+                        <li>wrote a new command for copying arbitrary bitmap types</li>
+                        <li>combined the bitmap copying code into one shared function call and simplified the surrounding code</li>
+                        <li>combined the file and path copying code into shared functions, simplified the code, and added tech for focused vs all selected targeting</li>
+                        <li>and the same thing for copying ipfs multihashes</li>
+                        <li>wrote a routine to copy a file's thumbnail in the normal clipboard copying pubsub</li>
+                        <li>with the recent rounds of simplication, the core thumbnail menu call is now but a mere 600 lines of spaghetti code</li>
+                        <li>misc renaming of some enums here so they are more in agreement ('xxx files' instead of 'xxx file', etc...)</li>
+                        <li>renamed the various simple commands I have replaced in the past few weeks as 'legacy', so we don't accidentally refer to them again in real code</li>
+                        <li>the unit test for 'dateparser decode' is no longer run if dateparser is not in the environment</li>
+                        <li>fixed the file metadata parsing unit tests to account for newer ffmpeg, which sees a -10ms different duration on one of the test files, and made the various tests +/-20% lenient to handle this stuff if it comes up again in future</li>
+                    </ul>
+                </li>
+                <li>
+                    <h2 id="version_571"><a href="#version_571">version 571</a></h2>
+                    <ul>
+                        <li><h3>clean install</h3></li>
+                        <li>the recent 'future build' test went well, so I am rolling these updates into the normal release for everyone. on Windows and Linux, the built program is now running Python 3.11, and, on all platforms, updated versions of Qt (UI) and OpenCV (image-processing). there's nothing earth-shattering about these changes, but some things will work better and faster</li>
+                        <li>**because of the jump, v570 and v571 have dll conflicts! if you are on Windows or Linux and use the .zip or .tar.zst "Extract" release, you will need to a clean install as here**: https://hydrusnetwork.github.io/hydrus/getting_started_installing.html#clean_installs</li>
+                        <li>**if you are a Windows installer/macOS App/source user, you do not need to do a clean install, just update as normal**</li>
+                        <li><h3>misc</h3></li>
+                        <li>when you finish an archive/delete filter and there are several domains you could delete from, the 'commit' buttons are now disabled for 1.2 seconds. this catches you from accidentally spamming enter through a surprise complicated decision</li>
+                        <li>under _options-&gt;files and trash_, you can now say 'when finishing filtering, always delete from all possible domains', which makes the above decision always single domain. hit this if you do want to spam through this and are fine always deleting from everywhere</li>
+                        <li>the client will now, by default, attempt to load truncated images. this was previously off until you set it per-session-on in a debug menu, but is now a checkbox under _options-&gt;media_. some weird damaged jpegs and pngs should now load, fingers crossed</li>
+                        <li>the 'load images with PIL' setting is now default on for new users and no longer IN TESTING</li>
+                        <li>every normal single column text list across the program now copies text better if you explicitly hit ctrl+c/ctrl+insert. they now copy all selected rows (rather than just one), and when the display text differs from the underlying data/sort text, you'll now get the sort text (e.g. on manage urls launched on multiple files, you might see 'site.com/123456 (2)', but now, when it copies, that ' (1)' display cruft is omitted). I spammed this to 22 locations and tested 2 so there are definitely no weird string copy bugs anywhere</li>
+                        <li>fixed an issue opening/closing manage parsers, url classes, or url class links if you have url classes with invalid example urls or critically missing default values in your storage</li>
+                        <li>the server has a new 'restart_services' command, only triggerable by an admin with service modification ability, which tells all the services on all ports to stop and restart. if there's a new ssl cert, they load the new one</li>
+                        <li><h3>client api</h3></li>
+                        <li>the 'associate urls' command has a new 'normalise_urls' parameter (default true, which was the behaviour before) to let you force-add un-normalised URLs or URIs or whatever</li>
+                        <li>added some unit tests to test this new param</li>
+                        <li>client api version is now 64</li>
+                        <li><h3>help docs</h3></li>
+                        <li>wrote a new help document, 'help my db disappeared.txt' for the db directory that tells you what to do if you boot one day and suddenly get the 'this looks like the first time you ran this program' popup</li>
+                        <li>clarified the Windows 'running from source' help a little around 'git' and added a 'here is the Python version you want' link for Win 7 users</li>
+                        <li>gave the install help a very light pass, just fixing and updating a few things here and there. I also warn Linux users that the AUR package may throw errors if Arch updates a Qt library or something before we have had a chance to test it (as we have seen a couple times recently), and I generally suggest AUR people run from source manually if they can</li>
+                    </ul>
+                </li>
+                <li>
+                    <h2 id="version_570"><a href="#version_570">version 570</a></h2>
+                    <ul>
+                        <li><h3>UI stuff</h3></li>
+                        <li>wrote a thing to wrap tooltips and applied it everywhere. every tooltip in the program should now wrap to 80 characters</li>
+                        <li>the thumbnail view is now better about pausing the current video if you open it externally in various ways</li>
+                        <li>the 'open' submenu you get off of a file right-click is now exactly the same for the thumbnail menu and the media viewer menu, with all commands working in either place, the labels are also brushed up a little</li>
+                        <li>added a shortcut action for 'open file in web browser' to the media shortcut set</li>
+                        <li>added a shortcut action for 'open files in a new duplicates filter page' to the media shortcut set</li>
+                        <li>added/updated the shortcut action for 'open similar looking files in a new page' in the media shortcut set. this is now one job that lets you set any distance, and it now works from the media viewer too. all existing `show similar files: 0 (exact)` fixed-distance simple actions will be converted to the new action when you update</li>
+                        <li>I removed 'open externally' and 'open in file explorer' shortcuts from the media viewer/preview viewer/thumbnails sets. these sets are technically awkward and were really meant for a different thing, like pause/play or 'close media viewer', and having the media command code duplicated here was getting spammy. if you have any of these now-defunct commands set, please move them up to the general 'media' set, where it'll work everywhere. sorry if this breaks a very complicated set you have, but let's KISS!</li>
+                        <li>the 'files' submenu off thumbnails or the media viewer is flattened one level. the 'upload to' remote services stuff still isn't available for the media viewer, but I'll do the same as I did above for that in the near future</li>
+                        <li><h3>misc</h3></li>
+                        <li>fixed an issue with the 'manage tag siblings/parents' dialogs where the mass-import button was, in 'add or delete' mode, not doing any deletes/rescinds if there were any new pairs in what was being imported. this was probably applying to large regular adds in the UI, also</li>
+                        <li>this mass-import button of 'manage tag siblings/parents' also dedupes the pairs coming in. it now shouldn't do anything like 'add, then ask to remove' if you have the same pair twice!</li>
+                        <li>the nitter downloaders are removed from the defaults. I can't keep up with whatever the situation is there</li>
+                        <li>the style and stylesheet names in the options are now sorted</li>
+                        <li>sidecar importers will now work on sidecars that have uppercase .TXT or .JSON extensions</li>
+                        <li><h3>more URL stuff (advanced, can be ignored by most)</h3></li>
+                        <li>fixed up the recent URL encoding tech to properly follow the encoding exceptions as under RFC 3986. an '@' in an URL shouldn't get messed up now. thanks to the user(s) who helped here</li>
+                        <li>incoming URLs can now have a mix of encoded and non-encoded characters and the 'ensure URL is encoded' process will accept it and encode the non-encoded parts, idempotently. it only fails on ingesting a legit decoded percent character that happens to be followed by two hex chars, but that's rare enough we don't really have to worry</li>
+                        <li>you can similarly now enter multiple tags in a query text that are a mix of encoded and non-encoded, a mix of %20 and spaces, and it should figure it out</li>
+                        <li>the 'ensure URL is encoded' process now applies to GUG-generated URLs, and in the edit GUG UI, you now see the normalised 'for server' URL, with any additional tokens or whatever the URL class has</li>
+                        <li>GUGs also try to recognise if their replacement phrase is going into the path or the parameters now, and only force-encodes everything if it looks like our tags are going into a query param</li>
+                        <li>ensured that what you paste into an 'edit URL Class' panel's 'example url' section gets encoded before normalisation just as it would in engine</li>
+                        <li>the file log right-click now shows both the normalised and request urls under the 'additional urls' section, if they differ from the pretty human URL in the list</li>
+                        <li>right-clicking a single item in the downloader search log now previews the specific request URL to be copied</li>
+                        <li><h3>boring stuff</h3></li>
+                        <li>all instances of URL path or parameter encoding now go through one location that obeys RFC 3986</li>
+                        <li>replaced my various uses of the unusual `ParseResult` with `urllib.parse.urlunparse`</li>
+                        <li>added a couple unit tests for the improved URL encoding tech</li>
+                        <li>added some unit tests for the GUGs' new encoding tech</li>
+                        <li>harmonised how a file is opened in the OS file explorer in the media results and media canvas pages. what was previously random hardcode, duplicated internal method calls, and ancient pubsub redirects now all goes thorugh the application command system to a singular isolated media-actioning method</li>
+                        <li>did the same harmonisation for opening files externally</li>
+                        <li>and for opening files in your web browser, which gets additional new infrastructure so it can plug into the shortcuts system</li>
+                        <li>and to a lesser degree the 'open in a new page' and 'open in a new duplicates filter page' commands</li>
+                        <li>moved the various gui-side media python files to a new 'gui.media' module. renamed `ClientGUIMedia` to `ClientGUISimpleActions` and `ClientGUIMediaActions` to `ClientGUIModalActions` and shuffled their methods back and forth a bit</li>
+                        <li>cleaned up `ClientGUIFunctions` and `ClientGUICommon` and their imports a little with some similar shuffle-refactoring</li>
+                        <li>broke up `ClientGUIControls` into a bunch of smaller, defined files, mostly to untangle imports</li>
+                        <li>cleaned up how some text and exceptions are split by newlines to handle different sorts of newline, and cleaned up how I fetch the first 'summary' line of text in all cases across the program</li>
+                        <li>replaced `os.linesep` with `\n` across the program. Qt only wants `\n` anyway, most logging wants `\n` (and sometimes converts on the fly behind the scenes), and this helps KISS otherwise. I might bring back `os.linesep` for sidecars and stuff if it proves a problem, but most text editors and scripting languages are very happy with `\n`, so we'll see</li>
+                        <li>multi-column lists now show multiline tooltips if the underlying text in the cell was originally multiline (although tbh this is rare)</li>
+                    </ul>
+                </li>
+                <li>
+                    <h2 id="version_569"><a href="#version_569">version 569</a></h2>
+                    <ul>
+                        <li><h3>user contributions</h3></li>
+                        <li>thanks to a user, fixed a problem with the recent URL changes that caused downloaders examining multi-file posts to only grab the first file</li>
+                        <li>thanks to a user, all the menubar commands that launch a modal dialog are now suffix'd by an ellipsis</li>
+                        <li>thanks to a user, fixed an issue regarding KDE 6 quitting the program as soon as the pre-boot 'your database is missing a location, let's find it' repair dialog was ok'd</li>
+                        <li>thanks to a user, the application icon is fixed in KDE Plasma Wayland (and anything else that pulls icon from .desktop file). if you have been using a hydrus.desktop file and don't see a program icon, you should rename it to `/usr/share/applications/io.github.hydrusnetwork.hydrus.desktop` . more importantly, if you manage a package for hydrus--please output to this file path instead of `hydrus.desktop` if you make one</li>
+                        <li>thanks to a user, updated the `hydrus_client.sh` file to include `"$@"`, which passes parameters given to the .sh file to the .py call</li>
+                        <li><h3>more on last week's URL work</h3></li>
+                        <li>fixed the 'show the Request URL under "additional urls" submenu' thing on the file log list menu. I screwed up the logic and was effectively testing for when `1 != 1`</li>
+                        <li>the converter that generates a Referral URL now operates on the API/redirect conversion principle too--it normalises the Source URL to its 'Request URL' state--keeping defined ephemeral params and filling in defaults but dropping any extra gubbins not asked for--before applying the conversion</li>
+                        <li>fixed the 'manage url class' dialog to correctly display an example API/redirect-converted URL based on the new _request url_, not the _normalised url_ (so the api/redirect example will now show the new ephemeral params properly). this was working in requests correctly behind the scenes, it was just the example text box in the dialog that was showing wrong</li>
+                        <li>improved the 'is this query text pre-encoded?' test to check for `%hh`, where `h` is a hexadecimal character, instead of the hackier 'is % in it while not followed by whitespace or end of string?'</li>
+                        <li>improved/simplified/optimised the overall procedure that figures out if an entered URL is pre-encoded or not. this routine now only runs at the stage where a URL is ingested and it obeys the `%hh` rule. these ingestion points are currently: the text boxes in a urls downloader/simple downloader page; the 'import new sources' function of file log menus; a URL `ContentParser` in the parsing system; the test box in `manage url classes`; and the main gui's 'import url' landing pad, which is used by the drag and drop system, the clipboard watcher, and the client api's 'import url' command. note that this does not occur on 'manage known urls' editing, where you can do what you want with whatever, and I won't coerce it to anything</li>
+                        <li><h3>misc</h3></li>
+                        <li>fixed a variety of logical cases around &gt;0, =0, !=0, &lt;0 for the `NumberTest` objects I recently applied to system:duration and elsewhere. when it comes to file searching, files that have 'None' duration are now considered equivalent to files that have an explicit 0 duration in all cases. previously, I was trying to thread a needle where '=0' would find null results but &lt;x would not, and it was a mess. now it all works the same way. if you want to search for 'duration &lt; x' and want to exclude still images, either add a filetype pred or slap on 'has duration'</li>
+                        <li>improved the stability of the manual file exporter process. it was consulting an object in a thread that it shouldn't have</li>
+                        <li>improved the ability of the manual file exporter process to report errors on a very large export that encounters errors after the dialog has closed</li>
+                        <li>fixed the 'remember last used default tag service in manage tag dialogs' and its accompanying dropdown not saving their current value on options dialog ok. sorry for the trouble!</li>
+                        <li>fixed the system that truncates very long filenames (for export folders and drag and drop exports) on Linux when the exporter is also outputting a sidecar that has a long extra suffix</li>
+                        <li>the 'find potential duplicate pairs' routine that runs in idle time now properly obeys the work/rest times in `options->maintenance and processing`. previously, it was just the 'run now' routine that was resting in that way, and the idle thing was just doing a hardcoded 'work for 60 seconds every 10 mins or so'. thanks to the reporting user who cleverly noticed this</li>
+                        <li>the `options->connection` page now mentions your proxy needs to be `http://`</li>
+                        <li><h3>boring stuff</h3></li>
+                        <li>updated the windows setup_venv.bat to allow for custom python or venv locations using parameters. this was so I could set up a multi-python testing situation easier</li>
+                        <li>added some unit tests for the new URL encoding gubbins</li>
+                        <li>improved un-encoded URL parsing in the downloader when the URL is relative and needs to be joined to the source url</li>
+                        <li>improved some URL parsing and ingestion to better handle urls with non-ascii characters in the domain</li>
+                        <li>replaced several 'does it start with "http"?' areas with a better and unified scheme/netloc test</li>
+                        <li>wrote a routine to split URL paths into path components, and spammed it everywhere so this code is now unified. I expect we'll get a `PathComponent` class at some point, too. there will be a future question about what to do with double slashes, `//` in paths--it turns out the logic has been mixed here, and I think I will probably collapse them to `/` in all cases</li>
+                        <li>rewrote an unhealthy call that indirectly caused the above multi-file post parsing problem</li>
+                        <li>fixed some None/0 `NumberTest` stuff if you manage to enter '&lt;0' or &gt;-5 and similar</li>
+                        <li>I figured out the problems with PyInstaller 6.x and some other stuff, there should be a 'Future Build' alongside this release in github for advanced users to test with</li>
+                    </ul>
+                </li>
+                <li>
                     <h2 id="version_568"><a href="#version_568">version 568</a></h2>
                     <p><i>Version 567 was cancelled, its changes folded into 568</i></p>
                     <ul>
