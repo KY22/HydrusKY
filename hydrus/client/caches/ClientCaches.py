@@ -23,159 +23,6 @@ from hydrus.client import ClientRendering
 from hydrus.client import ClientThreading
 from hydrus.client.caches import ClientCachesBase
 
-class LocalBooruCache( object ):
-    
-    def __init__( self, controller ):
-        
-        self._controller = controller
-        
-        self._lock = threading.Lock()
-        
-        self._RefreshShares()
-        
-        self._controller.sub( self, 'RefreshShares', 'refresh_local_booru_shares' )
-        self._controller.sub( self, 'RefreshShares', 'restart_client_server_service' )
-        
-    
-    def _CheckDataUsage( self ):
-        
-        if not self._local_booru_service.BandwidthOK():
-            
-            raise HydrusExceptions.InsufficientCredentialsException( 'This booru has used all its monthly data. Please try again next month.' )
-            
-        
-    
-    def _CheckFileAuthorised( self, share_key, hash ):
-        
-        self._CheckShareAuthorised( share_key )
-        
-        info = self._GetInfo( share_key )
-        
-        if hash not in info[ 'hashes_set' ]:
-            
-            raise HydrusExceptions.NotFoundException( 'That file was not found in that share.' )
-            
-        
-    
-    def _CheckShareAuthorised( self, share_key ):
-        
-        self._CheckDataUsage()
-        
-        info = self._GetInfo( share_key )
-        
-        timeout = info[ 'timeout' ]
-        
-        if timeout is not None and HydrusTime.TimeHasPassed( timeout ):
-            
-            raise HydrusExceptions.NotFoundException( 'This share has expired.' )
-            
-        
-    
-    def _GetInfo( self, share_key ):
-        
-        try: info = self._keys_to_infos[ share_key ]
-        except: raise HydrusExceptions.NotFoundException( 'Did not find that share on this booru.' )
-        
-        if info is None:
-            
-            info = self._controller.Read( 'local_booru_share', share_key )
-            
-            hashes = info[ 'hashes' ]
-            
-            info[ 'hashes_set' ] = set( hashes )
-            
-            media_results = self._controller.Read( 'media_results', hashes )
-            
-            info[ 'media_results' ] = media_results
-            
-            hashes_to_media_results = { media_result.GetHash() : media_result for media_result in media_results }
-            
-            info[ 'hashes_to_media_results' ] = hashes_to_media_results
-            
-            self._keys_to_infos[ share_key ] = info
-            
-        
-        return info
-        
-    
-    def _RefreshShares( self ):
-        
-        self._local_booru_service = self._controller.services_manager.GetService( CC.LOCAL_BOORU_SERVICE_KEY )
-        
-        self._keys_to_infos = {}
-        
-        share_keys = self._controller.Read( 'local_booru_share_keys' )
-        
-        for share_key in share_keys:
-            
-            self._keys_to_infos[ share_key ] = None
-            
-        
-    
-    def CheckShareAuthorised( self, share_key ):
-        
-        with self._lock: self._CheckShareAuthorised( share_key )
-        
-    
-    def CheckFileAuthorised( self, share_key, hash ):
-        
-        with self._lock: self._CheckFileAuthorised( share_key, hash )
-        
-    
-    def GetGalleryInfo( self, share_key ):
-        
-        with self._lock:
-            
-            self._CheckShareAuthorised( share_key )
-            
-            info = self._GetInfo( share_key )
-            
-            name = info[ 'name' ]
-            text = info[ 'text' ]
-            timeout = info[ 'timeout' ]
-            media_results = info[ 'media_results' ]
-            
-            return ( name, text, timeout, media_results )
-            
-        
-    
-    def GetMediaResult( self, share_key, hash ):
-        
-        with self._lock:
-            
-            info = self._GetInfo( share_key )
-            
-            media_result = info[ 'hashes_to_media_results' ][ hash ]
-            
-            return media_result
-            
-        
-    
-    def GetPageInfo( self, share_key, hash ):
-        
-        with self._lock:
-            
-            self._CheckFileAuthorised( share_key, hash )
-            
-            info = self._GetInfo( share_key )
-            
-            name = info[ 'name' ]
-            text = info[ 'text' ]
-            timeout = info[ 'timeout' ]
-            media_result = info[ 'hashes_to_media_results' ][ hash ]
-            
-            return ( name, text, timeout, media_result )
-            
-        
-    
-    def RefreshShares( self, *args, **kwargs ):
-        
-        with self._lock:
-            
-            self._RefreshShares()
-            
-        
-    
 class ParsingCache( object ):
     
     def __init__( self ):
@@ -292,6 +139,7 @@ class ImageRendererCache( object ):
         self._data_cache = ClientCachesBase.DataCache( self._controller, 'image cache', cache_size, timeout = cache_timeout )
         
         self._controller.sub( self, 'NotifyNewOptions', 'notify_new_options' )
+        self._controller.sub( self, 'Clear', 'clear_image_cache' )
         
     
     def Clear( self ):
@@ -454,7 +302,7 @@ class ThumbnailCache( object ):
         
         self._controller.CallToThreadLongRunning( self.MainLoop )
         
-        self._controller.sub( self, 'Clear', 'reset_thumbnail_cache' )
+        self._controller.sub( self, 'Clear', 'clear_thumbnail_cache' )
         self._controller.sub( self, 'ClearThumbnails', 'clear_thumbnails' )
         self._controller.sub( self, 'NotifyNewOptions', 'notify_new_options' )
         
@@ -626,9 +474,9 @@ class ThumbnailCache( object ):
             self._thumbnail_error_occurred = True
             
             message = 'A thumbnail error has occurred. The problem thumbnail will appear with the default \'hydrus\' symbol. You may need to take hard drive recovery actions, and if the error is not obviously fixable, you can contact hydrus dev for additional help. Specific information for this first error follows. Subsequent thumbnail errors in this session will be silently printed to the log.'
-            message += os.linesep * 2
+            message += '\n' * 2
             message += str( e )
-            message += os.linesep * 2
+            message += '\n' * 2
             message += summary
             
             job_status = ClientThreading.JobStatus()
@@ -848,7 +696,7 @@ class ThumbnailCache( object ):
             
         
     
-    def GetThumbnail( self, media ):
+    def GetThumbnail( self, media ) -> ClientRendering.HydrusBitmap:
         
         display_media = media.GetDisplayMedia()
         

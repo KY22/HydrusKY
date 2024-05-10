@@ -1,13 +1,10 @@
 import os
 
-from qtpy import QtCore as QC
 from qtpy import QtWidgets as QW
-from qtpy import QtGui as QG
 
 from hydrus.core import HydrusConstants as HC
 from hydrus.core import HydrusData
 from hydrus.core import HydrusExceptions
-from hydrus.core import HydrusGlobals as HG
 from hydrus.core import HydrusPaths
 from hydrus.core import HydrusText
 
@@ -27,6 +24,7 @@ from hydrus.client.gui import ClientGUITopLevelWindowsPanels
 from hydrus.client.gui import QtPorting as QP
 from hydrus.client.gui.lists import ClientGUIListConstants as CGLC
 from hydrus.client.gui.lists import ClientGUIListCtrl
+from hydrus.client.gui.media import ClientGUIMediaSimpleActions
 from hydrus.client.gui.widgets import ClientGUICommon
 from hydrus.client.importing import ClientImportFileSeeds
 from hydrus.client.importing.options import PresentationImportOptions
@@ -64,11 +62,13 @@ def GetExportableSourcesString( file_seed_cache: ClientImportFileSeeds.FileSeedC
     
     sources = [ file_seed.file_seed_data for file_seed in file_seeds ]
     
-    return os.linesep.join( sources )
+    return '\n'.join( sources )
     
 def GetSourcesFromSourcesString( sources_string ):
     
     sources = HydrusText.DeserialiseNewlinedTexts( sources_string )
+    
+    sources = [ ClientNetworkingFunctions.EnsureURLIsEncoded( source ) for source in sources ]
     
     return sources
     
@@ -112,7 +112,7 @@ def ImportFromClipboard( win: QW.QWidget, file_seed_cache: ClientImportFileSeeds
         
     except Exception as e:
         
-        ClientGUIFunctions.PresentClipboardParseError( win, raw_text, 'Lines of URLs or file paths', e )
+        ClientGUIDialogsQuick.PresentClipboardParseError( win, raw_text, 'Lines of URLs or file paths', e )
         
     
 
@@ -405,10 +405,10 @@ class EditFileSeedCachePanel( ClientGUIScrolledPanels.EditPanel ):
         
         sort_source_time = ClientGUIListCtrl.SafeNoneInt( source_time )
         
-        pretty_note = note.split( os.linesep )[0]
+        pretty_note = HydrusText.GetFirstLine( note )
         
         display_tuple = ( pretty_file_seed_index, pretty_file_seed_data, pretty_status, pretty_added, pretty_modified, pretty_source_time, pretty_note )
-        sort_tuple = ( file_seed_index, file_seed_data, status, added, modified, sort_source_time, note )
+        sort_tuple = ( file_seed_index, pretty_file_seed_data, status, added, modified, sort_source_time, note )
         
         return ( display_tuple, sort_tuple )
         
@@ -429,7 +429,7 @@ class EditFileSeedCachePanel( ClientGUIScrolledPanels.EditPanel ):
         
         if len( notes ) > 0:
             
-            separator = os.linesep * 2
+            separator = '\n' * 2
             
             text = separator.join( notes )
             
@@ -443,7 +443,7 @@ class EditFileSeedCachePanel( ClientGUIScrolledPanels.EditPanel ):
         
         if len( file_seeds ) > 0:
             
-            separator = os.linesep * 2
+            separator = '\n' * 2
             
             text = separator.join( ( file_seed.file_seed_data for file_seed in file_seeds ) )
             
@@ -528,14 +528,14 @@ class EditFileSeedCachePanel( ClientGUIScrolledPanels.EditPanel ):
             
             if selected_file_seed.IsURLFileImport():
                 
-                main_url = selected_file_seed.file_seed_data
+                request_url = selected_file_seed.file_seed_data
+                normalised_url = selected_file_seed.file_seed_data_for_comparison
+                pretty_url = ClientNetworkingFunctions.ConvertURLToHumanString( normalised_url )
                 referral_url = selected_file_seed.GetReferralURL()
                 primary_urls = sorted( selected_file_seed.GetPrimaryURLs() )
                 source_urls = sorted( selected_file_seed.GetSourceURLs() )
                 
-                for_server_url = CG.client_controller.network_engine.domain_manager.GetURLToFetch( main_url )
-                
-                nothing_interesting_going_on = main_url == for_server_url and referral_url is None and len( primary_urls ) == 0 and len( source_urls ) == 0
+                nothing_interesting_going_on = normalised_url == pretty_url and request_url == normalised_url and referral_url is None and len( primary_urls ) == 0 and len( source_urls ) == 0
                 
                 if nothing_interesting_going_on:
                     
@@ -545,9 +545,14 @@ class EditFileSeedCachePanel( ClientGUIScrolledPanels.EditPanel ):
                     
                     url_submenu = ClientGUIMenus.GenerateMenu( menu )
                     
-                    if main_url != for_server_url:
+                    if normalised_url != pretty_url:
                         
-                        ClientGUIMenus.AppendMenuLabel( url_submenu, f'request url: {for_server_url}', copy_text = for_server_url )
+                        ClientGUIMenus.AppendMenuLabel( url_submenu, f'normalised url: {normalised_url}', copy_text = normalised_url )
+                        
+                    
+                    if request_url != normalised_url:
+                        
+                        ClientGUIMenus.AppendMenuLabel( url_submenu, f'request url: {request_url}', copy_text = request_url )
                         
                     
                     if referral_url is not None:
@@ -714,9 +719,9 @@ class EditFileSeedCachePanel( ClientGUIScrolledPanels.EditPanel ):
                     
                     deletee_hashes = { file_seed.GetHash() for file_seed in deleted_and_clearable_file_seeds }
                     
-                    from hydrus.client.gui import ClientGUIMediaActions
+                    from hydrus.client.gui.media import ClientGUIMediaModalActions
                     
-                    ClientGUIMediaActions.UndeleteFiles( deletee_hashes )
+                    ClientGUIMediaSimpleActions.UndeleteFiles( deletee_hashes )
                     
                     content_update = ClientContentUpdates.ContentUpdate( HC.CONTENT_TYPE_FILES, HC.CONTENT_UPDATE_CLEAR_DELETE_RECORD, deletee_hashes )
                     
@@ -751,7 +756,7 @@ class EditFileSeedCachePanel( ClientGUIScrolledPanels.EditPanel ):
             
             location_context = ClientLocation.LocationContext.STATICCreateSimple( CC.COMBINED_LOCAL_MEDIA_SERVICE_KEY )
             
-            CG.client_controller.pub( 'new_page_query', location_context, initial_hashes = hashes )
+            ClientGUIMediaSimpleActions.ShowFilesInNewPage( hashes, location_context )
             
         
     
@@ -831,7 +836,7 @@ class FileSeedCacheButton( ClientGUICommon.ButtonWithMenuArrow ):
         action = QW.QAction()
         
         action.setText( 'file log' )
-        action.setToolTip( 'open detailed file log' )
+        action.setToolTip( ClientGUIFunctions.WrapToolTip( 'open detailed file log' ) )
         
         action.triggered.connect( self._ShowFileSeedCacheFrame )
         

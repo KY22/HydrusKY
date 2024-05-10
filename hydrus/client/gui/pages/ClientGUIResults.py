@@ -33,9 +33,6 @@ from hydrus.client.gui import ClientGUIDialogsMessage
 from hydrus.client.gui import ClientGUIDialogsQuick
 from hydrus.client.gui import ClientGUIDuplicates
 from hydrus.client.gui import ClientGUIFunctions
-from hydrus.client.gui import ClientGUIMedia
-from hydrus.client.gui import ClientGUIMediaActions
-from hydrus.client.gui import ClientGUIMediaMenus
 from hydrus.client.gui import ClientGUIMenus
 from hydrus.client.gui import ClientGUIScrolledPanelsEdit
 from hydrus.client.gui import ClientGUIScrolledPanelsManagement
@@ -46,13 +43,15 @@ from hydrus.client.gui import QtPorting as QP
 from hydrus.client.gui.canvas import ClientGUICanvas
 from hydrus.client.gui.canvas import ClientGUICanvasFrame
 from hydrus.client.gui.exporting import ClientGUIExport
+from hydrus.client.gui.media import ClientGUIMediaSimpleActions
+from hydrus.client.gui.media import ClientGUIMediaModalActions
+from hydrus.client.gui.media import ClientGUIMediaMenus
 from hydrus.client.gui.networking import ClientGUIHydrusNetwork
 from hydrus.client.gui.pages import ClientGUIManagementController
 from hydrus.client.media import ClientMedia
 from hydrus.client.media import ClientMediaFileFilter
 from hydrus.client.metadata import ClientContentUpdates
 from hydrus.client.metadata import ClientTags
-from hydrus.client.search import ClientSearch
 
 MAC_QUARTZ_OK = True
 
@@ -270,169 +269,7 @@ class MediaPanel( CAC.ApplicationCommandProcessorMixin, ClientMedia.ListeningMed
         
         media = self._GetSelectedFlatMedia()
         
-        ClientGUIMediaActions.ClearDeleteRecord( self, media )
-        
-    
-    def _CopyBMPToClipboard( self, resolution = None ):
-        
-        copied = False
-        
-        if self._focused_media is not None:
-            
-            if self._HasFocusSingleton():
-                
-                media = self._GetFocusSingleton()
-                
-                if media.IsStaticImage():
-                    
-                    CG.client_controller.pub( 'clipboard', 'bmp', ( media, resolution ) )
-                    
-                    copied = True
-                    
-                
-            
-        
-        return copied
-        
-    
-    def _CopyFilesToClipboard( self ):
-        
-        client_files_manager = CG.client_controller.client_files_manager
-        
-        media = self._GetSelectedFlatMedia( discriminant = CC.DISCRIMINANT_LOCAL )
-        
-        paths = []
-        
-        for m in media:
-            
-            hash = m.GetHash()
-            mime = m.GetMime()
-            
-            path = client_files_manager.GetFilePath( hash, mime, check_file_exists = False )
-            
-            paths.append( path )
-            
-        
-        if len( paths ) > 0:
-            
-            CG.client_controller.pub( 'clipboard', 'paths', paths )
-            
-        
-    
-    def _CopyHashToClipboard( self, hash_type ):
-        
-        if self._HasFocusSingleton():
-            
-            media = self._GetFocusSingleton()
-            
-            ClientGUIMedia.CopyHashesToClipboard( self, hash_type, [ media ] )
-            
-        
-    
-    def _CopyHashesToClipboard( self, hash_type ):
-        
-        medias = self._GetSelectedMediaOrdered()
-        
-        ClientGUIMedia.CopyHashesToClipboard( self, hash_type, medias )
-        
-    
-    def _CopyPathToClipboard( self ):
-        
-        if self._HasFocusSingleton():
-            
-            media = self._GetFocusSingleton()
-            
-            client_files_manager = CG.client_controller.client_files_manager
-            
-            path = client_files_manager.GetFilePath( media.GetHash(), media.GetMime() )
-            
-            CG.client_controller.pub( 'clipboard', 'text', path )
-            
-        
-    
-    def _CopyPathsToClipboard( self ):
-        
-        media_results = self.GenerateMediaResults( discriminant = CC.DISCRIMINANT_LOCAL, selected_media = set( self._selected_media ) )
-        
-        client_files_manager = CG.client_controller.client_files_manager
-        
-        paths = []
-        
-        for media_result in media_results:
-            
-            paths.append( client_files_manager.GetFilePath( media_result.GetHash(), media_result.GetMime(), check_file_exists = False ) )
-            
-        
-        if len( paths ) > 0:
-            
-            text = os.linesep.join( paths )
-            
-            CG.client_controller.pub( 'clipboard', 'text', text )
-            
-        
-    
-    def _CopyServiceFilenameToClipboard( self, service_key ):
-        
-        if self._HasFocusSingleton():
-            
-            media = self._GetFocusSingleton()
-            
-            hash = media.GetHash()
-            
-            filename = media.GetLocationsManager().GetServiceFilename( service_key )
-            
-            if filename is None:
-                
-                return
-                
-            
-            service = CG.client_controller.services_manager.GetService( service_key )
-            
-            if service.GetServiceType() == HC.IPFS:
-                
-                multihash_prefix = service.GetMultihashPrefix()
-                
-                filename = multihash_prefix + filename
-                
-            
-            CG.client_controller.pub( 'clipboard', 'text', filename )
-            
-        
-    
-    def _CopyServiceFilenamesToClipboard( self, service_key ):
-        
-        prefix = ''
-        
-        service = CG.client_controller.services_manager.GetService( service_key )
-        
-        if service.GetServiceType() == HC.IPFS:
-            
-            prefix = service.GetMultihashPrefix()
-            
-        
-        flat_media = self._GetSelectedFlatMedia( is_in_file_service_key = service_key )
-        
-        if len( flat_media ) > 0:
-            
-            filenames_or_none = [ media.GetLocationsManager().GetServiceFilename( service_key ) for media in flat_media ]
-            
-            filenames = [ prefix + filename for filename in filenames_or_none if filename is not None ]
-            
-            if len( filenames ) > 0:
-                
-                copy_string = os.linesep.join( filenames )
-                
-                CG.client_controller.pub( 'clipboard', 'text', copy_string )
-                
-            else:
-                
-                HydrusData.ShowText( 'Could not find any service filenames for that selection!' )
-                
-            
-        else:
-            
-            HydrusData.ShowText( 'Could not find any files with the requested service!' )
-            
+        ClientGUIMediaModalActions.ClearDeleteRecord( self, media )
         
     
     def _Delete( self, file_service_key = None, only_those_in_file_service_key = None ):
@@ -534,35 +371,6 @@ class MediaPanel( CAC.ApplicationCommandProcessorMixin, ClientMedia.ListeningMed
         self._media_added_in_current_shift_select = set()
         
     
-    def _ExportFiles( self, do_export_and_then_quit = False ):
-        
-        if len( self._selected_media ) > 0:
-            
-            flat_media = []
-            
-            for media in self._sorted_media:
-                
-                if media in self._selected_media:
-                    
-                    if media.IsCollection():
-                        
-                        flat_media.extend( media.GetFlatMedia() )
-                        
-                    else:
-                        
-                        flat_media.append( media )
-                        
-                    
-                
-            
-            frame = ClientGUITopLevelWindowsPanels.FrameThatTakesScrollablePanel( self, 'export files' )
-            
-            panel = ClientGUIExport.ReviewExportFilesPanel( frame, flat_media, do_export_and_then_quit = do_export_and_then_quit )
-            
-            frame.SetPanel( panel )
-            
-        
-    
     def _GetFocusSingleton( self ) -> ClientMedia.MediaSingleton:
         
         if self._focused_media is not None:
@@ -576,6 +384,30 @@ class MediaPanel( CAC.ApplicationCommandProcessorMixin, ClientMedia.ListeningMed
             
         
         raise HydrusExceptions.DataMissing( 'No media singleton!' )
+        
+    
+    def _GetMediasForFileCommandTarget( self, file_command_target: int ) -> typing.Collection[ ClientMedia.MediaSingleton ]:
+        
+        if file_command_target == CAC.FILE_COMMAND_TARGET_FOCUSED_FILE:
+            
+            if self._HasFocusSingleton():
+                
+                media = self._GetFocusSingleton()
+                
+                return [ media.GetDisplayMedia() ]
+                
+            
+        elif file_command_target == CAC.FILE_COMMAND_TARGET_SELECTED_FILES:
+            
+            if len( self._selected_media ) > 0:
+                
+                medias = self._GetSelectedMediaOrdered()
+                
+                return ClientMedia.FlattenMedia( medias )
+                
+            
+        
+        return []
         
     
     def _GetNumSelected( self ):
@@ -783,28 +615,6 @@ class MediaPanel( CAC.ApplicationCommandProcessorMixin, ClientMedia.ListeningMed
         
         # note that this is fast because sorted_media is custom
         return sorted( self._selected_media, key = lambda m: self._sorted_media.index( m ) )
-        
-    
-    def _GetSimilarTo( self, max_hamming ):
-        
-        hashes = set()
-        
-        media = self._GetSelectedFlatMedia()
-        
-        for m in media:
-            
-            if m.GetMime() in HC.FILES_THAT_HAVE_PERCEPTUAL_HASH:
-                
-                hashes.add( m.GetHash() )
-                
-            
-        
-        if len( hashes ) > 0:
-            
-            initial_predicates = [ ClientSearch.Predicate( ClientSearch.PREDICATE_TYPE_SYSTEM_SIMILAR_TO_FILES, ( tuple( hashes ), max_hamming ) ) ]
-            
-            CG.client_controller.pub( 'new_page_query', self._location_context, initial_predicates = initial_predicates )
-            
         
     
     def _GetSortedSelectedMimeDescriptors( self ):
@@ -1140,7 +950,7 @@ class MediaPanel( CAC.ApplicationCommandProcessorMixin, ClientMedia.ListeningMed
             
             media = self._GetFocusSingleton()
             
-            ClientGUIMediaActions.EditFileNotes( self, media )
+            ClientGUIMediaModalActions.EditFileNotes( self, media )
             
             self.setFocus( QC.Qt.OtherFocusReason )
             
@@ -1196,7 +1006,7 @@ class MediaPanel( CAC.ApplicationCommandProcessorMixin, ClientMedia.ListeningMed
         
         if len( ordered_selected_flat_media ) > 0:
             
-            ClientGUIMediaActions.EditFileTimestamps( self, ordered_selected_flat_media )
+            ClientGUIMediaModalActions.EditFileTimestamps( self, ordered_selected_flat_media )
             
             self.setFocus( QC.Qt.OtherFocusReason )
             
@@ -1248,32 +1058,6 @@ class MediaPanel( CAC.ApplicationCommandProcessorMixin, ClientMedia.ListeningMed
             
         
     
-    def _OpenExternally( self ):
-        
-        if self._HasFocusSingleton():
-            
-            media = self._GetFocusSingleton()
-            
-            if media.GetLocationsManager().IsLocal():
-                
-                self.focusMediaPaused.emit()
-                
-                hash = media.GetHash()
-                mime = media.GetMime()
-                
-                client_files_manager = CG.client_controller.client_files_manager
-                
-                path = client_files_manager.GetFilePath( hash, mime )
-                
-                new_options = CG.client_controller.new_options
-                
-                launch_path = new_options.GetMimeLaunch( mime )
-                
-                HydrusPaths.LaunchFile( path, launch_path )
-                
-            
-        
-    
     def _OpenFileInWebBrowser( self ):
         
         if self._HasFocusSingleton():
@@ -1296,27 +1080,6 @@ class MediaPanel( CAC.ApplicationCommandProcessorMixin, ClientMedia.ListeningMed
             
         
     
-    def _OpenFileLocation( self ):
-        
-        if self._HasFocusSingleton():
-            
-            focused_singleton = self._GetFocusSingleton()
-            
-            if focused_singleton.GetLocationsManager().IsLocal():
-                
-                hash = focused_singleton.GetHash()
-                mime = focused_singleton.GetMime()
-                
-                client_files_manager = CG.client_controller.client_files_manager
-                
-                path = client_files_manager.GetFilePath( hash, mime )
-                
-                self.focusMediaPaused.emit()
-                
-                HydrusPaths.OpenFileLocation( path )
-                
-            
-        
     def _MacQuicklook( self ):
         
         if HC.PLATFORM_MACOS and self._HasFocusSingleton():
@@ -1350,7 +1113,7 @@ class MediaPanel( CAC.ApplicationCommandProcessorMixin, ClientMedia.ListeningMed
             
             focused_singleton = self._GetFocusSingleton()
             
-            ClientGUIMedia.DoOpenKnownURLFromShortcut( self, focused_singleton )
+            ClientGUIMediaModalActions.DoOpenKnownURLFromShortcut( self, focused_singleton )
             
         
     
@@ -1481,7 +1244,7 @@ class MediaPanel( CAC.ApplicationCommandProcessorMixin, ClientMedia.ListeningMed
             if job_type == ClientFiles.REGENERATE_FILE_DATA_JOB_FILE_METADATA:
                 
                 message = 'This will reparse the {} selected files\' metadata.'.format( HydrusData.ToHumanInt( num_files ) )
-                message += os.linesep * 2
+                message += '\n' * 2
                 message += 'If the files were imported before some more recent improvement in the parsing code (such as EXIF rotation or bad video resolution or duration or frame count calculation), this will update them.'
                 
             elif job_type == ClientFiles.REGENERATE_FILE_DATA_JOB_FORCE_THUMBNAIL:
@@ -1501,7 +1264,7 @@ class MediaPanel( CAC.ApplicationCommandProcessorMixin, ClientMedia.ListeningMed
             
             if num_files > 50:
                 
-                message += os.linesep * 2
+                message += '\n' * 2
                 message += 'You have selected {} files, so this job may take some time. You can run it all now or schedule it to the overall file maintenance queue for later spread-out processing.'.format( HydrusData.ToHumanInt( num_files ) )
                 
                 yes_tuples = []
@@ -1630,7 +1393,7 @@ class MediaPanel( CAC.ApplicationCommandProcessorMixin, ClientMedia.ListeningMed
         if len( collections ) > 0:
             
             message = 'Are you sure you want to set files in the selected collections as alternates? Each collection will be considered a separate group of alternates.'
-            message += os.linesep * 2
+            message += '\n' * 2
             message += 'Be careful applying this to large groups--any more than a few dozen files, and the client could hang a long time.'
             
             result = ClientGUIDialogsQuick.GetYesNo( self, message )
@@ -1728,7 +1491,7 @@ class MediaPanel( CAC.ApplicationCommandProcessorMixin, ClientMedia.ListeningMed
                     if duplicate_type == HC.DUPLICATE_FALSE_POSITIVE:
                         
                         message = 'False positive records are complicated, and setting that relationship for {} files ({} pairs) at once is likely a mistake.'.format( num_files_str, media_pairs_str )
-                        message += os.linesep * 2
+                        message += '\n' * 2
                         message += 'Are you sure all of these files are all potential duplicates and that they are all false positive matches with each other? If not, I recommend you step back for now.'
                         
                         yes_label = 'I know what I am doing'
@@ -1737,7 +1500,7 @@ class MediaPanel( CAC.ApplicationCommandProcessorMixin, ClientMedia.ListeningMed
                     elif duplicate_type == HC.DUPLICATE_ALTERNATE:
                         
                         message = 'Are you certain all these {} files are alternates with every other member of the selection, and that none are duplicates?'.format( num_files_str )
-                        message += os.linesep * 2
+                        message += '\n' * 2
                         message += 'If some of them may be duplicates, I recommend you either deselect the possible duplicates and try again, or just leave this group to be processed in the normal duplicate filter.'
                         
                         yes_label = 'they are all alternates'
@@ -2037,56 +1800,11 @@ class MediaPanel( CAC.ApplicationCommandProcessorMixin, ClientMedia.ListeningMed
         pass
         
     
-    def _ShareOnLocalBooru( self ):
-        
-        if len( self._selected_media ) > 0:
-            
-            share_key = HydrusData.GenerateKey()
-            
-            name = ''
-            text = ''
-            timeout = HydrusTime.GetNow() + 60 * 60 * 24
-            hashes = self._GetSelectedHashes()
-            
-            with ClientGUIDialogs.DialogInputLocalBooruShare( self, share_key, name, text, timeout, hashes, new_share = True ) as dlg:
-                
-                if dlg.exec() == QW.QDialog.Accepted:
-                    
-                    ( share_key, name, text, timeout, hashes ) = dlg.GetInfo()
-                    
-                    info = {}
-                    
-                    info[ 'name' ] = name
-                    info[ 'text' ] = text
-                    info[ 'timeout' ] = timeout
-                    info[ 'hashes' ] = hashes
-                    
-                    CG.client_controller.Write( 'local_booru_share', share_key, info )
-                    
-                
-            
-            self.setFocus( QC.Qt.OtherFocusReason )
-            
-        
-    
-    def _ShowSelectionInNewDuplicateFilterPage( self ):
-        
-        hashes = self._GetSelectedHashes( ordered = True )
-        
-        activate_window = CG.client_controller.new_options.GetBoolean( 'activate_window_on_tag_search_page_activation' )
-        
-        predicates = [ ClientSearch.Predicate( predicate_type = ClientSearch.PREDICATE_TYPE_SYSTEM_HASH, value = ( tuple( hashes ), 'sha256' ) ) ]
-        
-        page_name = 'duplicates'
-        
-        CG.client_controller.pub( 'new_page_duplicates', self._location_context, initial_predicates = predicates, page_name = page_name, activate_window = activate_window )
-        
-    
     def _ShowSelectionInNewPage( self ):
         
         hashes = self._GetSelectedHashes( ordered = True )
         
-        if hashes is not None and len( hashes ) > 0:
+        if len( hashes ) > 0:
             
             media_sort = self._management_controller.GetVariable( 'media_sort' )
             
@@ -2099,7 +1817,7 @@ class MediaPanel( CAC.ApplicationCommandProcessorMixin, ClientMedia.ListeningMed
                 media_collect = ClientMedia.MediaCollect()
                 
             
-            CG.client_controller.pub( 'new_page_query', self._location_context, initial_hashes = hashes, initial_sort = media_sort, initial_collect = media_collect )
+            ClientGUIMediaSimpleActions.ShowFilesInNewPage( hashes, self._location_context, media_sort = media_sort, media_collect = media_collect )
             
         
     
@@ -2113,7 +1831,7 @@ class MediaPanel( CAC.ApplicationCommandProcessorMixin, ClientMedia.ListeningMed
         
         media = self._GetSelectedFlatMedia()
         
-        ClientGUIMediaActions.UndeleteMedia( self, media )
+        ClientGUIMediaModalActions.UndeleteMedia( self, media )
         
     
     def _UpdateBackgroundColour( self ):
@@ -2219,62 +1937,76 @@ class MediaPanel( CAC.ApplicationCommandProcessorMixin, ClientMedia.ListeningMed
             
             action = command.GetSimpleAction()
             
-            if action in ( CAC.SIMPLE_COPY_BMP, CAC.SIMPLE_COPY_BMP_OR_FILE_IF_NOT_BMPABLE, CAC.SIMPLE_COPY_LITTLE_BMP ):
+            if action == CAC.SIMPLE_COPY_FILE_BITMAP:
                 
-                if self._focused_media is None:
+                if not self._HasFocusSingleton():
                     
                     return
                     
                 
-                copied = False
+                focus_singleton = self._GetFocusSingleton()
                 
-                if self._focused_media.IsStaticImage():
+                bitmap_type = command.GetSimpleData()
+                
+                ClientGUIMediaSimpleActions.CopyMediaBitmap( focus_singleton, bitmap_type )
+                
+            elif action == CAC.SIMPLE_COPY_FILES:
+                
+                file_command_target = command.GetSimpleData()
+                
+                medias = self._GetMediasForFileCommandTarget( file_command_target )
+                
+                if len( medias ) > 0:
                     
-                    ( width, height ) = self._focused_media.GetResolution()
-                    
-                    if width is not None and height is not None:
-                        
-                        if action == CAC.SIMPLE_COPY_LITTLE_BMP and ( width > 1024 or height > 1024 ):
-                            
-                            target_resolution = HydrusImageHandling.GetThumbnailResolution( self._focused_media.GetResolution(), ( 1024, 1024 ), HydrusImageHandling.THUMBNAIL_SCALE_TO_FIT, 100 )
-                            
-                            copied = self._CopyBMPToClipboard( resolution = target_resolution )
-                            
-                        else:
-                            
-                            copied = self._CopyBMPToClipboard()
-                            
-                        
+                    ClientGUIMediaSimpleActions.CopyFilesToClipboard( medias )
                     
                 
-                if action == CAC.SIMPLE_COPY_BMP_OR_FILE_IF_NOT_BMPABLE and not copied:
+            elif action == CAC.SIMPLE_COPY_FILE_PATHS:
+                
+                file_command_target = command.GetSimpleData()
+                
+                medias = self._GetMediasForFileCommandTarget( file_command_target )
+                
+                if len( medias ) > 0:
                     
-                    self._CopyFilesToClipboard()
+                    ClientGUIMediaSimpleActions.CopyFilePathsToClipboard( medias )
                     
                 
-            elif action == CAC.SIMPLE_COPY_FILE:
+            elif action == CAC.SIMPLE_COPY_FILE_HASHES:
                 
-                self._CopyFilesToClipboard()
+                ( file_command_target, hash_type ) = command.GetSimpleData()
                 
-            elif action == CAC.SIMPLE_COPY_PATH:
+                medias = self._GetMediasForFileCommandTarget( file_command_target )
                 
-                self._CopyPathsToClipboard()
+                if len( medias ) > 0:
+                    
+                    ClientGUIMediaModalActions.CopyHashesToClipboard( self, hash_type, medias )
+                    
                 
-            elif action == CAC.SIMPLE_COPY_SHA256_HASH:
+            elif action == CAC.SIMPLE_COPY_FILE_SERVICE_FILENAMES:
                 
-                self._CopyHashesToClipboard( 'sha256' )
+                hacky_ipfs_dict = command.GetSimpleData()
                 
-            elif action == CAC.SIMPLE_COPY_MD5_HASH:
+                file_command_target = hacky_ipfs_dict[ 'file_command_target' ]
+                ipfs_service_key = hacky_ipfs_dict[ 'ipfs_service_key' ]
                 
-                self._CopyHashesToClipboard( 'md5' )
+                medias = self._GetMediasForFileCommandTarget( file_command_target )
                 
-            elif action == CAC.SIMPLE_COPY_SHA1_HASH:
+                if len( medias ) > 0:
+                    
+                    ClientGUIMediaSimpleActions.CopyServiceFilenamesToClipboard( ipfs_service_key, medias )
+                    
                 
-                self._CopyHashesToClipboard( 'sha1' )
+            elif action == CAC.SIMPLE_COPY_FILE_ID:
                 
-            elif action == CAC.SIMPLE_COPY_SHA512_HASH:
+                file_command_target = command.GetSimpleData()
                 
-                self._CopyHashesToClipboard( 'sha512' )
+                medias = self._GetMediasForFileCommandTarget( file_command_target )
+                
+                if len( medias ) > 0:
+                    
+                    ClientGUIMediaSimpleActions.CopyFileIdsToClipboard( medias )
+                    
                 
             elif action == CAC.SIMPLE_COPY_URLS:
                 
@@ -2282,7 +2014,7 @@ class MediaPanel( CAC.ApplicationCommandProcessorMixin, ClientMedia.ListeningMed
                 
                 if len( ordered_selected_media ) > 0:
                     
-                    ClientGUIMedia.CopyMediaURLs( ordered_selected_media )
+                    ClientGUIMediaSimpleActions.CopyMediaURLs( ordered_selected_media )
                     
                 
             elif action == CAC.SIMPLE_REARRANGE_THUMBNAILS:
@@ -2361,7 +2093,7 @@ class MediaPanel( CAC.ApplicationCommandProcessorMixin, ClientMedia.ListeningMed
                     
                     duplicate_type = command.GetSimpleData()
                     
-                    ClientGUIMedia.ShowDuplicatesInNewPage( self._location_context, hash, duplicate_type )
+                    ClientGUIMediaSimpleActions.ShowDuplicatesInNewPage( self._location_context, hash, duplicate_type )
                     
                 
             elif action == CAC.SIMPLE_DUPLICATE_MEDIA_CLEAR_FOCUSED_FALSE_POSITIVES:
@@ -2514,13 +2246,18 @@ class MediaPanel( CAC.ApplicationCommandProcessorMixin, ClientMedia.ListeningMed
                 
                 self._SetDuplicates( HC.DUPLICATE_SAME_QUALITY )
                 
-            elif action == CAC.SIMPLE_EXPORT_FILES:
+            elif action in ( CAC.SIMPLE_EXPORT_FILES, CAC.SIMPLE_EXPORT_FILES_QUICK_AUTO_EXPORT ):
                 
-                self._ExportFiles()
+                do_export_and_then_quit = action == CAC.SIMPLE_EXPORT_FILES_QUICK_AUTO_EXPORT
                 
-            elif action == CAC.SIMPLE_EXPORT_FILES_QUICK_AUTO_EXPORT:
-                
-                self._ExportFiles( do_export_and_then_quit = True )
+                if len( self._selected_media ) > 0:
+                    
+                    medias = self._GetSelectedMediaOrdered()
+                    
+                    flat_media = ClientMedia.FlattenMedia( medias )
+                    
+                    ClientGUIMediaModalActions.ExportFiles( self, flat_media, do_export_and_then_quit = do_export_and_then_quit )
+                    
                 
             elif action == CAC.SIMPLE_MANAGE_FILE_RATINGS:
                 
@@ -2566,37 +2303,69 @@ class MediaPanel( CAC.ApplicationCommandProcessorMixin, ClientMedia.ListeningMed
                 
                 self._Remove( ClientMediaFileFilter.FileFilter( ClientMediaFileFilter.FILE_FILTER_SELECTED ) )
                 
-            elif action == CAC.SIMPLE_GET_SIMILAR_TO_EXACT:
-                
-                self._GetSimilarTo( CC.HAMMING_EXACT_MATCH )
-                
-            elif action == CAC.SIMPLE_GET_SIMILAR_TO_VERY_SIMILAR:
-                
-                self._GetSimilarTo( CC.HAMMING_VERY_SIMILAR )
-                
-            elif action == CAC.SIMPLE_GET_SIMILAR_TO_SIMILAR:
-                
-                self._GetSimilarTo( CC.HAMMING_SIMILAR )
-                
-            elif action == CAC.SIMPLE_GET_SIMILAR_TO_SPECULATIVE:
-                
-                self._GetSimilarTo( CC.HAMMING_SPECULATIVE )
-                
             elif action == CAC.SIMPLE_LAUNCH_MEDIA_VIEWER:
                 
                 self._LaunchMediaViewer()
                 
             elif action == CAC.SIMPLE_OPEN_FILE_IN_EXTERNAL_PROGRAM:
                 
-                self._OpenExternally()
+                if self._HasFocusSingleton():
+                    
+                    focused_singleton = self._GetFocusSingleton()
+                    
+                    it_worked = ClientGUIMediaSimpleActions.OpenExternally( focused_singleton )
+                    
+                    if it_worked:
+                        
+                        self.focusMediaPaused.emit()
+                        
+                    
                 
             elif action == CAC.SIMPLE_OPEN_FILE_IN_FILE_EXPLORER:
                 
-                self._OpenFileLocation()
+                if self._HasFocusSingleton():
+                    
+                    focused_singleton = self._GetFocusSingleton()
+                    
+                    it_worked = ClientGUIMediaSimpleActions.OpenFileLocation( focused_singleton )
+                    
+                    if it_worked:
+                        
+                        self.focusMediaPaused.emit()
+                        
+                    
+                
+            elif action == CAC.SIMPLE_OPEN_FILE_IN_WEB_BROWSER:
+                
+                if self._HasFocusSingleton():
+                    
+                    focused_singleton = self._GetFocusSingleton()
+                    
+                    it_worked = ClientGUIMediaSimpleActions.OpenInWebBrowser( focused_singleton )
+                    
+                    if it_worked:
+                        
+                        self.focusMediaPaused.emit()
+                        
+                    
                 
             elif action == CAC.SIMPLE_OPEN_SELECTION_IN_NEW_PAGE:
                 
                 self._ShowSelectionInNewPage()
+                
+            elif action == CAC.SIMPLE_OPEN_SELECTION_IN_NEW_DUPLICATES_FILTER_PAGE:
+                
+                hashes = self._GetSelectedHashes( ordered = True )
+                
+                ClientGUIMediaSimpleActions.ShowFilesInNewDuplicatesFilterPage( hashes, self._location_context )
+                
+            elif action == CAC.SIMPLE_OPEN_SIMILAR_LOOKING_FILES:
+                
+                media = self._GetSelectedFlatMedia()
+                
+                hamming_distance = command.GetSimpleData()
+                
+                ClientGUIMediaSimpleActions.ShowSimilarFilesInNewPage( media, self._location_context, hamming_distance )
                 
             elif action == CAC.SIMPLE_LAUNCH_THE_ARCHIVE_DELETE_FILTER:
                 
@@ -2613,7 +2382,7 @@ class MediaPanel( CAC.ApplicationCommandProcessorMixin, ClientMedia.ListeningMed
             
         elif command.IsContentCommand():
             
-            command_processed = ClientGUIMediaActions.ApplyContentApplicationCommandToMedia( self, command, self._GetSelectedFlatMedia() )
+            command_processed = ClientGUIMediaModalActions.ApplyContentApplicationCommandToMedia( self, command, self._GetSelectedFlatMedia() )
             
         else:
             
@@ -3866,18 +3635,11 @@ class MediaPanelThumbnails( MediaPanel ):
     
     def ShowMenu( self, do_not_show_just_return = False ):
         
-        new_options = CG.client_controller.new_options
-        
-        advanced_mode = new_options.GetBoolean( 'advanced_mode' )
-        
-        services_manager = CG.client_controller.services_manager
-        
         flat_selected_medias = ClientMedia.FlattenMedia( self._selected_media )
         
         all_locations_managers = [ media.GetLocationsManager() for media in ClientMedia.FlattenMedia( self._sorted_media ) ]
         selected_locations_managers = [ media.GetLocationsManager() for media in flat_selected_medias ]
         
-        selection_has_local = True in ( locations_manager.IsLocal() for locations_manager in selected_locations_managers )
         selection_has_local_file_domain = True in ( locations_manager.IsLocal() and not locations_manager.IsTrashed() for locations_manager in selected_locations_managers )
         selection_has_trash = True in ( locations_manager.IsTrashed() for locations_manager in selected_locations_managers )
         selection_has_inbox = True in ( media.HasInbox() for media in self._selected_media )
@@ -3886,11 +3648,8 @@ class MediaPanelThumbnails( MediaPanel ):
         
         all_file_domains = HydrusData.MassUnion( locations_manager.GetCurrent() for locations_manager in all_locations_managers )
         all_specific_file_domains = all_file_domains.difference( { CC.COMBINED_FILE_SERVICE_KEY, CC.COMBINED_LOCAL_FILE_SERVICE_KEY } )
-        all_local_file_domains = services_manager.Filter( all_specific_file_domains, ( HC.LOCAL_FILE_DOMAIN, ) )
         
-        all_local_file_domains_sorted = sorted( all_local_file_domains, key = CG.client_controller.services_manager.GetName )
-        
-        all_file_repos = services_manager.Filter( all_specific_file_domains, ( HC.FILE_REPOSITORY, ) )
+        some_downloading = True in ( locations_manager.IsDownloading() for locations_manager in selected_locations_managers )
         
         has_local = True in ( locations_manager.IsLocal() for locations_manager in all_locations_managers )
         has_remote = True in ( locations_manager.IsRemote() for locations_manager in all_locations_managers )
@@ -3901,9 +3660,6 @@ class MediaPanelThumbnails( MediaPanel ):
         num_archive = self.GetNumArchive()
         
         multiple_selected = num_selected > 1
-        
-        media_has_inbox = num_inbox > 0
-        media_has_archive = num_archive > 0
         
         menu = ClientGUIMenus.GenerateMenu( self.window() )
         
@@ -3927,13 +3683,7 @@ class MediaPanelThumbnails( MediaPanel ):
             
             local_ratings_services = [ service for service in services if service.GetServiceType() in HC.RATINGS_SERVICES ]
             
-            local_booru_service = [ service for service in services if service.GetServiceType() == HC.LOCAL_BOORU ][0]
-            
-            local_booru_is_running = local_booru_service.GetPort() is not None
-            
             i_can_post_ratings = len( local_ratings_services ) > 0
-            
-            focused_is_local = CC.COMBINED_LOCAL_FILE_SERVICE_KEY in self._focused_media.GetLocationsManager().GetCurrent()
             
             local_media_file_service_keys = { service.GetServiceKey() for service in services if service.GetServiceType() == HC.LOCAL_FILE_DOMAIN }
             
@@ -3943,8 +3693,6 @@ class MediaPanelThumbnails( MediaPanel ):
             petition_permission_file_service_keys = { repository.GetServiceKey() for repository in file_repositories if repository.HasPermission( HC.CONTENT_TYPE_FILES, HC.PERMISSION_ACTION_PETITION ) } - petition_resolve_permission_file_service_keys
             user_manage_permission_file_service_keys = { repository.GetServiceKey() for repository in file_repositories if repository.HasPermission( HC.CONTENT_TYPE_ACCOUNTS, HC.PERMISSION_ACTION_MODERATE ) }
             ipfs_service_keys = { service.GetServiceKey() for service in ipfs_services }
-            
-            focused_is_ipfs = not self._focused_media.GetLocationsManager().GetCurrent().isdisjoint( ipfs_service_keys )
             
             if multiple_selected:
                 
@@ -3968,8 +3716,6 @@ class MediaPanelThumbnails( MediaPanel ):
                 delete_physically_phrase = 'delete selected physically now'
                 undelete_phrase = 'undelete selected'
                 clear_deletion_phrase = 'clear deletion record for selected'
-                export_phrase = 'files'
-                copy_phrase = 'files'
                 
             else:
                 
@@ -3993,8 +3739,6 @@ class MediaPanelThumbnails( MediaPanel ):
                 delete_physically_phrase = 'delete physically now'
                 undelete_phrase = 'undelete'
                 clear_deletion_phrase = 'clear deletion record'
-                export_phrase = 'file'
-                copy_phrase = 'file'
                 
             
             # info about the files
@@ -4020,8 +3764,6 @@ class MediaPanelThumbnails( MediaPanel ):
             disparate_pending_remote_service_keys = pending_remote_service_keys - common_pending_remote_service_keys
             disparate_petitioned_remote_service_keys = petitioned_remote_service_keys - common_petitioned_remote_service_keys
             disparate_deleted_remote_service_keys = deleted_remote_service_keys - common_deleted_remote_service_keys
-            
-            some_downloading = True in ( locations_manager.IsDownloading() for locations_manager in selected_locations_managers )
             
             pending_file_service_keys = pending_remote_service_keys.intersection( file_repository_service_keys )
             petitioned_file_service_keys = petitioned_remote_service_keys.intersection( file_repository_service_keys )
@@ -4361,7 +4103,7 @@ class MediaPanelThumbnails( MediaPanel ):
             ClientGUIMenus.AppendMenuItem( manage_menu, notes_str, 'Manage notes for the focused file.', self._ManageNotes )
             
             ClientGUIMenus.AppendMenuItem( manage_menu, 'times', 'Edit the timestamps for your files.', self._ManageTimestamps )
-            ClientGUIMenus.AppendMenuItem( manage_menu, 'force filetype', 'Force your files to appear as a different filetype.', ClientGUIMediaActions.SetFilesForcedFiletypes, self, self._selected_media )
+            ClientGUIMenus.AppendMenuItem( manage_menu, 'force filetype', 'Force your files to appear as a different filetype.', ClientGUIMediaModalActions.SetFilesForcedFiletypes, self, self._selected_media )
             
             ClientGUIMediaMenus.AddDuplicatesMenu( self, manage_menu, self._location_context, focus_singleton, num_selected, collections_selected )
             
@@ -4378,7 +4120,7 @@ class MediaPanelThumbnails( MediaPanel ):
             
             ClientGUIMenus.AppendMenu( menu, manage_menu, 'manage' )
             
-            ( local_duplicable_to_file_service_keys, local_moveable_from_and_to_file_service_keys ) = ClientGUIMediaActions.GetLocalFileActionServiceKeys( flat_selected_medias )
+            ( local_duplicable_to_file_service_keys, local_moveable_from_and_to_file_service_keys ) = ClientGUIMediaSimpleActions.GetLocalFileActionServiceKeys( flat_selected_medias )
             
             len_interesting_local_service_keys = 0
             
@@ -4406,277 +4148,107 @@ class MediaPanelThumbnails( MediaPanel ):
                 len_interesting_remote_service_keys += len( ipfs_service_keys )
                 
             
-            if len_interesting_local_service_keys > 0 and len_interesting_remote_service_keys > 0:
+            if len_interesting_local_service_keys > 0 or len_interesting_remote_service_keys > 0:
                 
-                files_parent_menu = ClientGUIMenus.GenerateMenu( menu )
+                files_menu = ClientGUIMenus.GenerateMenu( menu )
                 
-                ClientGUIMenus.AppendMenu( menu, files_parent_menu, 'files' )
+                ClientGUIMenus.AppendMenu( menu, files_menu, 'files' )
                 
-            else:
-                
-                files_parent_menu = menu
-                
-            
-            if len_interesting_local_service_keys > 0:
-                
-                ClientGUIMediaMenus.AddLocalFilesMoveAddToMenu( self, files_parent_menu, local_duplicable_to_file_service_keys, local_moveable_from_and_to_file_service_keys, multiple_selected, self.ProcessApplicationCommand )
-                
-            
-            if len_interesting_remote_service_keys > 0:
-                
-                remote_action_menu = ClientGUIMenus.GenerateMenu( files_parent_menu )
-                
-                if len( downloadable_file_service_keys ) > 0:
+                if len_interesting_local_service_keys > 0:
                     
-                    ClientGUIMenus.AppendMenuItem( remote_action_menu, download_phrase, 'Download all possible selected files.', self._DownloadSelected )
+                    ClientGUIMediaMenus.AddLocalFilesMoveAddToMenu( self, files_menu, local_duplicable_to_file_service_keys, local_moveable_from_and_to_file_service_keys, multiple_selected, self.ProcessApplicationCommand )
                     
                 
-                if some_downloading:
+                if len_interesting_remote_service_keys > 0:
                     
-                    ClientGUIMenus.AppendMenuItem( remote_action_menu, rescind_download_phrase, 'Stop downloading any of the selected files.', self._RescindDownloadSelected )
+                    ClientGUIMenus.AppendSeparator( files_menu )
                     
-                
-                if len( uploadable_file_service_keys ) > 0:
+                    if len( downloadable_file_service_keys ) > 0:
+                        
+                        ClientGUIMenus.AppendMenuItem( files_menu, download_phrase, 'Download all possible selected files.', self._DownloadSelected )
+                        
                     
-                    ClientGUIMediaMenus.AddServiceKeysToMenu( remote_action_menu, uploadable_file_service_keys, upload_phrase, 'Upload all selected files to the file repository.', self._UploadFiles )
+                    if some_downloading:
+                        
+                        ClientGUIMenus.AppendMenuItem( files_menu, rescind_download_phrase, 'Stop downloading any of the selected files.', self._RescindDownloadSelected )
+                        
                     
-                
-                if len( pending_file_service_keys ) > 0:
+                    if len( uploadable_file_service_keys ) > 0:
+                        
+                        ClientGUIMediaMenus.AddServiceKeysToMenu( files_menu, uploadable_file_service_keys, upload_phrase, 'Upload all selected files to the file repository.', self._UploadFiles )
+                        
                     
-                    ClientGUIMediaMenus.AddServiceKeysToMenu( remote_action_menu, pending_file_service_keys, rescind_upload_phrase, 'Rescind the pending upload to the file repository.', self._RescindUploadFiles )
+                    if len( pending_file_service_keys ) > 0:
+                        
+                        ClientGUIMediaMenus.AddServiceKeysToMenu( files_menu, pending_file_service_keys, rescind_upload_phrase, 'Rescind the pending upload to the file repository.', self._RescindUploadFiles )
+                        
                     
-                
-                if len( petitionable_file_service_keys ) > 0:
+                    if len( petitionable_file_service_keys ) > 0:
+                        
+                        ClientGUIMediaMenus.AddServiceKeysToMenu( files_menu, petitionable_file_service_keys, petition_phrase, 'Petition these files for deletion from the file repository.', self._PetitionFiles )
+                        
                     
-                    ClientGUIMediaMenus.AddServiceKeysToMenu( remote_action_menu, petitionable_file_service_keys, petition_phrase, 'Petition these files for deletion from the file repository.', self._PetitionFiles )
+                    if len( petitioned_file_service_keys ) > 0:
+                        
+                        ClientGUIMediaMenus.AddServiceKeysToMenu( files_menu, petitioned_file_service_keys, rescind_petition_phrase, 'Rescind the petition to delete these files from the file repository.', self._RescindPetitionFiles )
+                        
                     
-                
-                if len( petitioned_file_service_keys ) > 0:
+                    if len( deletable_file_service_keys ) > 0:
+                        
+                        ClientGUIMediaMenus.AddServiceKeysToMenu( files_menu, deletable_file_service_keys, remote_delete_phrase, 'Delete these files from the file repository.', self._Delete )
+                        
                     
-                    ClientGUIMediaMenus.AddServiceKeysToMenu( remote_action_menu, petitioned_file_service_keys, rescind_petition_phrase, 'Rescind the petition to delete these files from the file repository.', self._RescindPetitionFiles )
+                    if len( modifyable_file_service_keys ) > 0:
+                        
+                        ClientGUIMediaMenus.AddServiceKeysToMenu( files_menu, modifyable_file_service_keys, modify_account_phrase, 'Modify the account(s) that uploaded these files to the file repository.', self._ModifyUploaders )
+                        
                     
-                
-                if len( deletable_file_service_keys ) > 0:
+                    if len( pinnable_ipfs_service_keys ) > 0:
+                        
+                        ClientGUIMediaMenus.AddServiceKeysToMenu( files_menu, pinnable_ipfs_service_keys, pin_phrase, 'Pin these files to the ipfs service.', self._UploadFiles )
+                        
                     
-                    ClientGUIMediaMenus.AddServiceKeysToMenu( remote_action_menu, deletable_file_service_keys, remote_delete_phrase, 'Delete these files from the file repository.', self._Delete )
+                    if len( pending_ipfs_service_keys ) > 0:
+                        
+                        ClientGUIMediaMenus.AddServiceKeysToMenu( files_menu, pending_ipfs_service_keys, rescind_pin_phrase, 'Rescind the pending pin to the ipfs service.', self._RescindUploadFiles )
+                        
                     
-                
-                if len( modifyable_file_service_keys ) > 0:
+                    if len( unpinnable_ipfs_service_keys ) > 0:
+                        
+                        ClientGUIMediaMenus.AddServiceKeysToMenu( files_menu, unpinnable_ipfs_service_keys, unpin_phrase, 'Unpin these files from the ipfs service.', self._PetitionFiles )
+                        
                     
-                    ClientGUIMediaMenus.AddServiceKeysToMenu( remote_action_menu, modifyable_file_service_keys, modify_account_phrase, 'Modify the account(s) that uploaded these files to the file repository.', self._ModifyUploaders )
+                    if len( petitioned_ipfs_service_keys ) > 0:
+                        
+                        ClientGUIMediaMenus.AddServiceKeysToMenu( files_menu, petitioned_ipfs_service_keys, rescind_unpin_phrase, 'Rescind the pending unpin from the ipfs service.', self._RescindPetitionFiles )
+                        
                     
-                
-                if len( pinnable_ipfs_service_keys ) > 0:
+                    if multiple_selected and len( ipfs_service_keys ) > 0:
+                        
+                        ClientGUIMediaMenus.AddServiceKeysToMenu( files_menu, ipfs_service_keys, 'pin new directory to', 'Pin these files as a directory to the ipfs service.', self._UploadDirectory )
+                        
                     
-                    ClientGUIMediaMenus.AddServiceKeysToMenu( remote_action_menu, pinnable_ipfs_service_keys, pin_phrase, 'Pin these files to the ipfs service.', self._UploadFiles )
-                    
-                
-                if len( pending_ipfs_service_keys ) > 0:
-                    
-                    ClientGUIMediaMenus.AddServiceKeysToMenu( remote_action_menu, pending_ipfs_service_keys, rescind_pin_phrase, 'Rescind the pending pin to the ipfs service.', self._RescindUploadFiles )
-                    
-                
-                if len( unpinnable_ipfs_service_keys ) > 0:
-                    
-                    ClientGUIMediaMenus.AddServiceKeysToMenu( remote_action_menu, unpinnable_ipfs_service_keys, unpin_phrase, 'Unpin these files from the ipfs service.', self._PetitionFiles )
-                    
-                
-                if len( petitioned_ipfs_service_keys ) > 0:
-                    
-                    ClientGUIMediaMenus.AddServiceKeysToMenu( remote_action_menu, petitioned_ipfs_service_keys, rescind_unpin_phrase, 'Rescind the pending unpin from the ipfs service.', self._RescindPetitionFiles )
-                    
-                
-                if multiple_selected and len( ipfs_service_keys ) > 0:
-                    
-                    ClientGUIMediaMenus.AddServiceKeysToMenu( remote_action_menu, ipfs_service_keys, 'pin new directory to', 'Pin these files as a directory to the ipfs service.', self._UploadDirectory )
-                    
-                
-                ClientGUIMenus.AppendMenu( files_parent_menu, remote_action_menu, 'remote services' )
                 
             
             #
             
             ClientGUIMediaMenus.AddKnownURLsViewCopyMenu( self, menu, self._focused_media, selected_media = self._selected_media )
             
-            #
+            ClientGUIMediaMenus.AddOpenMenu( self, menu, self._focused_media, self._selected_media )
             
-            open_menu = ClientGUIMenus.GenerateMenu( menu )
+            ClientGUIMediaMenus.AddShareMenu( self, menu, self._focused_media, self._selected_media )
             
-            ClientGUIMenus.AppendMenuItem( open_menu, 'in a new page', 'Copy your current selection into a simple new page.', self._ShowSelectionInNewPage )
-            
-            if self._focused_media.HasStaticImages():
-                
-                similar_menu = ClientGUIMenus.GenerateMenu( open_menu )
-                
-                ClientGUIMenus.AppendMenuItem( similar_menu, 'in a new duplicate filter page', 'Make a new duplicate filter page that searches for these files specifically.', self._ShowSelectionInNewDuplicateFilterPage )
-                
-                ClientGUIMenus.AppendSeparator( similar_menu )
-                
-                ClientGUIMenus.AppendMenuLabel( similar_menu, 'search for similar-looking files:' )
-                ClientGUIMenus.AppendMenuItem( similar_menu, 'exact match', 'Search the database for files that look precisely like those selected.', self._GetSimilarTo, CC.HAMMING_EXACT_MATCH )
-                ClientGUIMenus.AppendMenuItem( similar_menu, 'very similar', 'Search the database for files that look just like those selected.', self._GetSimilarTo, CC.HAMMING_VERY_SIMILAR )
-                ClientGUIMenus.AppendMenuItem( similar_menu, 'similar', 'Search the database for files that look generally like those selected.', self._GetSimilarTo, CC.HAMMING_SIMILAR )
-                ClientGUIMenus.AppendMenuItem( similar_menu, 'speculative', 'Search the database for files that probably look like those selected. This is sometimes useful for symbols with sharp edges or lines.', self._GetSimilarTo, CC.HAMMING_SPECULATIVE )
-                
-                ClientGUIMenus.AppendMenu( open_menu, similar_menu, 'similar files' )
-                
-            
-            ClientGUIMenus.AppendSeparator( open_menu )
-            ClientGUIMenus.AppendMenuItem( open_menu, 'in external program', 'Launch this file with your OS\'s default program for it.', self._OpenExternally )
-            ClientGUIMenus.AppendMenuItem( open_menu, 'in web browser', 'Show this file in your OS\'s web browser.', self._OpenFileInWebBrowser )
-            
-            if focused_is_local:
-                
-                show_open_in_explorer = advanced_mode and ( HC.PLATFORM_WINDOWS or HC.PLATFORM_MACOS )
-                
-                if show_open_in_explorer:
-                    
-                    ClientGUIMenus.AppendMenuItem( open_menu, 'in file browser', 'Show this file in your OS\'s file browser.', self._OpenFileLocation )
-                    
-                
-            
-            ClientGUIMenus.AppendMenu( menu, open_menu, 'open' )
-            
-            # share
-            
-            share_menu = ClientGUIMenus.GenerateMenu( menu )
-            
-            #
-            
-            copy_menu = ClientGUIMenus.GenerateMenu( share_menu )
-            
-            if selection_has_local:
-                
-                ClientGUIMenus.AppendMenuItem( copy_menu, copy_phrase, 'Copy the selected files to the clipboard.', self._CopyFilesToClipboard )
-                
-                copy_hash_menu = ClientGUIMenus.GenerateMenu( copy_menu )
-                
-                if self._HasFocusSingleton():
-                    
-                    focus_singleton = self._GetFocusSingleton()
-                    
-                    ClientGUIMenus.AppendMenuItem( copy_hash_menu, 'sha256 ({})'.format( focus_singleton.GetHash().hex() ), 'Copy the selected file\'s SHA256 hash to the clipboard.', self._CopyHashToClipboard, 'sha256' )
-                    ClientGUIMenus.AppendMenuItem( copy_hash_menu, 'md5', 'Copy the selected file\'s MD5 hash to the clipboard.', self._CopyHashToClipboard, 'md5' )
-                    ClientGUIMenus.AppendMenuItem( copy_hash_menu, 'sha1', 'Copy the selected file\'s SHA1 hash to the clipboard.', self._CopyHashToClipboard, 'sha1' )
-                    ClientGUIMenus.AppendMenuItem( copy_hash_menu, 'sha512', 'Copy the selected file\'s SHA512 hash to the clipboard.', self._CopyHashToClipboard, 'sha512' )
-                    
-                    file_info_manager = focus_singleton.GetFileInfoManager()
-                    
-                    if file_info_manager.blurhash is not None:
-                        
-                        ClientGUIMenus.AppendMenuItem( copy_hash_menu, f'blurhash ({file_info_manager.blurhash})', 'Copy this file\'s blurhash.', self._CopyHashToClipboard, 'blurhash' )
-                        
-                    
-                    if file_info_manager.pixel_hash is not None:
-                        
-                        ClientGUIMenus.AppendMenuItem( copy_hash_menu, f'pixel ({file_info_manager.pixel_hash.hex()})', 'Copy this file\'s pixel hash.', self._CopyHashToClipboard, 'pixel_hash' )
-                        
-                    
-                
-                ClientGUIMenus.AppendMenu( copy_menu, copy_hash_menu, 'hash' )
-                
-                if multiple_selected:
-                    
-                    copy_hash_menu = ClientGUIMenus.GenerateMenu( copy_menu )
-                    
-                    ClientGUIMenus.AppendMenuItem( copy_hash_menu, 'sha256 (hydrus default)', 'Copy the selected files\' SHA256 hashes to the clipboard.', self._CopyHashesToClipboard, 'sha256' )
-                    ClientGUIMenus.AppendMenuItem( copy_hash_menu, 'md5', 'Copy the selected files\' MD5 hashes to the clipboard.', self._CopyHashesToClipboard, 'md5' )
-                    ClientGUIMenus.AppendMenuItem( copy_hash_menu, 'sha1', 'Copy the selected files\' SHA1 hashes to the clipboard.', self._CopyHashesToClipboard, 'sha1' )
-                    ClientGUIMenus.AppendMenuItem( copy_hash_menu, 'sha512', 'Copy the selected files\' SHA512 hashes to the clipboard.', self._CopyHashesToClipboard, 'sha512' )
-                    ClientGUIMenus.AppendMenuItem( copy_hash_menu, 'blurhash', 'Copy the selected files\' blurhashes to the clipboard.', self._CopyHashesToClipboard, 'blurhash' )
-                    ClientGUIMenus.AppendMenuItem( copy_hash_menu, 'pixel', 'Copy the selected files\' pixel hashes to the clipboard.', self._CopyHashesToClipboard, 'pixel_hash' )
-                    
-                    ClientGUIMenus.AppendMenu( copy_menu, copy_hash_menu, 'hashes' )
-                    
-                
-            else:
-                
-                ClientGUIMenus.AppendMenuItem( copy_menu, 'sha256 hash', 'Copy the selected file\'s SHA256 hash to the clipboard.', self._CopyHashToClipboard, 'sha256' )
-                
-                if multiple_selected:
-                    
-                    ClientGUIMenus.AppendMenuItem( copy_menu, 'sha256 hashes', 'Copy the selected files\' SHA256 hash to the clipboard.', self._CopyHashesToClipboard, 'sha256' )
-                    
-                
-                
-            
-            if advanced_mode:
-                
-                hash_id_str = str( focus_singleton.GetHashId() )
-                
-                ClientGUIMenus.AppendMenuItem( copy_menu, 'file_id ({})'.format( hash_id_str ), 'Copy this file\'s internal file/hash_id.', CG.client_controller.pub, 'clipboard', 'text', hash_id_str )
-                
-            
-            for ipfs_service_key in self._focused_media.GetLocationsManager().GetCurrent().intersection( ipfs_service_keys ):
-                
-                name = service_keys_to_names[ ipfs_service_key ]
-                
-                ClientGUIMenus.AppendMenuItem( copy_menu, name + ' multihash', 'Copy the selected file\'s multihash to the clipboard.', self._CopyServiceFilenameToClipboard, ipfs_service_key )
-                
-            
-            if multiple_selected:
-                
-                for ipfs_service_key in disparate_current_ipfs_service_keys.union( common_current_ipfs_service_keys ):
-                    
-                    name = service_keys_to_names[ ipfs_service_key ]
-                    
-                    ClientGUIMenus.AppendMenuItem( copy_menu, name + ' multihashes', 'Copy the selected files\' multihashes to the clipboard.', self._CopyServiceFilenamesToClipboard, ipfs_service_key )
-                    
-                
-            
-            if focused_is_local:
-                
-                if self._focused_media.IsStaticImage():
-                    
-                    ClientGUIMenus.AppendMenuItem( copy_menu, 'bitmap', 'Copy this file to your clipboard as a bitmap.', self._CopyBMPToClipboard )
-                    
-                    ( width, height ) = self._focused_media.GetResolution()
-                    
-                    if width is not None and height is not None and ( width > 1024 or height > 1024 ):
-                        
-                        target_resolution = HydrusImageHandling.GetThumbnailResolution( self._focused_media.GetResolution(), ( 1024, 1024 ), HydrusImageHandling.THUMBNAIL_SCALE_TO_FIT, 100 )
-                        
-                        ClientGUIMenus.AppendMenuItem( copy_menu, 'source lookup bitmap ({}x{})'.format( target_resolution[0], target_resolution[1] ), 'Copy a smaller bitmap of this file, for quicker lookup on source-finding websites.', self._CopyBMPToClipboard, target_resolution )
-                        
-                    
-                
-                ClientGUIMenus.AppendMenuItem( copy_menu, 'path', 'Copy the selected file\'s path to the clipboard.', self._CopyPathToClipboard )
-                
-            
-            if multiple_selected and selection_has_local:
-                
-                ClientGUIMenus.AppendMenuItem( copy_menu, 'paths', 'Copy the selected files\' paths to the clipboard.', self._CopyPathsToClipboard )
-                
-            
-            ClientGUIMenus.AppendMenu( share_menu, copy_menu, 'copy' )
-            
-            #
-            
-            export_menu  = ClientGUIMenus.GenerateMenu( share_menu )
-            
-            ClientGUIMenus.AppendMenuItem( export_menu, export_phrase, 'Export the selected files to an external folder.', self._ExportFiles )
-            
-            ClientGUIMenus.AppendMenu( share_menu, export_menu, 'export' )
-            
-            #
-            
-            if local_booru_is_running:
-                
-                ClientGUIMenus.AppendMenuItem( share_menu, 'on local booru', 'Share the selected files on your client\'s local booru.', self._ShareOnLocalBooru )
-                
-            
-            #
-            
-            ClientGUIMenus.AppendMenu( menu, share_menu, 'share' )
-            
+        
         if not do_not_show_just_return:
             
             CGC.core().PopupMenu( self, menu )
+            
         
         else:
             
             return menu
             
+        
     
     def Sort( self, media_sort = None ):
         

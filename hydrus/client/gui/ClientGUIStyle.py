@@ -20,12 +20,14 @@ def ClearStylesheet():
     
     SetStyleSheet( ORIGINAL_STYLESHEET )
     
+
 def GetAvailableStyles():
     
     # so eventually expand this to do QStylePlugin or whatever we are doing to add more QStyles
     
-    return list( QW.QStyleFactory.keys() )
+    return sorted( QW.QStyleFactory.keys(), key = HydrusData.HumanTextSortKey )
     
+
 def GetAvailableStylesheets():
     
     if not os.path.exists( STYLESHEET_DIR ) or not os.path.isdir( STYLESHEET_DIR ):
@@ -44,6 +46,8 @@ def GetAvailableStylesheets():
             stylesheet_filenames.append( filename )
             
         
+    
+    HydrusData.HumanTextSort( stylesheet_filenames )
     
     return stylesheet_filenames
     
@@ -83,6 +87,7 @@ def InitialiseDefaults():
     ORIGINAL_STYLESHEET = QW.QApplication.instance().styleSheet()
     CURRENT_STYLESHEET = ORIGINAL_STYLESHEET
     
+
 def SetStyleFromName( name: str ):
     
     if QtInit.WE_ARE_QT5:
@@ -114,6 +119,7 @@ def SetStyleFromName( name: str ):
             
         
     
+
 def SetStyleSheet( stylesheet, prepend_hydrus = True ):
     
     stylesheet_to_use = stylesheet
@@ -122,7 +128,7 @@ def SetStyleSheet( stylesheet, prepend_hydrus = True ):
         
         global DEFAULT_HYDRUS_STYLESHEET
         
-        stylesheet_to_use = DEFAULT_HYDRUS_STYLESHEET + os.linesep * 2 + stylesheet
+        stylesheet_to_use = DEFAULT_HYDRUS_STYLESHEET + '\n' * 2 + stylesheet
         
     
     global CURRENT_STYLESHEET
@@ -134,6 +140,7 @@ def SetStyleSheet( stylesheet, prepend_hydrus = True ):
         CURRENT_STYLESHEET = stylesheet_to_use
         
     
+
 def SetStylesheetFromPath( filename ):
     
     path = os.path.join( STYLESHEET_DIR, filename )

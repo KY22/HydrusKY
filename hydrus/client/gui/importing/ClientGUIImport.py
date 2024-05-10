@@ -75,7 +75,7 @@ class CheckerOptionsButton( ClientGUICommon.BetterButton ):
     
     def _SetToolTip( self ):
         
-        self.setToolTip( self._checker_options.GetSummary() )
+        self.setToolTip( ClientGUIFunctions.WrapToolTip( self._checker_options.GetSummary() ) )
         
     
     def _SetValue( self, checker_options ):
@@ -205,7 +205,7 @@ class FilenameTaggingOptionsPanel( QW.QWidget ):
             
             self._regexes_panel = ClientGUICommon.StaticBox( self, 'regexes' )
             
-            self._regexes = QW.QListWidget( self._regexes_panel )
+            self._regexes = ClientGUIListBoxes.BetterQListWidget( self._regexes_panel )
             self._regexes.itemDoubleClicked.connect( self.EventRemoveRegex )
             
             self._regex_box = QW.QLineEdit()
@@ -367,7 +367,7 @@ class FilenameTaggingOptionsPanel( QW.QWidget ):
                 except Exception as e:
                     
                     text = 'That regex would not compile!'
-                    text += os.linesep * 2
+                    text += '\n' * 2
                     text += str( e )
                     
                     ClientGUIDialogsMessage.ShowWarning( self, text )
@@ -455,6 +455,8 @@ class FilenameTaggingOptionsPanel( QW.QWidget ):
             self._tag_autocomplete_all.movePageLeft.connect( self.movePageLeft )
             self._tag_autocomplete_all.movePageRight.connect( self.movePageRight )
             
+            self._tags.tagsChanged.connect( self._tag_autocomplete_all.SetContextTags )
+            
             self._tags_paste_button = ClientGUICommon.BetterButton( self._tags_panel, 'paste tags', self._PasteTags )
             
             #
@@ -471,6 +473,8 @@ class FilenameTaggingOptionsPanel( QW.QWidget ):
             
             self._tag_autocomplete_selection.movePageLeft.connect( self.movePageLeft )
             self._tag_autocomplete_selection.movePageRight.connect( self.movePageRight )
+            
+            self._single_tags.tagsChanged.connect( self._tag_autocomplete_selection.SetContextTags )
             
             self.SetSelectedPaths( [] )
             
@@ -611,7 +615,7 @@ class FilenameTaggingOptionsPanel( QW.QWidget ):
                 
             except Exception as e:
                 
-                ClientGUIFunctions.PresentClipboardParseError( self, raw_text, 'Lines of tags', e )
+                ClientGUIDialogsQuick.PresentClipboardParseError( self, raw_text, 'Lines of tags', e )
                 
                 raise
                 
@@ -1261,14 +1265,14 @@ class GalleryImportPanel( ClientGUICommon.StaticBox ):
         self._file_download_control = ClientGUINetworkJobControl.NetworkJobControl( self._import_queue_panel )
         
         self._files_pause_button = ClientGUICommon.BetterBitmapButton( self._import_queue_panel, CC.global_pixmaps().file_pause, self.PauseFiles )
-        self._files_pause_button.setToolTip( 'pause/play files' )
+        self._files_pause_button.setToolTip( ClientGUIFunctions.WrapToolTip( 'pause/play files' ) )
         
         self._gallery_panel = ClientGUICommon.StaticBox( self, 'search' )
         
         self._gallery_status = ClientGUICommon.BetterStaticText( self._gallery_panel, ellipsize_end = True )
         
         self._gallery_pause_button = ClientGUICommon.BetterBitmapButton( self._gallery_panel, CC.global_pixmaps().gallery_pause, self.PauseGallery )
-        self._gallery_pause_button.setToolTip( 'pause/play search' )
+        self._gallery_pause_button.setToolTip( ClientGUIFunctions.WrapToolTip( 'pause/play search' ) )
         
         self._gallery_seed_log_control = ClientGUIGallerySeedLog.GallerySeedLogStatusControl( self._gallery_panel, CG.client_controller, False, True, 'search', page_key = self._page_key )
         
@@ -1276,7 +1280,7 @@ class GalleryImportPanel( ClientGUICommon.StaticBox ):
         
         self._file_limit = ClientGUICommon.NoneableSpinCtrl( self, 'stop after this many files', min = 1, none_phrase = 'no limit' )
         self._file_limit.valueChanged.connect( self.EventFileLimit )
-        self._file_limit.setToolTip( 'stop searching the gallery once this many files has been reached' )
+        self._file_limit.setToolTip( ClientGUIFunctions.WrapToolTip( 'stop searching the gallery once this many files has been reached' ) )
         
         file_import_options = FileImportOptions.FileImportOptions()
         file_import_options.SetIsDefault( True )
@@ -1681,7 +1685,7 @@ class WatcherReviewPanel( ClientGUICommon.StaticBox ):
         imports_panel = ClientGUICommon.StaticBox( self._options_panel, 'imports' )
         
         self._files_pause_button = ClientGUICommon.BetterBitmapButton( imports_panel, CC.global_pixmaps().file_pause, self.PauseFiles )
-        self._files_pause_button.setToolTip( 'pause/play files' )
+        self._files_pause_button.setToolTip( ClientGUIFunctions.WrapToolTip( 'pause/play files' ) )
         
         self._file_status = ClientGUICommon.BetterStaticText( imports_panel, ellipsize_end = True )
         self._file_seed_cache_control = ClientGUIFileSeedCache.FileSeedCacheStatusControl( imports_panel, CG.client_controller, self._page_key )
@@ -1694,7 +1698,7 @@ class WatcherReviewPanel( ClientGUICommon.StaticBox ):
         self._file_velocity_status = ClientGUICommon.BetterStaticText( checker_panel, ellipsize_end = True )
         
         self._checking_pause_button = ClientGUICommon.BetterBitmapButton( checker_panel, CC.global_pixmaps().gallery_pause, self.PauseChecking )
-        self._checking_pause_button.setToolTip( 'pause/play checking' )
+        self._checking_pause_button.setToolTip( ClientGUIFunctions.WrapToolTip( 'pause/play checking' ) )
         
         self._watcher_status = ClientGUICommon.BetterStaticText( checker_panel, ellipsize_end = True )
         

@@ -12,11 +12,11 @@ import urllib.parse
 from hydrus.core import HydrusConstants as HC
 from hydrus.core import HydrusData
 from hydrus.core import HydrusExceptions
-from hydrus.core import HydrusGlobals as HG
 from hydrus.core import HydrusPaths
 from hydrus.core import HydrusSerialisable
 from hydrus.core import HydrusTags
 from hydrus.core import HydrusTemp
+from hydrus.core import HydrusText
 from hydrus.core import HydrusTime
 from hydrus.core.files import HydrusFileHandling
 
@@ -133,17 +133,7 @@ class FileSeed( HydrusSerialisable.SerialisableBase ):
         self.file_seed_data = file_seed_data
         self.file_seed_data_for_comparison = file_seed_data
         
-        if self.file_seed_type == FILE_SEED_TYPE_URL:
-            
-            try:
-                
-                self.file_seed_data_for_comparison = CG.client_controller.network_engine.domain_manager.NormaliseURL( self.file_seed_data )
-                
-            except:
-                
-                pass
-                
-            
+        self.Normalise() # this fixes the comparison file seed data and fails safely
         
         self.created = HydrusTime.GetNow()
         self.modified = self.created
@@ -1260,6 +1250,14 @@ class FileSeed( HydrusSerialisable.SerialisableBase ):
             
         
     
+    def SetFileSeedData( self, file_seed_data: str ):
+        
+        self.file_seed_data = file_seed_data
+        self.file_seed_data_for_comparison = file_seed_data
+        
+        self.Normalise() # this fixes the comparison file seed data and fails safely
+        
+    
     def SetHash( self, hash ):
         
         if hash is not None:
@@ -1277,10 +1275,10 @@ class FileSeed( HydrusSerialisable.SerialisableBase ):
         
         if exception is not None:
             
-            first_line = repr( exception ).splitlines()[0]
+            first_line = HydrusText.GetFirstLine( repr( exception ) )
             
             note = f'{first_line}{HC.UNICODE_ELLIPSIS} (Copy note to see full error)'
-            note += os.linesep
+            note += '\n'
             note += traceback.format_exc()
             
             HydrusData.Print( 'Error when processing {}!'.format( self.file_seed_data ) )
@@ -1588,7 +1586,7 @@ class FileSeed( HydrusSerialisable.SerialisableBase ):
                                 
                                 duplicate_file_seed = self.Duplicate() # inherits all urls and tags from here
                                 
-                                duplicate_file_seed.file_seed_data = child_url
+                                duplicate_file_seed.SetFileSeedData( child_url )
                                 
                                 duplicate_file_seed.SetReferralURL( url_for_child_referral )
 

@@ -339,7 +339,7 @@ class NetworkDomainManager( HydrusSerialisable.SerialisableBase ):
             
         except HydrusExceptions.URLClassException as e:
             
-            raise HydrusExceptions.URLClassException( 'Could not find a URL class for ' + url + '!' + os.linesep * 2 + str( e ) )
+            raise HydrusExceptions.URLClassException( 'Could not find a URL class for ' + url + '!' + '\n' * 2 + str( e ) )
             
         
         return url_to_fetch
@@ -353,7 +353,7 @@ class NetworkDomainManager( HydrusSerialisable.SerialisableBase ):
             
         except HydrusExceptions.URLClassException as e:
             
-            raise HydrusExceptions.URLClassException( 'Could not find a URL class for ' + url + '!' + os.linesep * 2 + str( e ) )
+            raise HydrusExceptions.URLClassException( 'Could not find a URL class for ' + url + '!' + '\n' * 2 + str( e ) )
             
         
         url_class_key = parser_url_class.GetClassKey()
@@ -1518,24 +1518,8 @@ class NetworkDomainManager( HydrusSerialisable.SerialisableBase ):
             
             if url_class is None:
                 
-                p = ClientNetworkingFunctions.ParseURL( url )
-                
-                scheme = p.scheme
-                netloc = p.netloc
-                path = p.path
-                params = p.params
-                
-                # this puts them all in alphabetical order
-                
-                ( query_dict, single_value_parameters, param_order ) = ClientNetworkingFunctions.ConvertQueryTextToDict( p.query )
-                
-                query = ClientNetworkingFunctions.ConvertQueryDictToText( query_dict, single_value_parameters )
-                
-                fragment = ''
-                
-                r = urllib.parse.ParseResult( scheme, netloc, path, params, query, fragment )
-                
-                normalised_url = r.geturl()
+                # this is less about washing as it is about stripping the fragment
+                normalised_url = ClientNetworkingFunctions.EnsureURLIsEncoded( url, keep_fragment = False )
                 
             else:
                 
@@ -2294,8 +2278,8 @@ class DomainMetadataPackage( HydrusSerialisable.SerialisableBase ):
         if self.HasBandwidthRules():
             
             m = 'Bandwidth rules: '
-            m += os.linesep
-            m += os.linesep.join( [ HydrusNetworking.ConvertBandwidthRuleToString( rule ) for rule in self._bandwidth_rules.GetRules() ] )
+            m += '\n'
+            m += '\n'.join( [ HydrusNetworking.ConvertBandwidthRuleToString( rule ) for rule in self._bandwidth_rules.GetRules() ] )
             
             components.append( m )
             
@@ -2303,13 +2287,13 @@ class DomainMetadataPackage( HydrusSerialisable.SerialisableBase ):
         if self.HasHeaders():
             
             m = 'Headers: '
-            m += os.linesep
-            m += os.linesep.join( [ key + ' : ' + value + ' - ' + reason for ( key, value, reason ) in self._headers_list ] )
+            m += '\n'
+            m += '\n'.join( [ key + ' : ' + value + ' - ' + reason for ( key, value, reason ) in self._headers_list ] )
             
             components.append( m )
             
         
-        joiner = os.linesep * 2
+        joiner = '\n' * 2
         
         s = joiner.join( components )
         
@@ -2384,9 +2368,9 @@ class DomainValidationPopupProcess( object ):
                 # generate question
                 
                 question = 'For the network context ' + network_context.ToString() + ', can the client set this header?'
-                question += os.linesep * 2
+                question += '\n' * 2
                 question += key + ': ' + value
-                question += os.linesep * 2
+                question += '\n' * 2
                 question += reason
                 
                 job_status.SetVariable( 'popup_yes_no_question', question )

@@ -301,7 +301,7 @@ class SerialisableBase( object ):
             if raise_error_on_future_version:
                 
                 message = 'Unfortunately, an object of type {} could not be loaded because it was created in a client/server that uses an updated version of that object! We support up to version {}, but the object was version {}.'.format( self.SERIALISABLE_NAME, self.SERIALISABLE_VERSION, original_version )
-                message += os.linesep * 2
+                message += '\n' * 2
                 message += 'Please update your client/server to import this object.'
                 
                 raise HydrusExceptions.SerialisationException( message )
@@ -550,6 +550,7 @@ class SerialisableDictionary( SerialisableBase, dict ):
 
 SERIALISABLE_TYPES_TO_OBJECT_TYPES[ SERIALISABLE_TYPE_DICTIONARY ] = SerialisableDictionary
 
+# yo now that SerialisableDict can handle bytes anywhere, is this guy obsolete?
 class SerialisableBytesDictionary( SerialisableBase, dict ):
     
     SERIALISABLE_TYPE = SERIALISABLE_TYPE_BYTES_DICT

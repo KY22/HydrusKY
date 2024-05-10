@@ -25,6 +25,8 @@ There are now setup scripts that make this easy on Windows and Linux. You do not
 
 === "Windows"
 
+    **First of all, you will need git.** If you are just a normal Windows user, you will not have it. Get it:
+    
     ??? info "Git for Windows"
         Git is an excellent tool for synchronising code across platforms. Instead of downloading and extracting the whole .zip every time you want to update, it allows you to just run one line and all the code updates are applied in about three seconds. You can also run special versions of the program, or test out changes I committed two minutes ago without having to wait for me to make a whole build. You don't have to, but I recommend you get it.
         
@@ -45,27 +47,29 @@ There are now setup scripts that make this easy on Windows and Linux. You do not
             - Do `Enable file system caching`/Do not `Enable symbolic links`
             - Do not enable experimental stuff
         
-        Git should now be installed on your system. Any new terminal window (shift+right-click on any folder and hit 'Open in terminal') now has the `git` command!
+        Git should now be installed on your system. Any new terminal/command line/powershell window (shift+right-click on any folder and hit something like 'Open in terminal') now has the `git` command!
         
     
-    First of all, you will need to install Python. Get 3.10 or 3.11 [here](https://www.python.org/downloads/windows/). During the install process, make sure it has something like 'Add Python to PATH' checked. This makes Python available everywhere in Windows.  
+    Then you will need to install Python. Get 3.10 or 3.11 [here](https://www.python.org/downloads/windows/) (or, if you are Win 7, I think you'll want [this](https://www.python.org/downloads/release/python-3810/)). During the install process, make sure it has something like 'Add Python to PATH' checked. This makes Python available everywhere in Windows.  
     
 
 === "Linux"
 
-    You should already have a fairly new python. Ideally, you want at least 3.9.
+    You should already have a fairly new python. Ideally, you want at least 3.9. You can find out what version you have just by opening a new terminal and typing 'python'.
 
 === "macOS"
 
-    You should already have python of about the correct version.
+    You should already have a fairly new python. Ideally, you want at least 3.9. You can find out what version you have just by opening a new terminal and typing 'python'.
 
-If you are already on a very new python, like 3.12+, that's ok--you might need to select the 'advanced' setup later on and choose the '(t)est' options. If you are stuck on a much older version of python, try the same thing, but with the '(o)lder' options (but I can't promise it will work!).
+If you are already on newer python, like 3.12+, that's ok--you might need to select the 'advanced' setup later on and choose the '(t)est' options. If you are stuck on a much older version of python, try the same thing, but with the '(o)lder' options (but I can't promise it will work!).
 
-Then, get the hydrus source. It is best to get it with Git: make a new folder somewhere, open a terminal in it, and then enter:
+Then, get the hydrus source. It is best to get it with Git: make a new folder somewhere, open a terminal in it, and then paste:
 
     git clone https://github.com/hydrusnetwork/hydrus
 
-The whole repository will be copied to that location. If Git is not available, then just go to the [latest release](https://github.com/hydrusnetwork/hydrus/releases/latest) and download and extract the source code .zip somewhere.
+The whole repository will be copied to that location--this is now your install dir. You can move it if you like.
+
+If Git is not available, then just go to the [latest release](https://github.com/hydrusnetwork/hydrus/releases/latest) and download and extract the source code .zip somewhere.
 
 !!! warning "Read-only install locations"
     Make sure the install directory has convenient write permissions (e.g. on Windows, don't put it in "Program Files"). Extracting straight to a spare drive, something like "D:\Hydrus Network", is ideal.
@@ -86,11 +90,11 @@ There are three special external libraries. You just have to get them and put th
     1. mpv  
         
         1. If you are on Windows 8.1 or older, [this](https://sourceforge.net/projects/mpv-player-windows/files/libmpv/mpv-dev-x86_64-20210228-git-d1be8bb.7z) is known safe.
-        2. If you are on Windows 10 or newer and want the simple answer, try [this](https://sourceforge.net/projects/mpv-player-windows/files/libmpv/mpv-dev-x86_64-20220501-git-9ffaa6b.7z).
-        3. Ideally, go for [this](https://sourceforge.net/projects/mpv-player-windows/files/libmpv/mpv-dev-x86_64-20230212-git-a40958c.7z), but you have to rename `libmpv-2.dll` to `mpv-2.dll`.
-        4. I have been testing [this newer version](https://sourceforge.net/projects/mpv-player-windows/files/libmpv/mpv-dev-x86_64-20230820-git-19384e0.7z) and [this very new version](https://sourceforge.net/projects/mpv-player-windows/files/libmpv/mpv-dev-x86_64-20231231-git-abc2a74.7z) and things seem to be fine too, at least on updated Windows. If you use the '(t)est' python-mpv, 1.0.5, you do not have to rename `libmpv-2.dll` to `mpv-2.dll`.
+        2. If you are on Windows 10 or newer and want the very safe answer, try [this](https://sourceforge.net/projects/mpv-player-windows/files/libmpv/mpv-dev-x86_64-20220501-git-9ffaa6b.7z).
+        3. Otherwise, go for [this](https://sourceforge.net/projects/mpv-player-windows/files/libmpv/mpv-dev-x86_64-20230820-git-19384e0.7z).
+        4. I have been testing [this newer version](https://sourceforge.net/projects/mpv-player-windows/files/libmpv/mpv-dev-x86_64-20231231-git-abc2a74.7z) and [this very new version](https://sourceforge.net/projects/mpv-player-windows/files/libmpv/mpv-dev-x86_64-20240421-git-b364e4a.7z/download) and things seem to be fine too, at least on updated Windows.
         
-        Then open that archive and place the 'mpv-1.dll' or 'mpv-2.dll' into `install_dir`.
+        Then open that archive and place the 'mpv-1.dll'/'mpv-2.dll'/'libmpv-2.dll' into `install_dir`.
         
         ??? info "mpv on older Windows"
             I have word that that newer mpv, the API version 2.1 that you have to rename to mpv-2.dll, will work on Qt5 and Windows 7. If this applies to you, have a play around with different versions here. You'll need the newer mpv choice in the setup-venv script however, which, depending on your situation, may not be possible.
@@ -122,13 +126,6 @@ There are three special external libraries. You just have to get them and put th
     3. FFMPEG  
         
         You should already have ffmpeg. Just type `ffmpeg` into a new terminal, and it should give a basic version response. If you somehow don't have ffmpeg, check your package manager.
-        
-    ??? "Qt compatibility note"
-        
-        If you run into trouble running newer versions of Qt6, which you will be setting up later, some users have fixed it by installing the packages `libicu-dev` and `libxcb-cursor-dev`. With `apt` that will be:
-        
-        * `sudo apt-get install libicu-dev`
-        * `sudo apt-get install libxcb-cursor-dev`
         
 
 === "macOS"
@@ -169,7 +166,7 @@ There are three special external libraries. You just have to get them and put th
     
     If you get an error about the venv failing to activate during `setup_venv.sh`, you may need to install venv especially for your system. The specific error message should help you out, but you'll be looking at something along the lines of `apt install python3.10-venv`. 
     
-    If you like, you can run the `setup_desktop.sh` file to install a hydrus.desktop file to your applications folder. (Or check the template in `install_dir/static/hydrus.desktop` and do it yourself!)
+    If you like, you can run the `setup_desktop.sh` file to install an io.github.hydrusnetwork.hydrus.desktop file to your applications folder. (Or check the template in `install_dir/static/io.github.hydrusnetwork.hydrus.desktop` and do it yourself!)
     
 
 === "macOS"
@@ -200,6 +197,16 @@ Then run the 'setup_help' script to build the help. This isn't necessary, but it
 
 === "Linux"
 
+    !!! note "Qt compatibility"
+        
+        If you run into trouble running newer versions of Qt6, some users have fixed it by installing the packages `libicu-dev` and `libxcb-cursor-dev`. With `apt` that will be:
+        
+        * `sudo apt-get install libicu-dev`
+        * `sudo apt-get install libxcb-cursor-dev`
+        
+        If you still have trouble with the default Qt6 version, try running setup_venv again and choose a different version. There are several to choose from, including (w)riting a custom version. Check the advanced requirements.txts files in `install_dir/static/requirements/advanced` for more info, and you can also work off this list: [PySide6](https://pypi.org/project/PySide6/#history)
+        
+    
     Run 'hydrus_client.sh' to start the client. Don't forget to set `chmod +x hydrus_client.sh` if you need it.
 
 === "macOS"
@@ -316,16 +323,14 @@ If you want to set QT_API in a batch file, do this:
 
 If you run <= Windows 8.1 or Ubuntu 18.04, you cannot run Qt6. Try PySide2 or PyQt5.
 
-??? "Qt compatibility notes"
+!!! note "Qt compatibility"
     
-    If you run into trouble running newer versions of Qt6 on Linux, some users have fixed it by installing the packages `libicu-dev` and `libxcb-cursor-dev`. With `apt` that will be:
+    If you run into trouble running newer versions of Qt6 on Linux, often with an XCB-related error such as `qt.qpa.plugin: Could not load the Qt platform plugin "xcb" in "" even though it was found.`, try installing the packages `libicu-dev` and `libxcb-cursor-dev`. With `apt` that will be:
     
     * `sudo apt-get install libicu-dev`
     * `sudo apt-get install libxcb-cursor-dev`
     
-    If you still have trouble with the default Qt6 version, or you rebuilt your venv and the newer version of Qt6 gives you problems, check out the setup_venv script language and the advanced requirements.txts files it relies on in `install_dir/static/requirements/advanced`. There should be several older version examples you can try out.
-    
-    To install a specific version of a library with pip, activate your venv and then type something like `pip install PySide6==6.3.1`.
+    If you still have trouble with the default Qt6 version, check the advanced requirements.txts in `install_dir/static/requirements/advanced`. There should be several older version examples you can explore, and you can also work off these lists: [PySide6](https://pypi.org/project/PySide6/#history) [PyQt6](https://pypi.org/project/PyQt6/#history) [PySide2](https://pypi.org/project/PySide2/#history) [Pyqt5](https://pypi.org/project/PyQt5/#history)
     
 
 ### mpv { id="mpv" }

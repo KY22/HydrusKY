@@ -1278,7 +1278,6 @@ class DB( HydrusDB.HydrusDB ):
             ( CC.TRASH_SERVICE_KEY, HC.LOCAL_FILE_TRASH_DOMAIN, 'trash' ),
             ( CC.DEFAULT_LOCAL_TAG_SERVICE_KEY, HC.LOCAL_TAG, 'my tags' ),
             ( CC.DEFAULT_LOCAL_DOWNLOADER_TAG_SERVICE_KEY, HC.LOCAL_TAG, 'downloader tags' ),
-            ( CC.LOCAL_BOORU_SERVICE_KEY, HC.LOCAL_BOORU, 'local booru' ),
             ( CC.LOCAL_NOTES_SERVICE_KEY, HC.LOCAL_NOTES, 'local notes' ),
             ( CC.DEFAULT_FAVOURITES_RATING_SERVICE_KEY, HC.LOCAL_RATING_LIKE, 'favourites' ),
             ( CC.CLIENT_API_SERVICE_KEY, HC.CLIENT_API_SERVICE, 'client api' )
@@ -1758,7 +1757,7 @@ class DB( HydrusDB.HydrusDB ):
     def _DisplayCatastrophicError( self, text ):
         
         message = 'The db encountered a serious error! This is going to be written to the log as well, but here it is for a screenshot:'
-        message += os.linesep * 2
+        message += '\n' * 2
         message += text
         
         HydrusData.DebugPrint( message )
@@ -3926,7 +3925,7 @@ class DB( HydrusDB.HydrusDB ):
                         if pending_mapping_weight != addable_pending_mapping_weight:
                             
                             message = 'Hey, while going through the pending tags to upload, it seemed some were simultaneously already in the \'current\' state. This looks like a bug.'
-                            message += os.linesep * 2
+                            message += '\n' * 2
                             message += 'Please run _database->check and repair->fix logically inconsistent mappings_. If everything seems good after that and you do not get this message again, you should be all fixed. If not, you may need to regenerate your mappings storage cache under the \'database\' menu. If that does not work, hydev would like to know about it!'
                             
                             HydrusData.ShowText( message )
@@ -3964,7 +3963,7 @@ class DB( HydrusDB.HydrusDB ):
                         if petitioned_mapping_weight != deletable_petitioned_mapping_weight:
                             
                             message = 'Hey, while going through the petitioned tags to upload, it seemed some were simultaneously already in the \'deleted\' state. This looks like a bug.'
-                            message += os.linesep * 2
+                            message += '\n' * 2
                             message += 'Please run _database->check and repair->fix logically inconsistent mappings_. If everything seems good after that and you do not get this message again, you should be all fixed. If not, you may need to regenerate your mappings storage cache under the \'database\' menu. If that does not work, hydev would like to know about it!'
                             
                             HydrusData.ShowText( message )
@@ -4630,10 +4629,6 @@ class DB( HydrusDB.HydrusDB ):
             
             info_types = { HC.SERVICE_INFO_NUM_FILE_HASHES }
             
-        elif service_type == HC.LOCAL_BOORU:
-            
-            info_types = { HC.SERVICE_INFO_NUM_SHARES }
-            
         else:
             
             info_types = set()
@@ -4764,13 +4759,6 @@ class DB( HydrusDB.HydrusDB ):
                     if info_type == HC.SERVICE_INFO_NUM_FILE_HASHES:
                         
                         info = self.modules_ratings.GetIncDecServiceCount( service_id )
-                        
-                    
-                elif service_type == HC.LOCAL_BOORU:
-                    
-                    if info_type == HC.SERVICE_INFO_NUM_SHARES:
-                        
-                        ( info, ) = self._Execute( 'SELECT COUNT( * ) FROM yaml_dumps WHERE dump_type = ?;', ( ClientDBSerialisable.YAML_DUMP_ID_LOCAL_BOORU, ) ).fetchone()
                         
                     
                 
@@ -6786,9 +6774,6 @@ class DB( HydrusDB.HydrusDB ):
         elif action == 'inbox_hashes': result = self._FilterInboxHashes( *args, **kwargs )
         elif action == 'is_an_orphan': result = self._IsAnOrphan( *args, **kwargs )
         elif action == 'last_shutdown_work_time': result = self.modules_db_maintenance.GetLastShutdownWorkTime( *args, **kwargs )
-        elif action == 'local_booru_share_keys': result = self.modules_serialisable.GetYAMLDumpNames( ClientDBSerialisable.YAML_DUMP_ID_LOCAL_BOORU )
-        elif action == 'local_booru_share': result = self.modules_serialisable.GetYAMLDump( ClientDBSerialisable.YAML_DUMP_ID_LOCAL_BOORU, *args, **kwargs )
-        elif action == 'local_booru_shares': result = self.modules_serialisable.GetYAMLDump( ClientDBSerialisable.YAML_DUMP_ID_LOCAL_BOORU )
         elif action == 'maintenance_due': result = self._GetMaintenanceDue( *args, **kwargs )
         elif action == 'media_predicates': result = self.modules_tag_display.GetMediaPredicates( *args, **kwargs )
         elif action == 'media_result': result = self._GetMediaResultFromHash( *args, **kwargs )
@@ -6818,6 +6803,7 @@ class DB( HydrusDB.HydrusDB ):
         elif action == 'services': result = self.modules_services.GetServices( *args, **kwargs )
         elif action == 'similar_files_maintenance_status': result = self.modules_similar_files.GetMaintenanceStatus( *args, **kwargs )
         elif action == 'related_tags': result = self._GetRelatedTags( *args, **kwargs )
+        elif action == 'tag_descendants_lookup': result = self.modules_tag_display.GetDescendantsForTags( *args, **kwargs )
         elif action == 'tag_display_application': result = self.modules_tag_display.GetApplication( *args, **kwargs )
         elif action == 'tag_display_maintenance_status': result = self._CacheTagDisplayGetApplicationStatusNumbers( *args, **kwargs )
         elif action == 'tag_parents': result = self.modules_tag_parents.GetTagParents( *args, **kwargs )
@@ -6932,22 +6918,20 @@ class DB( HydrusDB.HydrusDB ):
         
         try:
             
-            job_status.SetStatusTitle( 'regenerating local hash cache' )
+            job_status.SetStatusTitle( 'resynchronising local hashes cache' )
             
             self._controller.pub( 'modal_message', job_status )
             
-            message = 'generating local hash cache'
+            message = 'generating local hashes cache'
             
             job_status.SetStatusText( message )
             self._controller.frame_splash_status.SetSubtext( message )
             
-            self.modules_hashes_local_cache.Repopulate()
+            self.modules_hashes_local_cache.Resync( job_status )
             
         finally:
             
-            job_status.SetStatusText( 'done!' )
-            
-            job_status.FinishAndDismiss( 5 )
+            job_status.Finish()
             
         
     
@@ -7542,9 +7526,9 @@ class DB( HydrusDB.HydrusDB ):
             missing_tag_service_ids = sorted( missing_tag_service_ids )
             
             message = 'On boot, some important tag mapping tables for the storage context were missing! You should have already had a notice about this. You may have had other problems earlier, but this particular problem is completely recoverable and results in no lost data. The relevant tables have been recreated and will now be repopulated. The services about to be worked on are:'
-            message += os.linesep * 2
-            message += os.linesep.join( ( str( t ) for t in missing_tag_service_ids ) )
-            message += os.linesep * 2
+            message += '\n' * 2
+            message += '\n'.join( ( str( t ) for t in missing_tag_service_ids ) )
+            message += '\n' * 2
             message += 'If you want to go ahead, click ok on this message and the client will fill these tables with the correct data. It may take some time. If you want to solve this problem otherwise, kill the hydrus process now.'
             
             self._controller.BlockingSafeShowMessage( message )
@@ -7574,9 +7558,9 @@ class DB( HydrusDB.HydrusDB ):
             missing_tag_service_ids = sorted( missing_tag_service_ids )
             
             message = 'On boot, some important tag mapping tables for the display context were missing! You should have already had a notice about this. You may have had other problems earlier, but this particular problem is completely recoverable and results in no lost data. The relevant tables have been recreated and will now be repopulated. The services about to be worked on are:'
-            message += os.linesep * 2
-            message += os.linesep.join( ( str( t ) for t in missing_tag_service_ids ) )
-            message += os.linesep * 2
+            message += '\n' * 2
+            message += '\n'.join( ( str( t ) for t in missing_tag_service_ids ) )
+            message += '\n' * 2
             message += 'If you want to go ahead, click ok on this message and the client will fill these tables with the correct data. It may take some time. If you want to solve this problem otherwise, kill the hydrus process now.'
             
             self._controller.BlockingSafeShowMessage( message )
@@ -7609,9 +7593,9 @@ class DB( HydrusDB.HydrusDB ):
             missing_tag_service_ids = sorted( missing_tag_service_ids )
             
             message = 'On boot, some important tag count tables for the storage context were missing! You should have already had a notice about this. You may have had other problems earlier, but this particular problem is completely recoverable and results in no lost data. The relevant tables have been recreated and will now be repopulated. The services about to be worked on are:'
-            message += os.linesep * 2
-            message += os.linesep.join( ( str( t ) for t in missing_tag_service_ids ) )
-            message += os.linesep * 2
+            message += '\n' * 2
+            message += '\n'.join( ( str( t ) for t in missing_tag_service_ids ) )
+            message += '\n' * 2
             message += 'If you want to go ahead, click ok on this message and the client will fill these tables with the correct data. It may take some time. If you want to solve this problem otherwise, kill the hydrus process now.'
             
             self._controller.BlockingSafeShowMessage( message )
@@ -7639,9 +7623,9 @@ class DB( HydrusDB.HydrusDB ):
             missing_tag_service_ids = sorted( missing_tag_service_ids )
             
             message = 'On boot, some important tag count tables for the display context were missing! You should have already had a notice about this. You may have had other problems earlier, but this particular problem is completely recoverable and results in no lost data. The relevant tables have been recreated and will now be repopulated. The services about to be worked on are:'
-            message += os.linesep * 2
-            message += os.linesep.join( ( str( t ) for t in missing_tag_service_ids ) )
-            message += os.linesep * 2
+            message += '\n' * 2
+            message += '\n'.join( ( str( t ) for t in missing_tag_service_ids ) )
+            message += '\n' * 2
             message += 'If you want to go ahead, click ok on this message and the client will fill these tables with the correct data. It may take some time. If you want to solve this problem otherwise, kill the hydrus process now.'
             
             self._controller.BlockingSafeShowMessage( message )
@@ -7671,9 +7655,9 @@ class DB( HydrusDB.HydrusDB ):
             missing_tag_search_service_pairs = sorted( missing_tag_search_service_pairs )
             
             message = 'On boot, some important tag search tables were missing! You should have already had a notice about this. You may have had other problems earlier, but this particular problem is completely recoverable and results in no lost data. The relevant tables have been recreated and will now be repopulated. The service pairs about to be worked on are:'
-            message += os.linesep * 2
-            message += os.linesep.join( ( str( t ) for t in missing_tag_search_service_pairs ) )
-            message += os.linesep * 2
+            message += '\n' * 2
+            message += '\n'.join( ( str( t ) for t in missing_tag_search_service_pairs ) )
+            message += '\n' * 2
             message += 'If you want to go ahead, click ok on this message and the client will fill these tables with the correct data. It may take some time. If you want to solve this problem otherwise, kill the hydrus process now.'
             
             self._controller.BlockingSafeShowMessage( message )
@@ -7697,9 +7681,9 @@ class DB( HydrusDB.HydrusDB ):
         if new_options is None:
             
             message = 'On boot, your main options object was missing!'
-            message += os.linesep * 2
+            message += '\n' * 2
             message += 'If you wish, click ok on this message and the client will re-add fresh options with default values. But if you want to solve this problem otherwise, kill the hydrus process now.'
-            message += os.linesep * 2
+            message += '\n' * 2
             message += 'If you do not already know what caused this, it was likely a hard drive fault--either due to a recent abrupt power cut or actual hardware failure. Check \'help my db is broke.txt\' in the install_dir/db directory as soon as you can.'
             
             self._controller.BlockingSafeShowMessage( message )
@@ -7882,7 +7866,7 @@ class DB( HydrusDB.HydrusDB ):
                 if job_status is not None:
                     
                     message = 'Doing "{}": {}'.format( name, HydrusData.ConvertValueRangeToPrettyString( num_done, num_to_do ) )
-                    message += os.linesep * 2
+                    message += '\n' * 2
                     message += 'Total rows recovered: {}'.format( HydrusData.ToHumanInt( num_rows_recovered ) )
                     
                     job_status.SetStatusText( message )
@@ -8492,270 +8476,6 @@ class DB( HydrusDB.HydrusDB ):
     def _UpdateDB( self, version ):
         
         self._controller.frame_splash_status.SetText( 'updating db to v' + str( version + 1 ) )
-        
-        if version == 500:
-            
-            try:
-                
-                domain_manager = self.modules_serialisable.GetJSONDump( HydrusSerialisable.SERIALISABLE_TYPE_NETWORK_DOMAIN_MANAGER )
-                
-                domain_manager.Initialise()
-                
-                #
-                
-                domain_manager.OverwriteDefaultURLClasses( (
-                    'deviant art file page',
-                ) )
-                
-                #
-                
-                domain_manager.TryToLinkURLClassesAndParsers()
-                
-                #
-                
-                self.modules_serialisable.SetJSONDump( domain_manager )
-                
-            except Exception as e:
-                
-                HydrusData.PrintException( e )
-                
-                message = 'Trying to update some downloader objects failed! Please let hydrus dev know!'
-                
-                self.pub_initial_message( message )
-                
-            
-        
-        if version == 502:
-            
-            try:
-                
-                domain_manager = self.modules_serialisable.GetJSONDump( HydrusSerialisable.SERIALISABLE_TYPE_NETWORK_DOMAIN_MANAGER )
-                
-                domain_manager.Initialise()
-                
-                #
-                
-                domain_manager.OverwriteDefaultURLClasses( (
-                    'deviant art embedded video player',
-                ) )
-                
-                domain_manager.OverwriteDefaultParsers( (
-                    'deviant art file page parser',
-                    'deviantart backend video embed parser'
-                ) )
-                
-                #
-                
-                domain_manager.TryToLinkURLClassesAndParsers()
-                
-                #
-                
-                self.modules_serialisable.SetJSONDump( domain_manager )
-                
-            except Exception as e:
-                
-                HydrusData.PrintException( e )
-                
-                message = 'Trying to update some downloader objects failed! Please let hydrus dev know!'
-                
-                self.pub_initial_message( message )
-                
-            
-        
-        if version == 503:
-            
-            try:
-                
-                domain_manager = self.modules_serialisable.GetJSONDump( HydrusSerialisable.SERIALISABLE_TYPE_NETWORK_DOMAIN_MANAGER )
-                
-                domain_manager.Initialise()
-                
-                #
-                
-                # no longer supported, they nuked the open api
-                
-                domain_manager.DeleteGUGs( (
-                    'deviant art tag search',
-                ) )
-                
-                #
-                
-                domain_manager.TryToLinkURLClassesAndParsers()
-                
-                #
-                
-                self.modules_serialisable.SetJSONDump( domain_manager )
-                
-            except Exception as e:
-                
-                HydrusData.PrintException( e )
-                
-                message = 'Trying to update some downloader objects failed! Please let hydrus dev know!'
-                
-                self.pub_initial_message( message )
-                
-            
-        
-        if version == 504:
-            
-            try:
-                
-                domain_manager = self.modules_serialisable.GetJSONDump( HydrusSerialisable.SERIALISABLE_TYPE_NETWORK_DOMAIN_MANAGER )
-                
-                domain_manager.Initialise()
-                
-                #
-                
-                domain_manager.OverwriteDefaultURLClasses( (
-                    'furry.booru.org file page',
-                    'furry.booru.org gallery page',
-                    'twitter tweet',
-                    'twitter syndication api tweet-result'
-                ) )
-                
-                domain_manager.OverwriteDefaultParsers( (
-                    'twitter syndication api tweet parser',
-                    'gelbooru 0.1.11 file page parser'
-                ) )
-                
-                #
-                
-                domain_manager.TryToLinkURLClassesAndParsers()
-                
-                #
-                
-                self.modules_serialisable.SetJSONDump( domain_manager )
-                
-            except Exception as e:
-                
-                HydrusData.PrintException( e )
-                
-                message = 'Trying to update some downloader objects failed! Please let hydrus dev know!'
-                
-                self.pub_initial_message( message )
-                
-            
-            try:
-                
-                table_join = self.modules_files_storage.GetTableJoinLimitedByFileDomain( self.modules_services.combined_local_file_service_id, 'files_info', HC.CONTENT_STATUS_CURRENT )
-                
-                self._controller.frame_splash_status.SetSubtext( 'scheduling files for embedded metadata scan' )
-                
-                result = self._Execute( 'SELECT 1 FROM sqlite_master WHERE name = ?;', ( 'has_exif', ) ).fetchone()
-                
-                if result is None:
-                    
-                    self._Execute( 'CREATE TABLE IF NOT EXISTS main.has_exif ( hash_id INTEGER PRIMARY KEY );' )
-                    
-                    hash_ids = self._STL( self._Execute( 'SELECT hash_id FROM {} WHERE mime IN {};'.format( table_join, HydrusData.SplayListForDB( HC.FILES_THAT_CAN_HAVE_EXIF ) ) ) )
-                    
-                    self.modules_files_maintenance_queue.AddJobs( hash_ids, ClientFiles.REGENERATE_FILE_DATA_JOB_FILE_HAS_EXIF )
-                    
-                
-                result = self._Execute( 'SELECT 1 FROM sqlite_master WHERE name = ?;', ( 'has_human_readable_embedded_metadata', ) ).fetchone()
-                
-                if result is None:
-                    
-                    self._Execute( 'CREATE TABLE IF NOT EXISTS main.has_human_readable_embedded_metadata ( hash_id INTEGER PRIMARY KEY );' )
-                    
-                    hash_ids = self._STL( self._Execute( 'SELECT hash_id FROM {} WHERE mime IN {};'.format( table_join, HydrusData.SplayListForDB( HC.FILES_THAT_CAN_HAVE_HUMAN_READABLE_EMBEDDED_METADATA ) ) ) )
-                    
-                    self.modules_files_maintenance_queue.AddJobs( hash_ids, ClientFiles.REGENERATE_FILE_DATA_JOB_FILE_HAS_HUMAN_READABLE_EMBEDDED_METADATA )
-                    
-                
-            except Exception as e:
-                
-                HydrusData.PrintException( e )
-                
-                message = 'Trying to schedule image files for embedded metadata maintenance failed! Please let hydrus dev know!'
-                
-                self.pub_initial_message( message )
-                
-            
-        
-        if version == 508:
-            
-            try:
-                
-                domain_manager = self.modules_serialisable.GetJSONDump( HydrusSerialisable.SERIALISABLE_TYPE_NETWORK_DOMAIN_MANAGER )
-                
-                domain_manager.Initialise()
-                
-                #
-                
-                domain_manager.RenameGUG( 'twitter syndication collection lookup', 'twitter collection lookup' )
-                domain_manager.RenameGUG( 'twitter syndication likes lookup', 'twitter likes lookup' )
-                domain_manager.RenameGUG( 'twitter syndication list lookup', 'twitter list lookup' )
-                domain_manager.RenameGUG( 'twitter syndication profile lookup', 'twitter profile lookup' )
-                domain_manager.RenameGUG( 'twitter syndication profile lookup (with replies)', 'twitter profile lookup (with replies)' )
-                
-                #
-                
-                domain_manager.TryToLinkURLClassesAndParsers()
-                
-                #
-                
-                self.modules_serialisable.SetJSONDump( domain_manager )
-                
-            except Exception as e:
-                
-                HydrusData.PrintException( e )
-                
-                message = 'Trying to update some downloader objects failed! Please let hydrus dev know!'
-                
-                self.pub_initial_message( message )
-                
-            
-        
-        if version == 509:
-            
-            try:
-                
-                new_options = self.modules_serialisable.GetJSONDump( HydrusSerialisable.SERIALISABLE_TYPE_CLIENT_OPTIONS )
-                
-                from hydrus.client.importing.options import NoteImportOptions
-                
-                duplicate_content_merge_options = new_options.GetDuplicateContentMergeOptions( HC.DUPLICATE_BETTER )
-                
-                duplicate_content_merge_options.SetSyncNotesAction( HC.CONTENT_MERGE_ACTION_COPY )
-                
-                note_import_options = NoteImportOptions.NoteImportOptions()
-                
-                note_import_options.SetIsDefault( False )
-                note_import_options.SetGetNotes( True )
-                note_import_options.SetExtendExistingNoteIfPossible( True )
-                note_import_options.SetConflictResolution( NoteImportOptions.NOTE_IMPORT_CONFLICT_RENAME )
-                
-                duplicate_content_merge_options.SetSyncNoteImportOptions( note_import_options )
-                
-                new_options.SetDuplicateContentMergeOptions( HC.DUPLICATE_BETTER, duplicate_content_merge_options )
-                
-                duplicate_content_merge_options = new_options.GetDuplicateContentMergeOptions( HC.DUPLICATE_SAME_QUALITY )
-                
-                duplicate_content_merge_options.SetSyncNotesAction( HC.CONTENT_MERGE_ACTION_TWO_WAY_MERGE )
-                
-                note_import_options = NoteImportOptions.NoteImportOptions()
-                
-                note_import_options.SetIsDefault( False )
-                note_import_options.SetGetNotes( True )
-                note_import_options.SetExtendExistingNoteIfPossible( True )
-                note_import_options.SetConflictResolution( NoteImportOptions.NOTE_IMPORT_CONFLICT_RENAME )
-                
-                duplicate_content_merge_options.SetSyncNoteImportOptions( note_import_options )
-                
-                new_options.SetDuplicateContentMergeOptions( HC.DUPLICATE_SAME_QUALITY, duplicate_content_merge_options )
-                
-                self.modules_serialisable.SetJSONDump( new_options )
-                
-            except Exception as e:
-                
-                HydrusData.PrintException( e )
-                
-                message = 'Updating your duplicate metadata merge options for the new note-merge support failed! This is not super important, but hydev would be interested in seeing the error that was printed to the log.'
-                
-                self.pub_initial_message( message )
-                
-            
         
         if version == 513:
             
@@ -10467,6 +10187,140 @@ class DB( HydrusDB.HydrusDB ):
                 
             
         
+        if version == 572:
+            
+            try:
+                
+                domain_manager = self.modules_serialisable.GetJSONDump( HydrusSerialisable.SERIALISABLE_TYPE_NETWORK_DOMAIN_MANAGER )
+                
+                domain_manager.Initialise()
+                
+                parsers = domain_manager.GetParsers()
+                
+                parser_names = { parser.GetName() for parser in parsers }
+                
+                # checking for floog's downloader
+                if 'fxtwitter api status parser' not in parser_names and 'vxtwitter api status parser' not in parser_names:
+                    
+                    domain_manager.DeleteURLClasses( [
+                        'twitter tweet (i/web/status)',
+                        'twitter tweet',
+                        'twitter syndication api tweet-result',
+                        'twitter syndication api timeline-profile'
+                    ])
+                    
+                    domain_manager.OverwriteDefaultParsers( [
+                        'fxtwitter tweet api parser'
+                    ] )
+                    
+                    domain_manager.OverwriteDefaultURLClasses( [
+                        'x post',
+                        'twitter tweet',
+                        'fxtwitter tweet api'
+                    ] )
+                    
+                    #
+                    
+                    domain_manager.TryToLinkURLClassesAndParsers()
+                    
+                    #
+                    
+                    self.modules_serialisable.SetJSONDump( domain_manager )
+                    
+                
+            except Exception as e:
+                
+                HydrusData.PrintException( e )
+                
+                message = 'Trying to update some downloaders failed! Please let hydrus dev know!'
+                
+                self.pub_initial_message( message )
+                
+            
+        
+        if version == 573:
+            
+            try:
+                
+                self.modules_hashes_local_cache.Resync()
+                
+            except Exception as e:
+                
+                HydrusData.PrintException( e )
+                
+                message = 'Trying to force a local hashes resync failed! Please let hydrus dev know!'
+                
+                self.pub_initial_message( message )
+                
+            
+            try:
+                
+                domain_manager = self.modules_serialisable.GetJSONDump( HydrusSerialisable.SERIALISABLE_TYPE_NETWORK_DOMAIN_MANAGER )
+                
+                domain_manager.Initialise()
+                
+                parsers = domain_manager.GetParsers()
+                
+                parser_names = { parser.GetName() for parser in parsers }
+                
+                # checking for floog's downloader
+                if 'fxtwitter api status parser' not in parser_names and 'vxtwitter api status parser' not in parser_names:
+                    
+                    domain_manager.OverwriteDefaultURLClasses( [
+                        'twitter image (with format)',
+                        'twitter image (without format)'
+                    ])
+                    
+                    #
+                    
+                    domain_manager.TryToLinkURLClassesAndParsers()
+                    
+                    #
+                    
+                    self.modules_serialisable.SetJSONDump( domain_manager )
+                    
+                
+            except Exception as e:
+                
+                HydrusData.PrintException( e )
+                
+                message = 'Trying to update some downloaders failed! Please let hydrus dev know!'
+                
+                self.pub_initial_message( message )
+                
+            
+            try:
+                
+                service_id = self.modules_services.GetServiceId( CC.LOCAL_BOORU_SERVICE_KEY )
+                
+                try:
+                    
+                    self._DeleteService( service_id )
+                    
+                except Exception as e:
+                    
+                    HydrusData.PrintException( e )
+                    
+                    message = 'Trying to delete the local booru stub failed! Please let hydrus dev know!'
+                    
+                    self.pub_initial_message( message )
+                    
+                
+            except HydrusExceptions.DataMissing:
+                
+                # idempotency
+                pass
+                
+            except Exception as e:
+                
+                HydrusData.PrintException( e )
+                
+                message = 'Trying to delete the local booru stub failed! Please let hydrus dev know!'
+                
+                self.pub_initial_message( message )
+                
+            
+        
         self._controller.frame_splash_status.SetTitleText( 'updated db to v{}'.format( HydrusData.ToHumanInt( version + 1 ) ) )
         
         self._Execute( 'UPDATE version SET version = ?;', ( version + 1, ) )
@@ -10914,7 +10768,7 @@ class DB( HydrusDB.HydrusDB ):
                     HydrusData.ShowException( e )
                     
                     text = 'An attempt to vacuum the database failed.'
-                    text += os.linesep * 2
+                    text += '\n' * 2
                     text += 'If the error is not obvious, please contact the hydrus developer.'
                     
                     HydrusData.ShowText( text )
@@ -10956,7 +10810,6 @@ class DB( HydrusDB.HydrusDB ):
         elif action == 'content_updates': self._ProcessContentUpdatePackage( *args, **kwargs )
         elif action == 'cull_file_viewing_statistics': self.modules_files_viewing_stats.CullFileViewingStatistics( *args, **kwargs )
         elif action == 'db_integrity': self.modules_db_maintenance.CheckDBIntegrity( *args, **kwargs )
-        elif action == 'delete_local_booru_share': self.modules_serialisable.DeleteYAMLDump( ClientDBSerialisable.YAML_DUMP_ID_LOCAL_BOORU, *args, **kwargs )
         elif action == 'delete_pending': self._DeletePending( *args, **kwargs )
         elif action == 'delete_serialisable_named': self.modules_serialisable.DeleteJSONDumpNamed( *args, **kwargs )
         elif action == 'delete_service_info': self._DeleteServiceInfo( *args, **kwargs )
@@ -10976,7 +10829,6 @@ class DB( HydrusDB.HydrusDB ):
         elif action == 'ideal_client_files_locations': self.modules_files_physical_storage.SetIdealClientFilesLocations( *args, **kwargs )
         elif action == 'import_file': result = self._ImportFile( *args, **kwargs )
         elif action == 'import_update': self._ImportUpdate( *args, **kwargs )
-        elif action == 'local_booru_share': self.modules_serialisable.SetYAMLDump( ClientDBSerialisable.YAML_DUMP_ID_LOCAL_BOORU, *args, **kwargs )
         elif action == 'maintain_hashed_serialisables': result = self.modules_serialisable.MaintainHashedStorage( *args, **kwargs )
         elif action == 'maintain_similar_files_search_for_potential_duplicates': result = self._PerceptualHashesSearchForPotentialDuplicates( *args, **kwargs )
         elif action == 'maintain_similar_files_tree': self.modules_similar_files.MaintainTree( *args, **kwargs )

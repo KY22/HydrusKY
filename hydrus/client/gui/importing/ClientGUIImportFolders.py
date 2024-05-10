@@ -11,6 +11,7 @@ from hydrus.client import ClientGlobals as CG
 from hydrus.client.gui import ClientGUIDialogsMessage
 from hydrus.client.gui import ClientGUIDialogsQuick
 from hydrus.client.gui import ClientGUIFileSeedCache
+from hydrus.client.gui import ClientGUIFunctions
 from hydrus.client.gui import ClientGUIScrolledPanels
 from hydrus.client.gui import ClientGUITime
 from hydrus.client.gui import ClientGUITopLevelWindowsPanels
@@ -195,7 +196,7 @@ class EditImportFolderPanel( ClientGUIScrolledPanels.EditPanel ):
         
         self._last_modified_time_skip_period = ClientGUITime.TimeDeltaButton( self._folder_box, min = 1, days = True, hours = True, minutes = True, seconds = True )
         tt = 'If a file has a modified time more recent than this long ago, it will not be imported in the current check. Helps to avoid importing files that are in the process of downloading/copying (usually on a NAS where other "already in use" checks may fail).'
-        self._last_modified_time_skip_period.setToolTip( tt )
+        self._last_modified_time_skip_period.setToolTip( ClientGUIFunctions.WrapToolTip( tt ) )
         
         self._paused = QW.QCheckBox( self._folder_box )
         
@@ -475,9 +476,24 @@ class EditImportFolderPanel( ClientGUIScrolledPanels.EditPanel ):
             ClientGUIDialogsMessage.ShowWarning( self, f'The path you have entered--"{path}"--does not exist! The dialog will not force you to correct it, but this import folder will do no work as long as the location is missing!' )
             
         
-        if HC.BASE_DIR.startswith( path ) or CG.client_controller.GetDBDir().startswith( path ):
+        ( dirs_that_allow_internal_work, dirs_that_cannot_be_touched ) = CG.client_controller.GetImportSensitiveDirectories()
+        
+        sensitive_paths = list( dirs_that_allow_internal_work ) + list( dirs_that_cannot_be_touched )
+        
+        for sensitive_path in sensitive_paths:
             
-            raise HydrusExceptions.VetoException( 'You cannot set an import path that includes your install or database directory!' )
+            if sensitive_path.startswith( path ):
+                
+                raise HydrusExceptions.VetoException( f'You cannot set an import path that includes certain sensitive directories. The problem directory in this case was "{sensitive_path}". Please choose another location.' )
+                
+            
+            if sensitive_path not in dirs_that_allow_internal_work:
+                
+                if path.startswith( sensitive_path ):
+                    
+                    raise HydrusExceptions.VetoException( f'You cannot set an import path that is inside certain sensitive directories. The problem directory in this case was "{sensitive_path}". Please choose another location.' )
+                    
+                
             
         
         if self._action_successful.GetValue() == CC.IMPORT_FOLDER_MOVE:

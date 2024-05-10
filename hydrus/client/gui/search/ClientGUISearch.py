@@ -413,11 +413,15 @@ class EditPredicatesPanel( ClientGUIScrolledPanels.EditPanel ):
             QP.AddToLayout( vbox, button, CC.FLAGS_EXPAND_PERPENDICULAR )
             
         
+        stretch_needed = True
+        
         for panel in self._editable_pred_panels:
             
-            if isinstance( panel, ClientGUIPredicatesOR.ORPredicateControl ):
+            if isinstance( panel, ( ClientGUIPredicatesOR.ORPredicateControl, ClientGUIPredicatesSingle.PanelPredicateSystemMime ) ):
                 
                 flags = CC.FLAGS_EXPAND_BOTH_WAYS
+                
+                stretch_needed = False
                 
             else:
                 
@@ -425,6 +429,11 @@ class EditPredicatesPanel( ClientGUIScrolledPanels.EditPanel ):
                 
             
             QP.AddToLayout( vbox, panel, flags )
+            
+        
+        if stretch_needed:
+            
+            vbox.addStretch( 1 )
             
         
         self.widget().setLayout( vbox )
@@ -663,7 +672,7 @@ class FleshOutPredicatePanel( ClientGUIScrolledPanels.EditPanel ):
         elif predicate_type == ClientSearch.PREDICATE_TYPE_SYSTEM_LIMIT:
             
             label = 'system:limit clips a large search result down to the given number of files. It is very useful for processing in smaller batches.'
-            label += os.linesep * 2
+            label += '\n' * 2
             label += 'For all the simpler sorts (filesize, duration, etc...), it will select the n largest/smallest in the result set appropriate for that sort. For complicated sorts like tags, it will sample randomly.'
             
             static_pred_buttons.append( ClientGUIPredicatesSingle.StaticSystemPredicateButton( self, ( ClientSearch.Predicate( ClientSearch.PREDICATE_TYPE_SYSTEM_LIMIT, 64 ), ), show_remove_button = False ) )
@@ -810,20 +819,34 @@ class FleshOutPredicatePanel( ClientGUIScrolledPanels.EditPanel ):
             
             for button in static_pred_buttons:
                 
-                preds = button.GetPredicates()
-                
                 QP.AddToLayout( page_vbox, button, CC.FLAGS_EXPAND_PERPENDICULAR )
                 
                 button.predicatesChosen.connect( self.StaticButtonClicked )
                 button.predicatesRemoved.connect( self.StaticRemoveButtonClicked )
                 
             
+            stretch_needed = True
+            
             for panel in editable_pred_panels:
                 
-                QP.AddToLayout( page_vbox, panel, CC.FLAGS_EXPAND_PERPENDICULAR )
+                if isinstance( panel, self._PredOKPanel ) and isinstance( panel.GetPredicatePanel(), ClientGUIPredicatesSingle.PanelPredicateSystemMime ):
+                    
+                    flags = CC.FLAGS_EXPAND_BOTH_WAYS
+                    
+                    stretch_needed = False
+                    
+                else:
+                    
+                    flags = CC.FLAGS_EXPAND_PERPENDICULAR
+                    
+                
+                QP.AddToLayout( page_vbox, panel, flags )
                 
             
-            page_vbox.addStretch( 1 )
+            if stretch_needed:
+                
+                page_vbox.addStretch( 1 )
+                
             
             page_panel.setLayout( page_vbox )
             
@@ -892,7 +915,7 @@ class FleshOutPredicatePanel( ClientGUIScrolledPanels.EditPanel ):
             QW.QWidget.__init__( self, parent )
             
             self._defaults_button = ClientGUICommon.BetterBitmapButton( self, CC.global_pixmaps().star, self._DefaultsMenu )
-            self._defaults_button.setToolTip( 'Set a new default.' )
+            self._defaults_button.setToolTip( ClientGUIFunctions.WrapToolTip( 'Set a new default.' ) )
             
             self._predicate_panel = predicate_panel_class( self, predicate )
             self._parent = parent
@@ -944,6 +967,11 @@ class FleshOutPredicatePanel( ClientGUIScrolledPanels.EditPanel ):
             predicates = self._predicate_panel.GetPredicates()
             
             self._parent.SubPanelOK( predicates )
+            
+        
+        def GetPredicatePanel( self ):
+            
+            return self._predicate_panel
             
         
         def keyPressEvent( self, event ):
@@ -1032,7 +1060,7 @@ class TagContextButton( ClientGUICommon.BetterButton ):
             self.setText( label )
             
         
-        self.setToolTip( label )
+        self.setToolTip( ClientGUIFunctions.WrapToolTip( label ) )
         
         if self._tag_context != original_tag_context:
             

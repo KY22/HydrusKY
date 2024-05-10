@@ -14,9 +14,6 @@ I try to release a new version every Wednesday by 8pm EST and write an accompany
 
 ## Installing
 
-!!! warning ""
-    The hydrus releases are 64-bit only. If you are a python expert, there is the slimmest chance you'll be able to get it running from source on a 32-bit machine, but it would be easier just to find a newer computer to run it on.
-
 === "Windows"
 
     *   If you want the easy solution, download the .exe installer. Run it, hit ok several times.
@@ -40,9 +37,17 @@ I try to release a new version every Wednesday by 8pm EST and write an accompany
     
     !!! warning "Wayland"
         Unfortunately, hydrus has several bad bugs in Wayland. The mpv window will often not embed properly into the media viewer, menus and windows may position on the wrong screen, and the taskbar icon may not work at all. [Running from source](running_from_source.md) may improve the situation, but some of these issues seem to be intractable for now. X11 is much happier with hydrus. 
-
+    
+    !!! note "XCB Qt compatibility"
+        
+        If you run into trouble running Qt6, usually with an XCB-related error like `qt.qpa.plugin: Could not load the Qt platform plugin "xcb" in "" even though it was found.`, try installing the packages `libicu-dev` and `libxcb-cursor-dev`. With `apt` that will be:
+        
+        * `sudo apt-get install libicu-dev`
+        * `sudo apt-get install libxcb-cursor-dev`
+        
+    
     *   Get the .tag.gz. Extract it somewhere useful and create shortcuts to 'client' and 'server' as you like. The build is made on Ubuntu, so if you run something else, compatibility is hit and miss.
-    *   If you have problems running the Ubuntu build, users with some python experience generally find running from source works well.
+    *   If you have problems running the Ubuntu build, [running from source](running_from_source.md) is usually an improvement, and it is easy to set up these days.
     *   You might need to get 'libmpv1' to get mpv working and playing video/audio. This is the mpv _library_, not the necessarily the player. Check _help->about_ to see if it is available--if not, see if you can get it like so:
         * `apt-get install libmpv1`
         * Use _options->media_ to set your audio/video/animations to 'show using mpv' once you have it installed.
@@ -61,7 +66,7 @@ I try to release a new version every Wednesday by 8pm EST and write an accompany
     *   You can also try [running the Windows version in wine](wine.md).
     *   **Third parties (not maintained by Hydrus Developer)**:  
         * (These both run from source, so if you have trouble with the built release, they may work better for you!)
-        * [AUR package](https://aur.archlinux.org/packages/hydrus/)
+        * [AUR package](https://aur.archlinux.org/packages/hydrus/) - *Although please note that since AUR packages work off your system python, this has been known to cause issues when Arch suddenly updates to the latest Qt or something before we have had a chance to test things and it breaks hydrus. If you can, try just [running from source](running_from_source.md) yourself instead, where we can control things better!*
         * [flatpak](https://flathub.org/apps/details/io.github.hydrusnetwork.hydrus) 
     
 
@@ -71,7 +76,7 @@ I try to release a new version every Wednesday by 8pm EST and write an accompany
 
 === "From Source"
 
-    *   You can also [run from source](running_from_source.md). This is often the best way to fix compatibility problems.
+    *   You can also [run from source](running_from_source.md). This is often the best way to fix compatibility problems, and it is the most pleasant way to run and update the program (you can update in five seconds!), although it requires a bit more work to set up the first time. It is not too complicated to do, though--my guide will walk you through each step.
 
 By default, hydrus stores all its data—options, files, subscriptions, _everything_—entirely inside its own directory. You can extract it to a usb stick, move it from one place to another, have multiple installs for multiple purposes, wrap it all up inside a truecrypt volume, whatever you like. The .exe installer writes some unavoidable uninstall registry stuff to Windows, but the 'installed' client itself will run fine if you manually move it.
 
@@ -161,7 +166,7 @@ Clients and servers of different versions can usually connect to one another, bu
 
 ## Clean installs
 
-**This is usually only relevant if you know you have a dll conflict or otherwise update and cannot boot at all.**
+**This is usually only relevant if you know you have a dll conflict or otherwise update and cannot boot at all. It usually only applies to Windows or Linux users who manually update using the 'Extract' releases.**
 
 Very rarely, hydrus needs a clean install. This can be due to a special update like when we moved from 32-bit to 64-bit or needing to otherwise 'reset' a custom install situation. The problem is usually that a library file has been renamed in a new version and hydrus has trouble figuring out whether to use the older one (from a previous version) or the newer.
 
@@ -172,9 +177,11 @@ However, you need to be careful not to delete your database! It sounds silly, bu
 *   Make a backup if you can!
 *   Go to your install directory.
 *   Delete all the files and folders except the 'db' dir (and all of its contents, obviously).
-*   Reinstall/extract hydrus as you normally do.
+*   Extract the new version of hydrus as you normally do.
 
 After that, you'll have a 'clean' version of hydrus that only has the latest version's dlls. If hydrus still will not boot, I recommend you roll back to your last working backup and let me, hydrus dev, know what your error is.
+
+*Note that macOS App users will not ever have to do a clean install because every App is self-contained and non-merging with previous Apps. Source users similarly do not have to worry about this issue, although if they update their system python, they'll want to recreate their venv. Windows Installer users basically get a clean install every time, so they don't have to worry about this.*
 
 ## Big updates
 
@@ -184,7 +191,7 @@ As a result, if you get a failure on trying to do a big update, try cutting the 
 
 If you narrow the gap down to just one version and still get an error, please let me know. I am very interested in these sorts of problems and will be happy to help figure out a fix with you (and everyone else who might be affected).
 
-_All that said, and while updating is complex and every client is different, various user reports over the years suggest this route works and is efficient: 204 > 238 > 246 > 291 > 328 > 335 > 376 > 421 > 466 > 474 ? 480 > 521 ? 558_ 
+_All that said, and while updating is complex and every client is different, various user reports over the years suggest this route works and is efficient: 204 > 238 > 246 > 291 > 328 > 335 > 376 > 421 > 466 > 474 > 480 > 521 > 527 (clean install) > 535 > 558 > 571 (clean install)_ 
 
 ## Backing up
 

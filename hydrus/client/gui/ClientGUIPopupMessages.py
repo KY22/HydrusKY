@@ -228,7 +228,7 @@ class PopupMessage( PopupWindow ):
             
             new_text = 'The text is too long to display here. Here is the start of it (the rest is printed to the log):'
             
-            new_text += os.linesep * 2
+            new_text += '\n' * 2
             
             new_text += text[ : self.TEXT_CUTOFF ]
             
@@ -271,7 +271,7 @@ class PopupMessage( PopupWindow ):
         info = 'v{}, {}, {}'.format( HC.SOFTWARE_VERSION, sys.platform.lower(), 'frozen' if HC.RUNNING_FROM_FROZEN_BUILD else 'source' )
         trace = self._job_status.ToString()
         
-        full_text = info + os.linesep + trace
+        full_text = info + '\n' + trace
         
         CG.client_controller.pub( 'clipboard', 'text', full_text )
         
@@ -1274,6 +1274,7 @@ class PopupMessageManager( QW.QFrame ):
             
         
     
+
 # This was originally a reviewpanel subclass which is a scroll area subclass, but having it in a scroll area didn't work out with dynamically updating size as the widget contents change.
 class PopupMessageDialogPanel( QW.QWidget ):
     
@@ -1291,7 +1292,7 @@ class PopupMessageDialogPanel( QW.QWidget ):
         
         vbox = QP.VBoxLayout()
         
-        QP.AddToLayout( vbox, self._message_window )
+        QP.AddToLayout( vbox, self._message_window, CC.FLAGS_EXPAND_BOTH_WAYS )
         
         self.setLayout( vbox )
         

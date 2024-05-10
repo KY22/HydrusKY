@@ -23,6 +23,7 @@ from hydrus.client import ClientSerialisable
 from hydrus.client.gui import ClientGUIAsync
 from hydrus.client.gui import ClientGUICore as CGC
 from hydrus.client.gui import ClientGUIDialogsMessage
+from hydrus.client.gui import ClientGUIDialogsQuick
 from hydrus.client.gui import ClientGUIFunctions
 from hydrus.client.gui import ClientGUIMenus
 from hydrus.client.gui import ClientGUIShortcuts
@@ -173,6 +174,54 @@ class BetterQListWidget( QW.QListWidget ):
         indices = self._GetSelectedIndices()
         
         return len( indices )
+        
+    
+    def keyPressEvent( self, event: QG.QKeyEvent ):
+        
+        if event.modifiers() & QC.Qt.ControlModifier and event.key() in ( QC.Qt.Key_C, QC.Qt.Key_Insert ):
+            
+            event.accept()
+            
+            try:
+                
+                texts_to_copy = []
+                
+                for list_widget_item in self.selectedItems():
+                    
+                    user_role_data = list_widget_item.data( QC.Qt.UserRole )
+                    
+                    if isinstance( user_role_data, str ):
+                        
+                        text = user_role_data
+                        
+                    else:
+                        
+                        text = list_widget_item.text()
+                        
+                    
+                    texts_to_copy.append( text )
+                    
+                
+                if len( texts_to_copy ) == 0:
+                    
+                    return
+                    
+                
+                copyable_text = '\n'.join( texts_to_copy )
+                
+                CG.client_controller.pub( 'clipboard', 'text', copyable_text )
+                
+            except Exception as e:
+                
+                HydrusData.ShowText( 'Could not copy some text from a list!' )
+                
+                HydrusData.ShowException( e )
+                
+            
+        else:
+            
+            QW.QListWidget.keyPressEvent( self, event )
+            
         
     
     def MoveSelected( self, distance: int ):
@@ -520,7 +569,7 @@ class AddEditDeleteListBox( QW.QWidget ):
             
         except Exception as e:
             
-            ClientGUIFunctions.PresentClipboardParseError( self, raw_text, 'JSON-serialised Hydrus Object(s)', e )
+            ClientGUIDialogsQuick.PresentClipboardParseError( self, raw_text, 'JSON-serialised Hydrus Object(s)', e )
             
         
     
@@ -616,12 +665,12 @@ class AddEditDeleteListBox( QW.QWidget ):
             if len( bad_object_type_names ) > 0:
                 
                 message = 'The imported objects included these types:'
-                message += os.linesep * 2
-                message += os.linesep.join( bad_object_type_names )
-                message += os.linesep * 2
+                message += '\n' * 2
+                message += '\n'.join( bad_object_type_names )
+                message += '\n' * 2
                 message += 'Whereas this control only allows:'
-                message += os.linesep * 2
-                message += os.linesep.join( ( HydrusData.GetTypeName( o ) for o in self._permitted_object_types ) )
+                message += '\n' * 2
+                message += '\n'.join( ( HydrusData.GetTypeName( o ) for o in self._permitted_object_types ) )
                 
                 ClientGUIDialogsMessage.ShowWarning( self, message )
                 
@@ -629,8 +678,8 @@ class AddEditDeleteListBox( QW.QWidget ):
             if len( other_bad_errors ) > 0:
                 
                 message = 'The imported objects were wrong for this control:'
-                message += os.linesep * 2
-                message += os.linesep.join( other_bad_errors )
+                message += '\n' * 2
+                message += '\n'.join( other_bad_errors )
                 
                 ClientGUIDialogsMessage.ShowWarning( self, message )
                 
@@ -2555,7 +2604,7 @@ class ListBoxTags( ListBox ):
         
         if len( texts ) > 0:
             
-            text = os.linesep.join( texts )
+            text = '\n'.join( texts )
             
             CG.client_controller.pub( 'clipboard', 'text', text )
             
@@ -3693,6 +3742,8 @@ class ListBoxTagsFilter( ListBoxTags ):
     
 class ListBoxTagsDisplayCapable( ListBoxTags ):
     
+    tagsChanged = QC.Signal( list )
+    
     def __init__( self, parent, service_key = None, tag_display_type = ClientTags.TAG_DISPLAY_DISPLAY_ACTUAL, **kwargs ):
         
         if service_key is None:
@@ -3705,6 +3756,8 @@ class ListBoxTagsDisplayCapable( ListBoxTags ):
         has_async_text_info = tag_display_type == ClientTags.TAG_DISPLAY_STORAGE
         
         ListBoxTags.__init__( self, parent, has_async_text_info = has_async_text_info, tag_display_type = tag_display_type, **kwargs )
+        
+        self.listBoxChanged.connect( self._NotifyListBoxChanged )
         
     
     def _ApplyAsyncInfoToTerm( self, term, info ) -> typing.Tuple[ bool, bool ]:
@@ -3782,6 +3835,14 @@ class ListBoxTagsDisplayCapable( ListBoxTags ):
         return ( pre_work_callable, work_callable )
         
     
+    def _NotifyListBoxChanged( self ):
+        
+        # we only want the top tags here, not all parents and so on
+        tags = [ term.GetTag() for term in self._ordered_terms ]
+        
+        self.tagsChanged.emit( list( self._GetTagsFromTerms( self._ordered_terms ) ) )
+        
+    
     def _SelectFilesWithTags( self, and_or_or ):
         
         if self._page_key is not None:
@@ -3809,7 +3870,10 @@ class ListBoxTagsDisplayCapable( ListBoxTags ):
             
         
     
+
 class ListBoxTagsStrings( ListBoxTagsDisplayCapable ):
+    
+    tagsChanged = QC.Signal( list )
     
     def __init__( self, parent, service_key = None, sort_tags = True, **kwargs ):
         
@@ -3817,10 +3881,17 @@ class ListBoxTagsStrings( ListBoxTagsDisplayCapable ):
         
         ListBoxTagsDisplayCapable.__init__( self, parent, service_key = service_key, **kwargs )
         
+        self.listBoxChanged.connect( self._NotifyListBoxChanged )
+        
     
     def _GenerateTermFromTag( self, tag: str ) -> ClientGUIListBoxesData.ListBoxItemTextTag:
         
         return ClientGUIListBoxesData.ListBoxItemTextTag( tag )
+        
+    
+    def _NotifyListBoxChanged( self ):
+        
+        self.tagsChanged.emit( list( self.GetTags() ) )
         
     
     def GetTags( self ):

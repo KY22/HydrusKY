@@ -37,17 +37,33 @@ from hydrus.core.files.images import HydrusImageMetadata
 from hydrus.core.files.images import HydrusImageNormalisation
 from hydrus.core.files.images import HydrusImageOpening
 
-def EnableLoadTruncatedImages():
+def SetEnableLoadTruncatedImages( value: bool ):
     
     if hasattr( PILImageFile, 'LOAD_TRUNCATED_IMAGES' ):
         
-        # this can now cause load hangs due to the trunc load code adding infinite fake EOFs to the file stream, wew lad
-        # hence debug only
-        PILImageFile.LOAD_TRUNCATED_IMAGES = True
+        if PILImageFile.LOAD_TRUNCATED_IMAGES != value:
+            
+            # this has previously caused load hangs due to the trunc load code adding infinite fake EOFs to the file stream, wew lad
+            PILImageFile.LOAD_TRUNCATED_IMAGES = value
+            
+            HG.controller.pub( 'clear_image_cache' )
+            HG.controller.pub( 'clear_image_tile_cache' )
+            
         
         return True
         
     else:
+        
+        try:
+            
+            import PIL
+            
+            HydrusData.Print( f'Could not set the PIL image trunctation value to {value}--perhaps this version of PIL ({PIL.__version__})does not support it?' )
+            
+        except:
+            
+            HydrusData.Print( f'Could not set the PIL image trunctation value to {value}, and could not determine the PIL version! Something is busted!' )
+            
         
         return False
         

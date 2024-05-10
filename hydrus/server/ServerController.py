@@ -106,7 +106,7 @@ def ShutdownSiblingInstance( db_dir ):
         except:
             
             text = 'Could not contact existing server\'s port ' + str( port ) + '!'
-            text += os.linesep
+            text += '\n'
             text += traceback.format_exc()
             
             raise HydrusExceptions.ShutdownException( text )
@@ -123,7 +123,7 @@ def ShutdownSiblingInstance( db_dir ):
             if not r.ok:
                 
                 text = 'When told to shut down, the existing server gave an error!'
-                text += os.linesep
+                text += '\n'
                 text += r.text
                 
                 raise HydrusExceptions.ShutdownException( text )
@@ -301,7 +301,7 @@ class Controller( HydrusController.HydrusController ):
             
         else:
             
-            self.SetRunningTwistedServices( self._services )
+            self.RestartServices()
             
         
         #
@@ -356,6 +356,11 @@ class Controller( HydrusController.HydrusController ):
     def ReportRequestUsed( self ):
         
         self._admin_service.ServerReportRequestUsed()
+        
+    
+    def RestartServices( self ):
+        
+        self.SetRunningTwistedServices( self._services )
         
     
     def Run( self ):
@@ -570,7 +575,7 @@ class Controller( HydrusController.HydrusController ):
         
         [ self._admin_service ] = [ service for service in self._services if service.GetServiceType() == HC.SERVER_ADMIN ]
         
-        self.SetRunningTwistedServices( self._services )
+        self.RestartServices()
         
     
     def ShutdownView( self ):

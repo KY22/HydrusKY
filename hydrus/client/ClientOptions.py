@@ -126,6 +126,8 @@ class ClientOptions( HydrusSerialisable.SerialisableBase ):
         
         self._dictionary[ 'booleans' ][ 'advanced_mode' ] = False
         
+        self._dictionary[ 'booleans' ][ 'remove_filtered_files_even_when_skipped' ] = False
+        
         self._dictionary[ 'booleans' ][ 'filter_inbox_and_archive_predicates' ] = False
         
         self._dictionary[ 'booleans' ][ 'discord_dnd_fix' ] = False
@@ -152,7 +154,9 @@ class ClientOptions( HydrusSerialisable.SerialisableBase ):
         self._dictionary[ 'booleans' ][ 'freeze_message_manager_when_mouse_on_other_monitor' ] = False
         self._dictionary[ 'booleans' ][ 'freeze_message_manager_when_main_gui_minimised' ] = False
         
-        self._dictionary[ 'booleans' ][ 'load_images_with_pil' ] = False
+        self._dictionary[ 'booleans' ][ 'load_images_with_pil' ] = True
+        
+        self._dictionary[ 'booleans' ][ 'only_show_delete_from_all_local_domains_when_filtering' ] = False
         
         self._dictionary[ 'booleans' ][ 'use_system_ffmpeg' ] = False
         
@@ -311,6 +315,9 @@ class ClientOptions( HydrusSerialisable.SerialisableBase ):
         self._dictionary[ 'booleans' ][ 'fade_thumbnails' ] = True
         
         self._dictionary[ 'booleans' ][ 'slideshow_always_play_duration_media_once_through' ] = False
+        
+        self._dictionary[ 'booleans' ][ 'enable_truncated_images_pil' ] = True
+        self._dictionary[ 'booleans' ][ 'do_icc_profile_normalisation' ] = True
         
         from hydrus.client.gui.canvas import ClientGUIMPV
         

@@ -106,11 +106,18 @@ class App( QW.QApplication ):
         
         self.setApplicationName( 'Hydrus Client' )
         
+        if HC.PLATFORM_LINUX:
+            
+            self.setDesktopFileName( 'io.github.hydrusnetwork.hydrus' )
+            
+        
         self.setApplicationVersion( str( HC.SOFTWARE_VERSION ) )
         
         QC.qInstallMessageHandler( MessageHandler )
         
         self.setQuitOnLastWindowClosed( False )
+        
+        self.setQuitLockEnabled( False )
         
         self.call_after_catcher = QP.CallAfterEventCatcher( self )
         
@@ -241,7 +248,7 @@ class Controller( ClientControllerInterface.ClientControllerInterface, HydrusCon
     
     def _GetUPnPServices( self ):
         
-        return self.services_manager.GetServices( ( HC.LOCAL_BOORU, HC.CLIENT_API_SERVICE ) )
+        return self.services_manager.GetServices( ( HC.CLIENT_API_SERVICE, ) )
         
     
     def _GetWakeDelayPeriodMS( self ):
@@ -559,7 +566,7 @@ class Controller( ClientControllerInterface.ClientControllerInterface, HydrusCon
                 from hydrus.client.gui import ClientGUIDialogsQuick
                 
                 message = 'It looks like another instance of this client is already running, so this instance cannot start.'
-                message += os.linesep * 2
+                message += '\n' * 2
                 message += 'If the old instance is closing and does not quit for a _very_ long time, it is usually safe to force-close it from task manager.'
                 
                 result = ClientGUIDialogsQuick.GetYesNo( self._splash, message, title = 'The client is already running.', yes_label = 'wait a bit, then try again', no_label = 'forget it' )
@@ -960,6 +967,15 @@ class Controller( ClientControllerInterface.ClientControllerInterface, HydrusCon
         return self.new_options
         
     
+    def GetImportSensitiveDirectories( self ):
+        
+        dirs_that_allow_internal_work = [ HC.BASE_DIR, self.db_dir ]
+        
+        dirs_that_cannot_be_touched = self.client_files_manager.GetAllDirectoriesInUse()
+        
+        return ( dirs_that_allow_internal_work, dirs_that_cannot_be_touched )
+        
+    
     def InitClientFilesManager( self ):
         
         def qt_code( missing_subfolders ):
@@ -997,6 +1013,15 @@ class Controller( ClientControllerInterface.ClientControllerInterface, HydrusCon
             
             missing_subfolders = self.CallBlockingToQt( self._splash, qt_code, missing_subfolders )
             
+        
+    
+    def ReinitGlobalSettings( self ):
+        
+        from hydrus.core.files.images import HydrusImageHandling
+        from hydrus.core.files.images import HydrusImageNormalisation
+        
+        HydrusImageHandling.SetEnableLoadTruncatedImages( self.new_options.GetBoolean( 'enable_truncated_images_pil' ) )
+        HydrusImageNormalisation.SetDoICCProfileNormalisation( self.new_options.GetBoolean( 'do_icc_profile_normalisation' ) )
         
     
     def InitModel( self ):
@@ -1173,8 +1198,6 @@ class Controller( ClientControllerInterface.ClientControllerInterface, HydrusCon
         
         #
         
-        self.local_booru_manager = ClientCaches.LocalBooruCache( self )
-        
         self.file_viewing_stats_manager = ClientManagers.FileViewingStatsManager( self )
         
         #
@@ -1319,6 +1342,8 @@ class Controller( ClientControllerInterface.ClientControllerInterface, HydrusCon
         
         self.CallBlockingToQt( self._splash, qt_code_style )
         
+        self.ReinitGlobalSettings()
+        
         def qt_code_pregui():
             
             shortcut_sets = CG.client_controller.Read( 'serialisable_named', HydrusSerialisable.SERIALISABLE_TYPE_SHORTCUT_SET )
@@ -1361,7 +1386,7 @@ class Controller( ClientControllerInterface.ClientControllerInterface, HydrusCon
         
         if self.db.IsFirstStart():
             
-            message = 'Hi, this looks like the first time you have started the hydrus client.'
+            message = 'Hi, this looks like the first time you have started the hydrus client. If this is not the first time you have run this client install, please check the help documentation under "install_dir/db".'
             message += '\n' * 2
             message += 'Don\'t forget to check out the help if you haven\'t already, by clicking help->help--it has an extensive \'getting started\' section, including how to update and the importance of backing up your database.'
             message += '\n' * 2
@@ -1423,20 +1448,52 @@ class Controller( ClientControllerInterface.ClientControllerInterface, HydrusCon
         
         if self.new_options.GetBoolean( 'maintain_similar_files_duplicate_pairs_during_idle' ):
             
-            search_distance = self.new_options.GetInteger( 'similar_files_duplicate_pairs_search_distance' )
+            work_done = False
             
-            search_stop_time = stop_time
+            still_work_to_do = True
             
-            if search_stop_time is None:
+            while still_work_to_do:
                 
-                search_stop_time = HydrusTime.GetNow() + 60
+                search_distance = CG.client_controller.new_options.GetInteger( 'similar_files_duplicate_pairs_search_distance' )
+                
+                start_time = HydrusTime.GetNowPrecise()
+                
+                work_time_ms = CG.client_controller.new_options.GetInteger( 'potential_duplicates_search_work_time_ms' )
+                
+                work_time = work_time_ms / 1000
+                
+                ( still_work_to_do, num_done ) = CG.client_controller.WriteSynchronous( 'maintain_similar_files_search_for_potential_duplicates', search_distance, maintenance_mode = maintenance_mode, work_time_float = work_time )
+                
+                if num_done > 0:
+                    
+                    work_done = True
+                    
+                
+                if not still_work_to_do:
+                    
+                    break
+                    
+                
+                if self.ShouldStopThisWork( maintenance_mode, stop_time = stop_time ):
+                    
+                    break
+                    
+                
+                time_it_took = HydrusTime.GetNowPrecise() - start_time
+                
+                rest_ratio = CG.client_controller.new_options.GetInteger( 'potential_duplicates_search_rest_percentage' ) / 100
+                
+                reasonable_work_time = min( 5 * work_time, time_it_took )
+                
+                time.sleep( reasonable_work_time * rest_ratio )
                 
             
-            self.WriteSynchronous( 'maintain_similar_files_search_for_potential_duplicates', search_distance, maintenance_mode = maintenance_mode, stop_time = search_stop_time )
-            
-            from hydrus.client import ClientDuplicates
-            
-            ClientDuplicates.DuplicatesManager.instance().RefreshMaintenanceNumbers()
+            if work_done:
+                
+                from hydrus.client import ClientDuplicates
+                
+                ClientDuplicates.DuplicatesManager.instance().RefreshMaintenanceNumbers()
+                
             
         
         if self.ShouldStopThisWork( maintenance_mode, stop_time = stop_time ):
@@ -1629,7 +1686,7 @@ class Controller( ClientControllerInterface.ClientControllerInterface, HydrusCon
     
     def RestartClientServerServices( self ):
         
-        services = [ self.services_manager.GetService( service_key ) for service_key in ( CC.LOCAL_BOORU_SERVICE_KEY, CC.CLIENT_API_SERVICE_KEY ) ]
+        services = [ self.services_manager.GetService( service_key ) for service_key in ( CC.CLIENT_API_SERVICE_KEY, ) ]
         
         services = [ service for service in services if service.GetPort() is not None ]
         
@@ -1647,9 +1704,9 @@ class Controller( ClientControllerInterface.ClientControllerInterface, HydrusCon
                 path = dlg.GetPath()
                 
                 text = 'Are you sure you want to restore a backup from "{}"?'.format( path )
-                text += os.linesep * 2
+                text += '\n' * 2
                 text += 'Everything in your current database will be deleted!'
-                text += os.linesep * 2
+                text += '\n' * 2
                 text += 'The gui will shut down, and then it will take a while to complete the restore. Once it is done, the client will restart.'
                 
                 result = ClientGUIDialogsQuick.GetYesNo( self.gui, text )
@@ -1879,11 +1936,7 @@ class Controller( ClientControllerInterface.ClientControllerInterface, HydrusCon
                         
                         from hydrus.client.networking import ClientLocalServer
                         
-                        if service_type == HC.LOCAL_BOORU:
-                            
-                            http_factory = ClientLocalServer.HydrusServiceBooru( service, allow_non_local_connections = allow_non_local_connections )
-                            
-                        elif service_type == HC.CLIENT_API_SERVICE:
+                        if service_type == HC.CLIENT_API_SERVICE:
                             
                             http_factory = ClientLocalServer.HydrusServiceClientAPI( service, allow_non_local_connections = allow_non_local_connections )
                             
@@ -2031,7 +2084,7 @@ class Controller( ClientControllerInterface.ClientControllerInterface, HydrusCon
             
             previous_services = self.services_manager.GetServices()
             
-            upnp_services = [ service for service in services if service.GetServiceType() in ( HC.LOCAL_BOORU, HC.CLIENT_API_SERVICE ) ]
+            upnp_services = [ service for service in services if service.GetServiceType() in ( HC.CLIENT_API_SERVICE, ) ]
             
             self.CallToThreadLongRunning( self.services_upnp_manager.SetServices, upnp_services )
             
@@ -2393,6 +2446,21 @@ class Controller( ClientControllerInterface.ClientControllerInterface, HydrusCon
                 
             
             self.CallToThreadLongRunning( THREADWait )
+            
+        elif data_type == 'thumbnail_bmp':
+            
+            media = data
+            
+            if media.GetMime() not in HC.MIMES_WITH_THUMBNAILS:
+                
+                return
+                
+            
+            thumbnail = self.GetCache( 'thumbnail' ).GetThumbnail( media )
+            
+            qt_image = thumbnail.GetQtImage().copy()
+            
+            QW.QApplication.clipboard().setImage( qt_image )
             
         
     

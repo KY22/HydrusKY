@@ -77,7 +77,7 @@ def GenerateDefaultServiceDictionary( service_type ):
             
         
     
-    if service_type in ( HC.LOCAL_BOORU, HC.CLIENT_API_SERVICE ):
+    if service_type == HC.CLIENT_API_SERVICE:
         
         dictionary[ 'port' ] = None
         dictionary[ 'upnp_port' ] = None
@@ -93,16 +93,7 @@ def GenerateDefaultServiceDictionary( service_type ):
         dictionary[ 'external_host_override' ] = None
         dictionary[ 'external_port_override' ] = None
         
-        if service_type == HC.LOCAL_BOORU:
-            
-            allow_non_local_connections = True
-            
-        elif service_type == HC.CLIENT_API_SERVICE:
-            
-            allow_non_local_connections = False
-            
-        
-        dictionary[ 'allow_non_local_connections' ] = allow_non_local_connections
+        dictionary[ 'allow_non_local_connections' ] = False
         dictionary[ 'use_https' ] = False
         
     
@@ -174,10 +165,6 @@ def GenerateService( service_key, service_type, name, dictionary = None ):
     elif service_type in HC.REMOTE_SERVICES:
         
         cl = ServiceRemote
-        
-    elif service_type == HC.LOCAL_BOORU:
-        
-        cl = ServiceLocalBooru
         
     elif service_type == HC.CLIENT_API_SERVICE:
         
@@ -495,78 +482,7 @@ class ServiceLocalServerService( Service ):
             
         
     
-class ServiceLocalBooru( ServiceLocalServerService ):
-    
-    def GetExternalShareURL( self, share_key ):
-        
-        if self._use_https:
-            
-            scheme = 'https'
-            
-        else:
-            
-            scheme = 'http'
-            
-        
-        if self._external_scheme_override is not None:
-            
-            scheme = self._external_scheme_override
-            
-        
-        if self._external_host_override is None:
-            
-            host = HydrusNATPunch.GetExternalIP()
-            
-        else:
-            
-            host = self._external_host_override
-            
-        
-        if self._external_port_override is None:
-            
-            if self._upnp_port is None:
-                
-                port = ':{}'.format( self._port )
-                
-            else:
-                
-                port = ':{}'.format( self._upnp_port )
-                
-            
-        else:
-            
-            port = self._external_port_override
-            
-            if port != '':
-                
-                port = ':{}'.format( port )
-                
-            
-        
-        url = '{}://{}{}/gallery?share_key={}'.format( scheme, host, port, share_key.hex() )
-        
-        return url
-        
-    
-    def GetInternalShareURL( self, share_key ):
-        
-        internal_ip = '127.0.0.1'
-        internal_port = self._port
-        
-        if self._use_https:
-            
-            scheme = 'https'
-            
-        else:
-            
-            scheme = 'http'
-            
-        
-        url = '{}://{}:{}/gallery?share_key={}'.format( scheme, internal_ip, internal_port, share_key.hex() )
-        
-        return url
-        
-    
+
 class ServiceClientAPI( ServiceLocalServerService ):
     
     pass
@@ -1490,7 +1406,7 @@ class ServiceRestricted( ServiceRemote ):
                     if message != '' and message_created != original_message_created and not HydrusTime.TimeHasPassed( message_created + ( 86400 * 5 ) ):
                         
                         m = 'New message for your account on {}:'.format( self._name )
-                        m += os.linesep * 2
+                        m += '\n' * 2
                         m += message
                         
                         HydrusData.ShowText( m )
@@ -1538,7 +1454,7 @@ class ServiceRestricted( ServiceRemote ):
                                         
                                         summary = tag_filter.GetChangesSummaryText( old_tag_filter )
                                         
-                                        message = 'The tag filter for "{}" just changed! Changes are:{}{}'.format( self._name, os.linesep * 2, summary )
+                                        message = 'The tag filter for "{}" just changed! Changes are:{}{}'.format( self._name, '\n' * 2, summary )
                                         
                                         HydrusData.ShowText( message )
                                         
@@ -1928,7 +1844,7 @@ class ServiceRepository( ServiceRestricted ):
                             
                         
                         message = 'Update ' + update_hash.hex() + ' downloaded from the ' + self._name + ' repository failed to load! This is a serious error!'
-                        message += os.linesep * 2
+                        message += '\n' * 2
                         message += 'The repository has been paused for now. Please look into what could be wrong and report this to the hydrus dev.'
                         
                         HydrusData.ShowText( message )
@@ -1954,7 +1870,7 @@ class ServiceRepository( ServiceRestricted ):
                             
                         
                         message = 'Update ' + update_hash.hex() + ' downloaded from the ' + self._name + ' was not a valid update--it was a ' + repr( update ) + '! This is a serious error!'
-                        message += os.linesep * 2
+                        message += '\n' * 2
                         message += 'The repository has been paused for now. Please look into what could be wrong and report this to the hydrus dev.'
                         
                         HydrusData.ShowText( message )

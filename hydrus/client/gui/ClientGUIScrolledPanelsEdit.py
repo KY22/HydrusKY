@@ -35,6 +35,7 @@ from hydrus.client.gui import QtInit
 from hydrus.client.gui import QtPorting as QP
 from hydrus.client.gui.canvas import ClientGUIMPV
 from hydrus.client.gui.importing import ClientGUIImportOptions
+from hydrus.client.gui.lists import ClientGUIListBoxes
 from hydrus.client.gui.lists import ClientGUIListConstants as CGLC
 from hydrus.client.gui.lists import ClientGUIListCtrl
 from hydrus.client.gui.widgets import ClientGUICommon
@@ -528,7 +529,7 @@ class EditDefaultImportOptionsPanel( ClientGUIScrolledPanels.EditPanel ):
             
         except Exception as e:
             
-            ClientGUIFunctions.PresentClipboardParseError( self, raw_text, 'An instance of JSON-serialised tag or note import options', e )
+            ClientGUIDialogsQuick.PresentClipboardParseError( self, raw_text, 'An instance of JSON-serialised tag or note import options', e )
             
         
     
@@ -1930,10 +1931,10 @@ class EditFileNotesPanel( CAC.ApplicationCommandProcessorMixin, ClientGUIScrolle
         self._delete_button = ClientGUICommon.BetterButton( self, 'delete current note', self._DeleteNote )
         
         self._copy_button = ClientGUICommon.BetterBitmapButton( self, CC.global_pixmaps().copy, self._Copy )
-        self._copy_button.setToolTip( 'Copy all notes to the clipboard.' )
+        self._copy_button.setToolTip( ClientGUIFunctions.WrapToolTip( 'Copy all notes to the clipboard.' ) )
         
         self._paste_button = ClientGUICommon.BetterBitmapButton( self, CC.global_pixmaps().paste, self._Paste )
-        self._paste_button.setToolTip( 'Paste from a copy from another notes dialog.' )
+        self._paste_button.setToolTip( ClientGUIFunctions.WrapToolTip( 'Paste from a copy from another notes dialog.' ) )
         
         #
         
@@ -1981,11 +1982,11 @@ class EditFileNotesPanel( CAC.ApplicationCommandProcessorMixin, ClientGUIScrolle
         
         button_hbox = QP.HBoxLayout()
         
-        QP.AddToLayout( button_hbox, self._add_button )
-        QP.AddToLayout( button_hbox, self._edit_button )
-        QP.AddToLayout( button_hbox, self._delete_button )
-        QP.AddToLayout( button_hbox, self._copy_button )
-        QP.AddToLayout( button_hbox, self._paste_button )
+        QP.AddToLayout( button_hbox, self._add_button, CC.FLAGS_CENTER_PERPENDICULAR )
+        QP.AddToLayout( button_hbox, self._edit_button, CC.FLAGS_CENTER_PERPENDICULAR )
+        QP.AddToLayout( button_hbox, self._delete_button, CC.FLAGS_CENTER_PERPENDICULAR )
+        QP.AddToLayout( button_hbox, self._copy_button, CC.FLAGS_CENTER_PERPENDICULAR )
+        QP.AddToLayout( button_hbox, self._paste_button, CC.FLAGS_CENTER_PERPENDICULAR )
         
         vbox = QP.VBoxLayout()
         
@@ -2106,7 +2107,7 @@ class EditFileNotesPanel( CAC.ApplicationCommandProcessorMixin, ClientGUIScrolle
             
         except Exception as e:
             
-            ClientGUIFunctions.PresentClipboardParseError( self, raw_text, 'JSON names and notes, either as an Object or a list of pairs', e )
+            ClientGUIDialogsQuick.PresentClipboardParseError( self, raw_text, 'JSON names and notes, either as an Object or a list of pairs', e )
             
             return
             
@@ -2258,7 +2259,7 @@ class EditFileNotesPanel( CAC.ApplicationCommandProcessorMixin, ClientGUIScrolle
         if len( empty_note_names ) > 0:
             
             message = 'These notes are empty, and will not be saved--is this ok?'
-            message += os.linesep * 2
+            message += '\n' * 2
             message += ', '.join( empty_note_names )
             
             result = ClientGUIDialogsQuick.GetYesNo( self, message )
@@ -2500,10 +2501,10 @@ class EditFileTimestampsPanel( CAC.ApplicationCommandProcessorMixin, ClientGUISc
         menu_items.append( ( 'normal', 'all file service times', 'Copy every imported/deleted/previously imported time here for pasting in another file\'s dialog.', c ) )
         
         self._copy_button = ClientGUIMenuButton.MenuBitmapButton( self, CC.global_pixmaps().copy, menu_items )
-        self._copy_button.setToolTip( 'Copy timestamps to the clipboard.' )
+        self._copy_button.setToolTip( ClientGUIFunctions.WrapToolTip( 'Copy timestamps to the clipboard.' ) )
         
         self._paste_button = ClientGUICommon.BetterBitmapButton( self, CC.global_pixmaps().paste, self._Paste )
-        self._paste_button.setToolTip( 'Paste timestamps from another timestamps dialog.' )
+        self._paste_button.setToolTip( ClientGUIFunctions.WrapToolTip( 'Paste timestamps from another timestamps dialog.' ) )
         
         #
         
@@ -2519,8 +2520,8 @@ class EditFileTimestampsPanel( CAC.ApplicationCommandProcessorMixin, ClientGUISc
             self._copy_button.hide()
             
         
-        QP.AddToLayout( button_hbox, self._copy_button )
-        QP.AddToLayout( button_hbox, self._paste_button )
+        QP.AddToLayout( button_hbox, self._copy_button, CC.FLAGS_CENTER_PERPENDICULAR )
+        QP.AddToLayout( button_hbox, self._paste_button, CC.FLAGS_CENTER_PERPENDICULAR )
         
         vbox = QP.VBoxLayout()
         
@@ -2906,7 +2907,7 @@ class EditFileTimestampsPanel( CAC.ApplicationCommandProcessorMixin, ClientGUISc
             
         except Exception as e:
             
-            ClientGUIFunctions.PresentClipboardParseError( self, raw_text, 'A list of JSON-serialised Timestamp Data objects', e )
+            ClientGUIDialogsQuick.PresentClipboardParseError( self, raw_text, 'A list of JSON-serialised Timestamp Data objects', e )
             
             return
             
@@ -3361,7 +3362,7 @@ class EditMediaViewOptionsPanel( ClientGUIScrolledPanels.EditPanel ):
             
         
         self._exact_zooms_only = QW.QCheckBox( 'only permit half and double zooms', self )
-        self._exact_zooms_only.setToolTip( 'This limits zooms to 25%, 50%, 100%, 200%, 400%, and so on. It makes for fast resize and is useful for files that often have flat colours and hard edges, which often scale badly otherwise. The \'canvas fit\' zoom will still be inserted.' )
+        self._exact_zooms_only.setToolTip( ClientGUIFunctions.WrapToolTip( 'This limits zooms to 25%, 50%, 100%, 200%, 400%, and so on. It makes for fast resize and is useful for files that often have flat colours and hard edges, which often scale badly otherwise. The \'canvas fit\' zoom will still be inserted.' ) )
         
         self._scale_up_quality = ClientGUICommon.BetterChoice( self )
         
@@ -3726,13 +3727,14 @@ class EditRegexFavourites( ClientGUIScrolledPanels.EditPanel ):
         return self._regexes.GetData()
         
     
+
 class EditSelectFromListPanel( ClientGUIScrolledPanels.EditPanel ):
     
     def __init__( self, parent: QW.QWidget, choice_tuples: list, value_to_select = None, sort_tuples = True ):
         
         ClientGUIScrolledPanels.EditPanel.__init__( self, parent )
         
-        self._list = QW.QListWidget( self )
+        self._list = ClientGUIListBoxes.BetterQListWidget( self )
         self._list.itemDoubleClicked.connect( self.EventSelect )
         
         #
@@ -3838,11 +3840,11 @@ class EditSelectFromListButtonsPanel( ClientGUIScrolledPanels.EditPanel ):
         
         first_focused = False
         
-        for ( text, data, tooltip ) in choices:
+        for ( text, data, tt ) in choices:
             
             button = ClientGUICommon.BetterButton( self, text, self._ButtonChoice, data )
             
-            button.setToolTip( tooltip )
+            button.setToolTip( ClientGUIFunctions.WrapToolTip( tt ) )
             
             QP.AddToLayout( vbox, button, CC.FLAGS_EXPAND_BOTH_WAYS )
             

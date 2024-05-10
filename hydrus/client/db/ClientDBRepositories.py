@@ -169,7 +169,7 @@ class ClientDBRepositories( ClientDBModule.ClientDBModule ):
         self._cursor_transaction_wrapper.CommitAndBegin()
         
         message = 'A critical error was discovered with one of your repositories: its definition reference is in an invalid state. Your repository should now be paused, and all update files have been scheduled for an integrity and metadata check. Please permit file maintenance to check them, or tell it to do so manually, before unpausing your repository. Once unpaused, it will reprocess your definition files and attempt to fill the missing entries. If this error occurs again once that is complete, please inform hydrus dev.'
-        message += os.linesep * 2
+        message += '\n' * 2
         message += 'Error: {}: {}'.format( name, bad_ids )
         
         raise Exception( message )
@@ -272,6 +272,8 @@ class ClientDBRepositories( ClientDBModule.ClientDBModule ):
         table_join = self.modules_files_storage.GetTableJoinLimitedByFileDomain( self.modules_services.local_update_service_id, repository_updates_table_name, HC.CONTENT_STATUS_CURRENT )
         
         update_hash_ids = self._STS( self._Execute( 'SELECT hash_id FROM {};'.format( table_join ) ) )
+        
+        self.modules_hashes_local_cache.SyncHashIds( update_hash_ids )
         
         # so we are also going to pull from here in case there are orphan records!!!
         other_table_join = self.modules_files_storage.GetTableJoinLimitedByFileDomain( self.modules_services.combined_local_file_service_id, repository_updates_table_name, HC.CONTENT_STATUS_CURRENT )

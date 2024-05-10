@@ -218,7 +218,6 @@ class Controller( object ):
         
         self._name_read_responses = {}
         
-        self._name_read_responses[ 'local_booru_share_keys' ] = []
         self._name_read_responses[ 'messaging_sessions' ] = []
         self._name_read_responses[ 'options' ] = ClientDefaults.GetClientDefaultOptions()
         self._name_read_responses[ 'file_system_predicates' ] = []
@@ -237,7 +236,6 @@ class Controller( object ):
         
         services = []
         
-        services.append( ClientServices.GenerateService( CC.LOCAL_BOORU_SERVICE_KEY, HC.LOCAL_BOORU, 'local booru' ) )
         services.append( ClientServices.GenerateService( CC.CLIENT_API_SERVICE_KEY, HC.CLIENT_API_SERVICE, 'client api' ) )
         services.append( ClientServices.GenerateService( CC.COMBINED_LOCAL_FILE_SERVICE_KEY, HC.COMBINED_LOCAL_FILE, 'all local files' ) )
         services.append( ClientServices.GenerateService( CC.COMBINED_LOCAL_MEDIA_SERVICE_KEY, HC.COMBINED_LOCAL_MEDIA, 'all my files' ) )
@@ -314,7 +312,6 @@ class Controller( object ):
         
         self.bitmap_manager = ClientManagers.BitmapManager( self )
         
-        self.local_booru_manager = ClientCaches.LocalBooruCache( self )
         self.client_api_manager = ClientAPI.APIManager()
         
         self._cookies = {}
@@ -672,6 +669,11 @@ class Controller( object ):
         
     
     def JustWokeFromSleep( self ):
+        
+        return False
+        
+    
+    def LastShutdownWasBad( self ):
         
         return False
         

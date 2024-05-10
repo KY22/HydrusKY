@@ -19,6 +19,7 @@ from hydrus.client.gui import ClientGUIStringControls
 from hydrus.client.gui import ClientGUIStringPanels
 from hydrus.client.gui import ClientGUITopLevelWindowsPanels
 from hydrus.client.gui import QtPorting as QP
+from hydrus.client.gui.lists import ClientGUIListBoxes
 from hydrus.client.gui.parsing import ClientGUIParsingTest
 from hydrus.client.gui.widgets import ClientGUICommon
 from hydrus.client.gui.widgets import ClientGUIMenuButton
@@ -68,7 +69,7 @@ class EditCompoundFormulaPanel( EditSpecificFormulaPanel ):
         
         edit_panel = ClientGUICommon.StaticBox( self, 'edit' )
         
-        self._formulae = QW.QListWidget( edit_panel )
+        self._formulae = ClientGUIListBoxes.BetterQListWidget( edit_panel )
         self._formulae.setSelectionMode( QW.QAbstractItemView.SingleSelection )
         self._formulae.itemDoubleClicked.connect( self.Edit )
         
@@ -601,7 +602,7 @@ class EditHTMLTagRulePanel( ClientGUIScrolledPanels.EditPanel ):
         self._tag_attributes = ClientGUIStringControls.StringToStringDictControl( self, tag_attributes, min_height = 4 )
         
         self._tag_index = ClientGUICommon.NoneableSpinCtrl( self, 'index to fetch', none_phrase = 'get all', min = -65536, max = 65535 )
-        self._tag_index.setToolTip( 'You can make this negative to do negative indexing, i.e. "Select the second from last item".' )
+        self._tag_index.setToolTip( ClientGUIFunctions.WrapToolTip( 'You can make this negative to do negative indexing, i.e. "Select the second from last item".' ) )
         
         self._tag_depth = ClientGUICommon.BetterSpinBox( self, min=1, max=255 )
         
@@ -787,7 +788,7 @@ class EditHTMLFormulaPanel( EditSpecificFormulaPanel ):
         
         edit_panel = ClientGUICommon.StaticBox( self, 'edit' )
         
-        self._tag_rules = QW.QListWidget( edit_panel )
+        self._tag_rules = ClientGUIListBoxes.BetterQListWidget( edit_panel )
         self._tag_rules.setSelectionMode( QW.QAbstractItemView.SingleSelection )
 
         self._tag_rules.itemDoubleClicked.connect( self.Edit )
@@ -1049,7 +1050,7 @@ class EditJSONParsingRulePanel( ClientGUIScrolledPanels.EditPanel ):
         self._string_match = ClientGUIStringPanels.EditStringMatchPanel( self, string_match )
         
         self._index = ClientGUICommon.BetterSpinBox( self, min=-65536, max=65535 )
-        self._index.setToolTip( 'You can make this negative to do negative indexing, i.e. "Select the second from last item".' )
+        self._index.setToolTip( ClientGUIFunctions.WrapToolTip( 'You can make this negative to do negative indexing, i.e. "Select the second from last item".' ) )
         
         #
         
@@ -1156,7 +1157,7 @@ class EditJSONFormulaPanel( EditSpecificFormulaPanel ):
         
         edit_panel = ClientGUICommon.StaticBox( self, 'edit' )
         
-        self._parse_rules = QW.QListWidget( edit_panel )
+        self._parse_rules = ClientGUIListBoxes.BetterQListWidget( edit_panel )
         self._parse_rules.setSelectionMode( QW.QAbstractItemView.SingleSelection )
         self._parse_rules.itemDoubleClicked.connect( self.Edit )
         

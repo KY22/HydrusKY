@@ -2,6 +2,26 @@
 
 pushd "%~dp0"
 
+IF "%1"=="" (
+
+    set python_bin=python
+
+) else (
+
+    set python_bin=%1
+
+)
+
+IF "%2"=="" (
+
+    set venv_location=venv
+
+) else (
+
+    set venv_location=%2
+
+)
+
 ECHO   r::::::::::::::::::::::::::::::::::r
 ECHO   :                                  :
 ECHO   :               :PP.               :
@@ -27,24 +47,27 @@ ECHO:
 ECHO                  hydrus
 ECHO:
 
-where /q python
-IF ERRORLEVEL 1 (
+IF "%python_bin%"=="python" (
 
-    SET /P gumpf="You do not seem to have python installed. Please check the 'running from source' help."
+    where /q %python_bin%
+    IF ERRORLEVEL 1 (
 
-    popd
+        SET /P gumpf="You do not seem to have python installed. Please check the 'running from source' help."
 
-    EXIT /B 1
+        popd
 
+        EXIT /B 1
+
+    )
 )
 
-IF EXIST "venv\" (
+IF EXIST "%venv_location%\" (
 
     SET /P ready="Virtual environment will be reinstalled. Hit Enter to start."
 
     echo Deleting old venv...
 
-    rmdir /s /q venv
+    rmdir /s /q %venv_location%
 
 ) ELSE (
 
@@ -52,7 +75,7 @@ IF EXIST "venv\" (
 
 )
 
-IF EXIST "venv\" (
+IF EXIST "%venv_location%\" (
 
     SET /P gumpf="It looks like the venv directory did not delete correctly. Do you have it activated in a terminal or IDE anywhere? Please close that and try this again!"
 
@@ -68,7 +91,7 @@ ECHO --------
 ECHO Users on older Windows or Python ^>=3.11 need the advanced install.
 ECHO:
 ECHO Your Python version is:
-python --version
+%python_bin% --version
 ECHO:
 SET /P install_type="Do you want the (s)imple or (a)dvanced install? "
 
@@ -97,7 +120,7 @@ goto :parse_fail
 :question_qt_advanced
 
 ECHO:
-ECHO If you have multi-monitor menu position bugs with the normal Qt6, try "o" on Python ^<=3.10 or "m" on Python ^>=3.11.
+ECHO If you have multi-monitor menu position bugs with the normal Qt6, try "o" on Python 3.9 or "m" on Python 3.10.
 SET /P qt="Do you want Qt6 (o)lder, Qt6 (m)iddle, Qt6 (t)est, or (w)rite your own? "
 
 IF "%qt%" == "o" goto :question_mpv
@@ -109,8 +132,12 @@ goto :parse_fail
 :question_qt_custom
 
 ECHO:
-SET /P qt_custom_pyside6="Enter the exact PySide6 version you want, e.g. '6.6.0': "
-SET /P qt_custom_qtpy="Enter the exact qtpy version you want (probably '2.4.1'): "
+ECHO Enter the exact PySide6 version you want, e.g. '6.6.0':
+ECHO - For Python 3.10, your earliest available version is 6.2.0
+ECHO - For Python 3.11, your earliest available version is 6.4.0.1
+ECHO - For Python 3.12, your earliest available version is 6.6.0
+SET /P qt_custom_pyside6="Version: "
+SET /P qt_custom_qtpy="Enter the exact qtpy version you want (probably '2.4.1'; if older try '2.3.1'): "
 
 goto :question_mpv
 
@@ -161,9 +188,9 @@ goto :parse_fail
 ECHO --------
 echo Creating new venv...
 
-python -m venv venv
+%python_bin% -m venv %venv_location%
 
-CALL venv\Scripts\activate.bat
+CALL %venv_location%\Scripts\activate.bat
 
 IF ERRORLEVEL 1 (
 
@@ -252,7 +279,7 @@ IF "%install_type%" == "a" (
 
 )
 
-CALL venv\Scripts\deactivate.bat
+CALL %venv_location%\Scripts\deactivate.bat
 
 ECHO --------
 SET /P done="Done!"

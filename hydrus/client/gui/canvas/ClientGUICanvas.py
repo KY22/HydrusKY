@@ -7,12 +7,9 @@ from qtpy import QtGui as QG
 from hydrus.core import HydrusConstants as HC
 from hydrus.core import HydrusData
 from hydrus.core import HydrusExceptions
-from hydrus.core import HydrusGlobals as HG
 from hydrus.core import HydrusLists
-from hydrus.core import HydrusPaths
 from hydrus.core import HydrusTags
 from hydrus.core import HydrusTime
-from hydrus.core.files.images import HydrusImageHandling
 
 from hydrus.client import ClientApplicationCommand as CAC
 from hydrus.client import ClientConstants as CC
@@ -20,7 +17,6 @@ from hydrus.client import ClientData
 from hydrus.client import ClientDuplicates
 from hydrus.client import ClientGlobals as CG
 from hydrus.client import ClientLocation
-from hydrus.client import ClientPaths
 from hydrus.client.gui import ClientGUICore as CGC
 from hydrus.client.gui import ClientGUIDialogs
 from hydrus.client.gui import ClientGUIDialogsManage
@@ -28,12 +24,9 @@ from hydrus.client.gui import ClientGUIDialogsMessage
 from hydrus.client.gui import ClientGUIDialogsQuick
 from hydrus.client.gui import ClientGUIDuplicates
 from hydrus.client.gui import ClientGUIFunctions
-from hydrus.client.gui import ClientGUIMedia
-from hydrus.client.gui import ClientGUIMediaActions
-from hydrus.client.gui import ClientGUIMediaControls
-from hydrus.client.gui import ClientGUIMediaMenus
 from hydrus.client.gui import ClientGUIMenus
 from hydrus.client.gui import ClientGUIRatings
+from hydrus.client.gui import ClientGUIScrolledPanelsCommitFiltering
 from hydrus.client.gui import ClientGUIScrolledPanelsEdit
 from hydrus.client.gui import ClientGUIScrolledPanelsManagement
 from hydrus.client.gui import ClientGUIShortcuts
@@ -42,6 +35,10 @@ from hydrus.client.gui import ClientGUITopLevelWindowsPanels
 from hydrus.client.gui import QtPorting as QP
 from hydrus.client.gui.canvas import ClientGUICanvasHoverFrames
 from hydrus.client.gui.canvas import ClientGUICanvasMedia
+from hydrus.client.gui.media import ClientGUIMediaSimpleActions
+from hydrus.client.gui.media import ClientGUIMediaModalActions
+from hydrus.client.gui.media import ClientGUIMediaControls
+from hydrus.client.gui.media import ClientGUIMediaMenus
 from hydrus.client.media import ClientMedia
 from hydrus.client.media import ClientMediaFileFilter
 from hydrus.client.metadata import ClientContentUpdates
@@ -368,7 +365,6 @@ class Canvas( CAC.ApplicationCommandProcessorMixin, QW.QWidget ):
         CG.client_controller.sub( self, 'ZoomIn', 'canvas_zoom_in' )
         CG.client_controller.sub( self, 'ZoomOut', 'canvas_zoom_out' )
         CG.client_controller.sub( self, 'ZoomSwitch', 'canvas_zoom_switch' )
-        CG.client_controller.sub( self, 'OpenExternally', 'canvas_open_externally' )
         CG.client_controller.sub( self, 'ManageTags', 'canvas_manage_tags' )
         CG.client_controller.sub( self, 'update', 'notify_new_colourset' )
         
@@ -378,57 +374,6 @@ class Canvas( CAC.ApplicationCommandProcessorMixin, QW.QWidget ):
         if self._current_media is not None:
             
             CG.client_controller.Write( 'content_updates', ClientContentUpdates.ContentUpdatePackage.STATICCreateFromContentUpdate( CC.COMBINED_LOCAL_FILE_SERVICE_KEY, ClientContentUpdates.ContentUpdate( HC.CONTENT_TYPE_FILES, HC.CONTENT_UPDATE_ARCHIVE, ( self._current_media.GetHash(), ) ) ) )
-            
-        
-    
-    def _CopyBMPToClipboard( self, resolution = None ):
-        
-        copied = False
-        
-        if self._current_media is not None:
-            
-            if self._current_media.IsStaticImage():
-                
-                CG.client_controller.pub( 'clipboard', 'bmp', ( self._current_media, resolution ) )
-                
-                copied = True
-                
-            
-        
-        return copied
-        
-    
-    def _CopyHashToClipboard( self, hash_type ):
-        
-        if self._current_media is None:
-            
-            return
-            
-        
-        ClientGUIMedia.CopyHashesToClipboard( self, hash_type, [ self._current_media ] )
-        
-    
-    def _CopyFileToClipboard( self ):
-        
-        if self._current_media is not None:
-            
-            client_files_manager = CG.client_controller.client_files_manager
-            
-            paths = [ client_files_manager.GetFilePath( self._current_media.GetHash(), self._current_media.GetMime() ) ]
-            
-            CG.client_controller.pub( 'clipboard', 'paths', paths )
-            
-        
-    
-    def _CopyPathToClipboard( self ):
-        
-        if self._current_media is not None:
-            
-            client_files_manager = CG.client_controller.client_files_manager
-            
-            path = client_files_manager.GetFilePath( self._current_media.GetHash(), self._current_media.GetMime() )
-            
-            CG.client_controller.pub( 'clipboard', 'text', path )
             
         
     
@@ -529,7 +474,7 @@ class Canvas( CAC.ApplicationCommandProcessorMixin, QW.QWidget ):
             return
             
         
-        ClientGUIMediaActions.EditFileNotes( self, self._current_media, name_to_start_on = name_to_start_on )
+        ClientGUIMediaModalActions.EditFileNotes( self, self._current_media, name_to_start_on = name_to_start_on )
         
     
     def _ManageRatings( self ):
@@ -594,7 +539,7 @@ class Canvas( CAC.ApplicationCommandProcessorMixin, QW.QWidget ):
             return
             
         
-        ClientGUIMediaActions.EditFileTimestamps( self, [ self._current_media ] )
+        ClientGUIMediaModalActions.EditFileTimestamps( self, [ self._current_media ] )
         
     
     def _ManageURLs( self ):
@@ -623,59 +568,9 @@ class Canvas( CAC.ApplicationCommandProcessorMixin, QW.QWidget ):
             return
             
         
-        mime = self._current_media.GetMime()
-        
         if self._current_media.HasDuration():
             
             self._media_container.Pause()
-            
-        
-    
-    def _OpenExternally( self ):
-        
-        if self._current_media is None:
-            
-            return
-            
-        
-        hash = self._current_media.GetHash()
-        mime = self._current_media.GetMime()
-        
-        client_files_manager = CG.client_controller.client_files_manager
-        
-        path = client_files_manager.GetFilePath( hash, mime )
-        
-        launch_path = self._new_options.GetMimeLaunch( mime )
-        
-        HydrusPaths.LaunchFile( path, launch_path )
-        
-        self._MediaFocusWentToExternalProgram()
-        
-    
-    def _OpenFileInWebBrowser( self ):
-        
-        if self._current_media is not None:
-            
-            hash = self._current_media.GetHash()
-            mime = self._current_media.GetMime()
-            
-            client_files_manager = CG.client_controller.client_files_manager
-            
-            path = client_files_manager.GetFilePath( hash, mime )
-            
-            ClientPaths.LaunchPathInWebBrowser( path )
-            
-            self._MediaFocusWentToExternalProgram()
-            
-        
-    
-    def _OpenFileLocation( self ):
-        
-        if self._current_media is not None:
-            
-            ClientGUIMedia.OpenFileLocation( self._current_media )
-            
-            self._MediaFocusWentToExternalProgram()
             
         
     
@@ -683,7 +578,7 @@ class Canvas( CAC.ApplicationCommandProcessorMixin, QW.QWidget ):
         
         if self._current_media is not None:
             
-            ClientGUIMedia.DoOpenKnownURLFromShortcut( self, self._current_media )
+            ClientGUIMediaModalActions.DoOpenKnownURLFromShortcut( self, self._current_media )
             
         
     
@@ -743,7 +638,7 @@ class Canvas( CAC.ApplicationCommandProcessorMixin, QW.QWidget ):
             return
             
         
-        ClientGUIMediaActions.UndeleteMedia( self, ( self._current_media, ) )
+        ClientGUIMediaModalActions.UndeleteMedia( self, (self._current_media,) )
         
     
     def CleanBeforeDestroy( self ):
@@ -844,14 +739,6 @@ class Canvas( CAC.ApplicationCommandProcessorMixin, QW.QWidget ):
             
         
     
-    def OpenExternally( self, canvas_key ):
-        
-        if self._canvas_key == canvas_key:
-            
-            self._OpenExternally()
-            
-        
-    
     def paintEvent( self, event ):
         
         painter = QG.QPainter( self )
@@ -900,67 +787,66 @@ class Canvas( CAC.ApplicationCommandProcessorMixin, QW.QWidget ):
                 
                 self._Archive()
                 
-            elif action in ( CAC.SIMPLE_COPY_BMP, CAC.SIMPLE_COPY_BMP_OR_FILE_IF_NOT_BMPABLE, CAC.SIMPLE_COPY_LITTLE_BMP ):
+            elif action == CAC.SIMPLE_COPY_FILE_BITMAP:
                 
                 if self._current_media is None:
                     
                     return
                     
                 
-                copied = False
+                bitmap_type = command.GetSimpleData()
                 
-                if self._current_media.IsStaticImage():
+                ClientGUIMediaSimpleActions.CopyMediaBitmap( self._current_media, bitmap_type )
+                
+            elif action == CAC.SIMPLE_COPY_FILES:
+                
+                if self._current_media is not None:
                     
-                    ( width, height ) = self._current_media.GetResolution()
+                    ClientGUIMediaSimpleActions.CopyFilesToClipboard( [ self._current_media ] )
                     
-                    if width is not None and height is not None:
+                
+            elif action == CAC.SIMPLE_COPY_FILE_ID:
+                
+                if self._current_media is not None:
+                    
+                    ClientGUIMediaSimpleActions.CopyFileIdsToClipboard( [ self._current_media ] )
+                    
+                
+            elif action == CAC.SIMPLE_COPY_FILE_PATHS:
+                
+                if self._current_media is not None:
+                    
+                    ClientGUIMediaSimpleActions.CopyFilePathsToClipboard( [ self._current_media ] )
+                    
+                
+            elif action == CAC.SIMPLE_COPY_FILE_HASHES:
+                
+                ( file_command_target, hash_type ) = command.GetSimpleData()
+                
+                if file_command_target in ( CAC.FILE_COMMAND_TARGET_FOCUSED_FILE, CAC.FILE_COMMAND_TARGET_SELECTED_FILES ):
+                    
+                    if self._current_media is not None:
                         
-                        if action == CAC.SIMPLE_COPY_LITTLE_BMP and ( width > 1024 or height > 1024 ):
-                            
-                            target_resolution = HydrusImageHandling.GetThumbnailResolution( self._current_media.GetResolution(), ( 1024, 1024 ), HydrusImageHandling.THUMBNAIL_SCALE_TO_FIT, 100 )
-                            
-                            copied = self._CopyBMPToClipboard( resolution = target_resolution )
-                            
-                        else:
-                            
-                            copied = self._CopyBMPToClipboard()
-                            
+                        ClientGUIMediaModalActions.CopyHashesToClipboard( self, hash_type, [ self._current_media ] )
                         
                     
-                if action == CAC.SIMPLE_COPY_BMP_OR_FILE_IF_NOT_BMPABLE and not copied:
+                
+            elif action == CAC.SIMPLE_COPY_FILE_SERVICE_FILENAMES:
+                
+                hacky_ipfs_dict = command.GetSimpleData()
+                
+                ipfs_service_key = hacky_ipfs_dict[ 'ipfs_service_key' ]
+                
+                if self._current_media is not None:
                     
-                    self._CopyFileToClipboard()
+                    ClientGUIMediaSimpleActions.CopyServiceFilenamesToClipboard( ipfs_service_key, [ self._current_media ] )
                     
-                
-            elif action == CAC.SIMPLE_COPY_FILE:
-                
-                self._CopyFileToClipboard()
-                
-            elif action == CAC.SIMPLE_COPY_PATH:
-                
-                self._CopyPathToClipboard()
-                
-            elif action == CAC.SIMPLE_COPY_SHA256_HASH:
-                
-                self._CopyHashToClipboard( 'sha256' )
-                
-            elif action == CAC.SIMPLE_COPY_MD5_HASH:
-                
-                self._CopyHashToClipboard( 'md5' )
-                
-            elif action == CAC.SIMPLE_COPY_SHA1_HASH:
-                
-                self._CopyHashToClipboard( 'sha1' )
-                
-            elif action == CAC.SIMPLE_COPY_SHA512_HASH:
-                
-                self._CopyHashToClipboard( 'sha512' )
                 
             elif action == CAC.SIMPLE_COPY_URLS:
                 
                 if self._current_media is not None:
                     
-                    ClientGUIMedia.CopyMediaURLs( [ self._current_media ] )
+                    ClientGUIMediaSimpleActions.CopyMediaURLs( [ self._current_media ] )
                     
                 
             elif action == CAC.SIMPLE_DELETE_FILE:
@@ -977,11 +863,72 @@ class Canvas( CAC.ApplicationCommandProcessorMixin, QW.QWidget ):
                 
             elif action == CAC.SIMPLE_OPEN_FILE_IN_EXTERNAL_PROGRAM:
                 
-                self._OpenExternally()
+                it_worked = ClientGUIMediaSimpleActions.OpenExternally( self._current_media )
+                
+                if it_worked:
+                    
+                    self._MediaFocusWentToExternalProgram()
+                    
                 
             elif action == CAC.SIMPLE_OPEN_FILE_IN_FILE_EXPLORER:
                 
-                self._OpenFileLocation()
+                it_worked = ClientGUIMediaSimpleActions.OpenFileLocation( self._current_media )
+                
+                if it_worked:
+                    
+                    self._MediaFocusWentToExternalProgram()
+                    
+                
+            elif action == CAC.SIMPLE_OPEN_FILE_IN_WEB_BROWSER:
+                
+                it_worked = ClientGUIMediaSimpleActions.OpenInWebBrowser( self._current_media )
+                
+                if it_worked:
+                    
+                    self._MediaFocusWentToExternalProgram()
+                    
+                
+            elif action == CAC.SIMPLE_OPEN_SELECTION_IN_NEW_PAGE:
+                
+                if self._current_media is not None:
+                    
+                    hash = self._current_media.GetHash()
+                    
+                    ClientGUIMediaSimpleActions.ShowFilesInNewPage( [ hash ], self._location_context )
+                    
+                    self._MediaFocusWentToExternalProgram()
+                    
+                
+            elif action == CAC.SIMPLE_OPEN_SELECTION_IN_NEW_DUPLICATES_FILTER_PAGE:
+                
+                if self._current_media is not None:
+                    
+                    hash = self._current_media.GetHash()
+                    
+                    ClientGUIMediaSimpleActions.ShowFilesInNewDuplicatesFilterPage( [ hash ], self._location_context )
+                    
+                    self._MediaFocusWentToExternalProgram()
+                    
+                
+            elif action == CAC.SIMPLE_OPEN_SIMILAR_LOOKING_FILES:
+                
+                if self._current_media is not None:
+                    
+                    hamming_distance = command.GetSimpleData()
+                    
+                    ClientGUIMediaSimpleActions.ShowSimilarFilesInNewPage( [ self._current_media ], self._location_context, hamming_distance )
+                    
+                
+            elif action in ( CAC.SIMPLE_EXPORT_FILES, CAC.SIMPLE_EXPORT_FILES_QUICK_AUTO_EXPORT ):
+                
+                do_export_and_then_quit = action == CAC.SIMPLE_EXPORT_FILES_QUICK_AUTO_EXPORT
+                
+                if self._current_media is not None:
+                    
+                    medias = [ self._current_media ]
+                    
+                    ClientGUIMediaModalActions.ExportFiles( self, medias, do_export_and_then_quit = do_export_and_then_quit )
+                    
                 
             elif action == CAC.SIMPLE_PAN_UP:
                 
@@ -1019,7 +966,7 @@ class Canvas( CAC.ApplicationCommandProcessorMixin, QW.QWidget ):
                     
                     duplicate_type = command.GetSimpleData()
                     
-                    ClientGUIMedia.ShowDuplicatesInNewPage( self._location_context, hash, duplicate_type )
+                    ClientGUIMediaSimpleActions.ShowDuplicatesInNewPage( self._location_context, hash, duplicate_type )
                     
                 
             elif action == CAC.SIMPLE_DUPLICATE_MEDIA_CLEAR_FOCUSED_FALSE_POSITIVES:
@@ -1207,7 +1154,7 @@ class Canvas( CAC.ApplicationCommandProcessorMixin, QW.QWidget ):
                 return
                 
             
-            command_processed = ClientGUIMediaActions.ApplyContentApplicationCommandToMedia( self, command, ( self._current_media, ) )
+            command_processed = ClientGUIMediaModalActions.ApplyContentApplicationCommandToMedia( self, command, (self._current_media,) )
             
         else:
             
@@ -1463,7 +1410,7 @@ class CanvasPanel( Canvas ):
             
             ClientGUIMediaMenus.AddPrettyInfoLines( info_menu, info_lines )
             
-            ClientGUIMediaMenus.AddFileViewingStatsMenu( info_menu, ( self._current_media, ) )
+            ClientGUIMediaMenus.AddFileViewingStatsMenu( info_menu, (self._current_media,) )
             
             ClientGUIMenus.AppendMenu( menu, info_menu, top_line )
             
@@ -1533,7 +1480,7 @@ class CanvasPanel( Canvas ):
             ClientGUIMenus.AppendMenuItem( manage_menu, notes_str, 'Manage this file\'s notes.', self._ManageNotes )
             
             ClientGUIMenus.AppendMenuItem( manage_menu, 'times', 'Edit the timestamps for your files.', self._ManageTimestamps )
-            ClientGUIMenus.AppendMenuItem( manage_menu, 'force filetype', 'Force your files to appear as a different filetype.', ClientGUIMediaActions.SetFilesForcedFiletypes, self, [ self._current_media ] )
+            ClientGUIMenus.AppendMenuItem( manage_menu, 'force filetype', 'Force your files to appear as a different filetype.', ClientGUIMediaModalActions.SetFilesForcedFiletypes, self, [ self._current_media ] )
             
             ClientGUIMediaMenus.AddManageFileViewingStatsMenu( self, manage_menu, [ self._current_media ] )
             
@@ -1541,74 +1488,9 @@ class CanvasPanel( Canvas ):
             
             ClientGUIMediaMenus.AddKnownURLsViewCopyMenu( self, menu, self._current_media )
             
-            open_menu = ClientGUIMenus.GenerateMenu( menu )
+            ClientGUIMediaMenus.AddOpenMenu( self, menu, self._current_media, [ self._current_media ] )
             
-            ClientGUIMenus.AppendMenuItem( open_menu, 'in external program', 'Open this file in your OS\'s default program.', self._OpenExternally )
-            ClientGUIMenus.AppendMenuItem( open_menu, 'in a new page', 'Show your current media in a simple new page.', self._ShowMediaInNewPage )
-            ClientGUIMenus.AppendMenuItem( open_menu, 'in web browser', 'Show this file in your OS\'s web browser.', self._OpenFileInWebBrowser )
-            
-            show_open_in_explorer = advanced_mode and ( HC.PLATFORM_WINDOWS or HC.PLATFORM_MACOS )
-            
-            if show_open_in_explorer:
-                
-                ClientGUIMenus.AppendMenuItem( open_menu, 'in file browser', 'Show this file in your OS\'s file browser.', self._OpenFileLocation )
-                
-            
-            ClientGUIMenus.AppendMenu( menu, open_menu, 'open' )
-            
-            share_menu = ClientGUIMenus.GenerateMenu( menu )
-            
-            copy_menu = ClientGUIMenus.GenerateMenu( share_menu )
-
-            ClientGUIMenus.AppendMenuItem( copy_menu, 'file', 'Copy this file to your clipboard.', self._CopyFileToClipboard )
-            
-            copy_hash_menu = ClientGUIMenus.GenerateMenu( copy_menu )
-
-            ClientGUIMenus.AppendMenuItem( copy_hash_menu, 'sha256 ({})'.format( self._current_media.GetHash().hex() ), 'Copy this file\'s SHA256 hash.', self._CopyHashToClipboard, 'sha256' )
-            ClientGUIMenus.AppendMenuItem( copy_hash_menu, 'md5', 'Copy this file\'s MD5 hash.', self._CopyHashToClipboard, 'md5' )
-            ClientGUIMenus.AppendMenuItem( copy_hash_menu, 'sha1', 'Copy this file\'s SHA1 hash.', self._CopyHashToClipboard, 'sha1' )
-            ClientGUIMenus.AppendMenuItem( copy_hash_menu, 'sha512', 'Copy this file\'s SHA512 hash.', self._CopyHashToClipboard, 'sha512' )
-            
-            file_info_manager = self._current_media.GetFileInfoManager()
-            
-            if file_info_manager.blurhash is not None:
-                
-                ClientGUIMenus.AppendMenuItem( copy_hash_menu, f'blurhash ({file_info_manager.blurhash})', 'Copy this file\'s blurhash.', self._CopyHashToClipboard, 'blurhash' )
-                
-            
-            if file_info_manager.pixel_hash is not None:
-                
-                ClientGUIMenus.AppendMenuItem( copy_hash_menu, f'pixel ({file_info_manager.pixel_hash.hex()})', 'Copy this file\'s pixel hash.', self._CopyHashToClipboard, 'pixel_hash' )
-                
-            
-            ClientGUIMenus.AppendMenu( copy_menu, copy_hash_menu, 'hash' )
-            
-            if advanced_mode:
-                
-                hash_id_str = str( self._current_media.GetHashId() )
-                
-                ClientGUIMenus.AppendMenuItem( copy_menu, 'file_id ({})'.format( hash_id_str ), 'Copy this file\'s internal file/hash_id.', CG.client_controller.pub, 'clipboard', 'text', hash_id_str )
-                
-            
-            if self._current_media.IsStaticImage():
-                
-                ClientGUIMenus.AppendMenuItem( copy_menu, 'bitmap', 'Copy this file to your clipboard as a bitmap.', self._CopyBMPToClipboard )
-
-                ( width, height ) = self._current_media.GetResolution()
-                
-                if width is not None and height is not None and ( width > 1024 or height > 1024 ):
-                    
-                    target_resolution = HydrusImageHandling.GetThumbnailResolution( self._current_media.GetResolution(), ( 1024, 1024 ), HydrusImageHandling.THUMBNAIL_SCALE_TO_FIT, 100 )
-                    
-                    ClientGUIMenus.AppendMenuItem( copy_menu, 'source lookup bitmap ({}x{})'.format( target_resolution[0], target_resolution[1] ), 'Copy a smaller bitmap of this file, for quicker lookup on source-finding websites.', self._CopyBMPToClipboard, target_resolution )
-                    
-                
-
-            ClientGUIMenus.AppendMenuItem( copy_menu, 'path', 'Copy this file\'s path to your clipboard.', self._CopyPathToClipboard )
-            
-            ClientGUIMenus.AppendMenu( share_menu, copy_menu, 'copy' )
-            
-            ClientGUIMenus.AppendMenu( menu, share_menu, 'share' )
+            ClientGUIMediaMenus.AddShareMenu( self, menu, self._current_media, [ self._current_media ] )
             
         
         CGC.core().PopupMenu( self, menu )
@@ -3092,7 +2974,7 @@ class CanvasFilterDuplicates( CanvasWithHovers ):
                     
                     label = 'commit {} and continue?'.format( ' and '.join( components ) )
                     
-                    result = ClientGUIDialogsQuick.GetInterstitialFilteringAnswer( self, label )
+                    result = ClientGUIScrolledPanelsCommitFiltering.GetInterstitialFilteringAnswer( self, label )
                     
                     if result == QW.QDialog.Accepted:
                         
@@ -3391,7 +3273,7 @@ class CanvasFilterDuplicates( CanvasWithHovers ):
             
             label = 'commit {}?'.format( ' and '.join( components ) )
             
-            ( result, cancelled ) = ClientGUIDialogsQuick.GetFinishFilteringAnswer( self, label )
+            ( result, cancelled ) = ClientGUIScrolledPanelsCommitFiltering.GetFinishFilteringAnswer( self, label )
             
             if cancelled:
                 
@@ -3696,10 +3578,11 @@ class CanvasMediaList( ClientMedia.ListeningMediaList, CanvasWithHovers ):
             
         
     
-def CommitArchiveDelete( page_key: bytes, location_context: ClientLocation.LocationContext, kept: typing.Collection[ ClientMedia.MediaSingleton ], deleted: typing.Collection[ ClientMedia.MediaSingleton ] ):
+def CommitArchiveDelete( page_key: bytes, location_context: ClientLocation.LocationContext, kept: typing.Collection[ ClientMedia.MediaSingleton ], deleted: typing.Collection[ ClientMedia.MediaSingleton ], skipped: typing.Collection[ ClientMedia.MediaSingleton ] ):
     
     kept = list( kept )
     deleted = list( deleted )
+    skipped = list( skipped )
     
     kept_hashes = [ m.GetHash() for m in kept ]
     deleted_hashes = [ m.GetHash() for m in deleted ]
@@ -3710,6 +3593,13 @@ def CommitArchiveDelete( page_key: bytes, location_context: ClientLocation.Locat
         
         all_hashes.update( kept_hashes )
         all_hashes.update( deleted_hashes )
+        
+        if CG.client_controller.new_options.GetBoolean( 'remove_filtered_files_even_when_skipped' ):
+            
+            skipped_hashes = [ m.GetHash() for m in skipped ]
+            
+            all_hashes.update( skipped_hashes )
+            
         
         CG.client_controller.pub( 'remove_media', page_key, all_hashes )
         
@@ -3782,6 +3672,7 @@ class CanvasMediaListFilterArchiveDelete( CanvasMediaList ):
         
         self._kept = set()
         self._deleted = set()
+        self._skipped = set()
         
         CG.client_controller.sub( self, 'Delete', 'canvas_delete' )
         CG.client_controller.sub( self, 'Undelete', 'canvas_undelete' )
@@ -3806,6 +3697,7 @@ class CanvasMediaListFilterArchiveDelete( CanvasMediaList ):
             
             self._kept.discard( self._current_media )
             self._deleted.discard( self._current_media )
+            self._skipped.discard( self._current_media )
             
         
     
@@ -3814,6 +3706,8 @@ class CanvasMediaListFilterArchiveDelete( CanvasMediaList ):
         kept = list( self._kept )
         
         deleted = ClientMediaFileFilter.FilterAndReportDeleteLockFailures( self._deleted )
+        
+        skipped = list( self._skipped )
         
         if len( kept ) > 0 or len( deleted ) > 0:
             
@@ -3864,6 +3758,13 @@ class CanvasMediaListFilterArchiveDelete( CanvasMediaList ):
                 
                 location_contexts_to_present_options_for = HydrusData.DedupeList( location_contexts_to_present_options_for )
                 
+                only_allow_all_media_files = len( location_contexts_to_present_options_for ) > 1 and CG.client_controller.new_options.GetBoolean( 'only_show_delete_from_all_local_domains_when_filtering' ) and True in ( location_context.IsAllMediaFiles() for location_context in location_contexts_to_present_options_for )
+                
+                if only_allow_all_media_files:
+                    
+                    location_contexts_to_present_options_for = [ ClientLocation.LocationContext.STATICCreateSimple( CC.COMBINED_LOCAL_MEDIA_SERVICE_KEY ) ]
+                    
+                
                 for location_context in location_contexts_to_present_options_for:
                     
                     file_service_keys = location_context.current_service_keys
@@ -3892,19 +3793,13 @@ class CanvasMediaListFilterArchiveDelete( CanvasMediaList ):
                     
                 
             
-            ( result, deletee_location_context, cancelled ) = ClientGUIDialogsQuick.GetFinishArchiveDeleteFilteringAnswer( self, kept_label, deletion_options )
+            ( result, deletee_location_context, cancelled ) = ClientGUIScrolledPanelsCommitFiltering.GetFinishArchiveDeleteFilteringAnswer( self, kept_label, deletion_options )
             
             if cancelled:
                 
-                if self._current_media in self._kept:
-                    
-                    self._kept.remove( self._current_media )
-                    
-                
-                if self._current_media in self._deleted:
-                    
-                    self._deleted.remove( self._current_media )
-                    
+                self._kept.discard( self._current_media )
+                self._deleted.discard( self._current_media )
+                self._skipped.discard( self._current_media )
                 
                 return False
                 
@@ -3912,10 +3807,11 @@ class CanvasMediaListFilterArchiveDelete( CanvasMediaList ):
                 
                 self._kept = set()
                 self._deleted = set()
+                self._skipped = set()
                 
                 self._current_media = self._GetFirst() # so the pubsub on close is better
                 
-                CG.client_controller.CallToThread( CommitArchiveDelete, self._page_key, deletee_location_context, kept, deleted )
+                CG.client_controller.CallToThread( CommitArchiveDelete, self._page_key, deletee_location_context, kept, deleted, skipped )
                 
             
         
@@ -3972,6 +3868,8 @@ class CanvasMediaListFilterArchiveDelete( CanvasMediaList ):
         
     
     def _Skip( self ):
+        
+        self._skipped.add( self._current_media )
         
         if self._current_media == self._GetLast():
             
@@ -4539,7 +4437,7 @@ class CanvasMediaListBrowser( CanvasMediaListNavigable ):
             
             ClientGUIMenus.AppendSeparator( info_menu )
             
-            ClientGUIMediaMenus.AddFileViewingStatsMenu( info_menu, ( self._current_media, ) )
+            ClientGUIMediaMenus.AddFileViewingStatsMenu( info_menu, (self._current_media,) )
             
             filetype_summary = ClientMedia.GetMediasFiletypeSummaryString( [ self._current_media ] )
             size_summary = HydrusData.ToHumanBytes( self._current_media.GetSize() )
@@ -4683,88 +4581,30 @@ class CanvasMediaListBrowser( CanvasMediaListNavigable ):
             ClientGUIMenus.AppendMenuItem( manage_menu, notes_str, 'Manage this file\'s notes.', self._ManageNotes )
             
             ClientGUIMenus.AppendMenuItem( manage_menu, 'times', 'Edit the timestamps for your files.', self._ManageTimestamps )
-            ClientGUIMenus.AppendMenuItem( manage_menu, 'force filetype', 'Force your files to appear as a different filetype.', ClientGUIMediaActions.SetFilesForcedFiletypes, self, [ self._current_media ] )
+            ClientGUIMenus.AppendMenuItem( manage_menu, 'force filetype', 'Force your files to appear as a different filetype.', ClientGUIMediaModalActions.SetFilesForcedFiletypes, self, [ self._current_media ] )
             
             ClientGUIMediaMenus.AddManageFileViewingStatsMenu( self, manage_menu, [ self._current_media ] )
             
             ClientGUIMenus.AppendMenu( menu, manage_menu, 'manage' )
             
-            ( local_duplicable_to_file_service_keys, local_moveable_from_and_to_file_service_keys ) = ClientGUIMediaActions.GetLocalFileActionServiceKeys( ( self._current_media, ) )
+            ( local_duplicable_to_file_service_keys, local_moveable_from_and_to_file_service_keys ) = ClientGUIMediaSimpleActions.GetLocalFileActionServiceKeys( (self._current_media,) )
             
             multiple_selected = False
             
-            ClientGUIMediaMenus.AddLocalFilesMoveAddToMenu( self, menu, local_duplicable_to_file_service_keys, local_moveable_from_and_to_file_service_keys, multiple_selected, self.ProcessApplicationCommand )
+            if len( local_duplicable_to_file_service_keys ) > 0 or len( local_moveable_from_and_to_file_service_keys ) > 0:
+                
+                files_menu = ClientGUIMenus.GenerateMenu( menu )
+                
+                ClientGUIMediaMenus.AddLocalFilesMoveAddToMenu( self, files_menu, local_duplicable_to_file_service_keys, local_moveable_from_and_to_file_service_keys, multiple_selected, self.ProcessApplicationCommand )
+                
+                ClientGUIMenus.AppendMenu( menu, files_menu, 'files' )
+                
             
             ClientGUIMediaMenus.AddKnownURLsViewCopyMenu( self, menu, self._current_media )
             
-            open_menu = ClientGUIMenus.GenerateMenu( menu )
+            ClientGUIMediaMenus.AddOpenMenu( self, menu, self._current_media, [ self._current_media ] )
             
-            ClientGUIMenus.AppendMenuItem( open_menu, 'in external program', 'Open this file in the default external program.', self._OpenExternally )
-            ClientGUIMenus.AppendMenuItem( open_menu, 'in a new page', 'Show your current media in a simple new page.', self._ShowMediaInNewPage )
-            ClientGUIMenus.AppendMenuItem( open_menu, 'in web browser', 'Show this file in your OS\'s web browser.', self._OpenFileInWebBrowser )
-            
-            show_open_in_explorer = advanced_mode and ( HC.PLATFORM_WINDOWS or HC.PLATFORM_MACOS )
-            
-            if show_open_in_explorer:
-                
-                ClientGUIMenus.AppendMenuItem( open_menu, 'in file browser', 'Show this file in your OS\'s file browser.', self._OpenFileLocation )
-                
-            
-            ClientGUIMenus.AppendMenu( menu, open_menu, 'open' )
-            
-            share_menu = ClientGUIMenus.GenerateMenu( menu )
-            
-            copy_menu = ClientGUIMenus.GenerateMenu( share_menu )
-
-            ClientGUIMenus.AppendMenuItem( copy_menu, 'file', 'Copy this file to your clipboard.', self._CopyFileToClipboard )
-            
-            copy_hash_menu = ClientGUIMenus.GenerateMenu( copy_menu )
-
-            ClientGUIMenus.AppendMenuItem( copy_hash_menu, 'sha256 ({})'.format( self._current_media.GetHash().hex() ), 'Copy this file\'s SHA256 hash to your clipboard.', self._CopyHashToClipboard, 'sha256' )
-            ClientGUIMenus.AppendMenuItem( copy_hash_menu, 'md5', 'Copy this file\'s MD5 hash to your clipboard.', self._CopyHashToClipboard, 'md5' )
-            ClientGUIMenus.AppendMenuItem( copy_hash_menu, 'sha1', 'Copy this file\'s SHA1 hash to your clipboard.', self._CopyHashToClipboard, 'sha1' )
-            ClientGUIMenus.AppendMenuItem( copy_hash_menu, 'sha512', 'Copy this file\'s SHA512 hash to your clipboard.', self._CopyHashToClipboard, 'sha512' )
-            
-            file_info_manager = self._current_media.GetFileInfoManager()
-            
-            if file_info_manager.blurhash is not None:
-                
-                ClientGUIMenus.AppendMenuItem( copy_hash_menu, f'blurhash ({file_info_manager.blurhash})', 'Copy this file\'s blurhash.', self._CopyHashToClipboard, 'blurhash' )
-                
-            
-            if file_info_manager.pixel_hash is not None:
-                
-                ClientGUIMenus.AppendMenuItem( copy_hash_menu, f'pixel ({file_info_manager.pixel_hash.hex()})', 'Copy this file\'s pixel hash.', self._CopyHashToClipboard, 'pixel_hash' )
-                
-            
-            ClientGUIMenus.AppendMenu( copy_menu, copy_hash_menu, 'hash' )
-            
-            if advanced_mode:
-                
-                hash_id_str = str( self._current_media.GetHashId() )
-                
-                ClientGUIMenus.AppendMenuItem( copy_menu, 'file_id ({})'.format( hash_id_str ), 'Copy this file\'s internal file/hash_id.', CG.client_controller.pub, 'clipboard', 'text', hash_id_str )
-                
-            
-            if self._current_media.IsStaticImage():
-                
-                ClientGUIMenus.AppendMenuItem( copy_menu, 'bitmap', 'Copy this file to your clipboard as a bitmap.', self._CopyBMPToClipboard )
-                
-                ( width, height ) = self._current_media.GetResolution()
-                
-                if width is not None and height is not None and ( width > 1024 or height > 1024 ):
-                    
-                    target_resolution = HydrusImageHandling.GetThumbnailResolution( self._current_media.GetResolution(), ( 1024, 1024 ), HydrusImageHandling.THUMBNAIL_SCALE_TO_FIT, 100 )
-                    
-                    ClientGUIMenus.AppendMenuItem( copy_menu, 'source lookup bitmap ({}x{})'.format( target_resolution[0], target_resolution[1] ), 'Copy a smaller bitmap of this file, for quicker lookup on source-finding websites.', self._CopyBMPToClipboard, target_resolution )
-                    
-                
-
-            ClientGUIMenus.AppendMenuItem( copy_menu, 'path', 'Copy this file\'s path to your clipboard.', self._CopyPathToClipboard )
-            
-            ClientGUIMenus.AppendMenu( share_menu, copy_menu, 'copy' )
-            
-            ClientGUIMenus.AppendMenu( menu, share_menu, 'share' )
+            ClientGUIMediaMenus.AddShareMenu( self, menu, self._current_media, [ self._current_media ] )
             
             CGC.core().PopupMenu( self, menu )
             

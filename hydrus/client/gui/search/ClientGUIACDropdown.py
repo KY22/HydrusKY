@@ -20,8 +20,10 @@ from hydrus.client import ClientConstants as CC
 from hydrus.client import ClientGlobals as CG
 from hydrus.client import ClientLocation
 from hydrus.client import ClientThreading
+from hydrus.client.gui import ClientGUIAsync
 from hydrus.client.gui import ClientGUICore as CGC
 from hydrus.client.gui import ClientGUIDialogsMessage
+from hydrus.client.gui import ClientGUIDialogsQuick
 from hydrus.client.gui import ClientGUIFunctions
 from hydrus.client.gui import ClientGUIMenus
 from hydrus.client.gui import ClientGUIScrolledPanels
@@ -35,6 +37,7 @@ from hydrus.client.gui.search import ClientGUILocation
 from hydrus.client.gui.search import ClientGUISearch
 from hydrus.client.gui.widgets import ClientGUICommon
 from hydrus.client.metadata import ClientTags
+from hydrus.client.metadata import ClientTagSorting
 from hydrus.client.search import ClientSearch
 from hydrus.client.search import ClientSearchAutocomplete
 from hydrus.client.search import ClientSearchParseSystemPredicates
@@ -1547,11 +1550,10 @@ class AutoCompleteDropdownTags( AutoCompleteDropdown ):
         
         self._last_prefetch_job_status = None
         
+        self._current_context_tags = {}
         self._tag_service_key = tag_service_key
         
         AutoCompleteDropdown.__init__( self, parent )
-        
-        tag_service = CG.client_controller.services_manager.GetService( self._tag_service_key )
         
         self._location_context_button = ClientGUILocation.LocationSearchContextButton( self._dropdown_window, location_context, is_paired_with_tag_domain = True )
         self._location_context_button.setMinimumWidth( 20 )
@@ -1567,6 +1569,12 @@ class AutoCompleteDropdownTags( AutoCompleteDropdown ):
         
         self._dropdown_notebook.addTab( self._favourites_list, 'favourites' )
         
+        self._children_list = ListBoxTagsPredicatesAC( self._dropdown_notebook, self.BroadcastChoices, self._float_mode, self._tag_service_key, tag_display_type = ClientTags.TAG_DISPLAY_DISPLAY_ACTUAL, height_num_chars = 4 )
+        self._tags_to_children_cache = dict()
+        self._children_list_needs_updating = True
+        
+        self._dropdown_notebook.addTab( self._children_list, 'children' )
+        
         #
         
         self._location_context_button.locationChanged.connect( self._LocationContextJustChanged )
@@ -1574,6 +1582,8 @@ class AutoCompleteDropdownTags( AutoCompleteDropdown ):
         
         CG.client_controller.sub( self, 'RefreshFavouriteTags', 'notify_new_favourite_tags' )
         CG.client_controller.sub( self, 'NotifyNewServices', 'notify_new_services' )
+        
+        self._dropdown_notebook.currentChanged.connect( self._UpdateChildrenListIfNeeded )
         
     
     def _BroadcastChoices( self, predicates, shift_down ):
@@ -1621,6 +1631,13 @@ class AutoCompleteDropdownTags( AutoCompleteDropdown ):
         self.locationChanged.emit( location_context )
         
         self._SetListDirty()
+        
+    
+    def _NotifyChildrenListNeedsUpdating( self ):
+        
+        self._children_list_needs_updating = True
+        
+        self._UpdateChildrenListIfNeeded()
         
     
     def _SetLocationContext( self, location_context: ClientLocation.LocationContext ):
@@ -1718,6 +1735,10 @@ class AutoCompleteDropdownTags( AutoCompleteDropdown ):
         
         self._search_results_list.SetTagServiceKey( self._tag_service_key )
         self._favourites_list.SetTagServiceKey( self._tag_service_key )
+        self._children_list.SetTagServiceKey( self._tag_service_key )
+        
+        self._tags_to_children_cache = dict()
+        self._NotifyChildrenListNeedsUpdating()
         
         self.tagServiceChanged.emit( self._tag_service_key )
         
@@ -1729,6 +1750,88 @@ class AutoCompleteDropdownTags( AutoCompleteDropdown ):
     def _TakeResponsibilityForEnter( self, shift_down ):
         
         raise NotImplementedError()
+        
+    
+    def _UpdateChildrenListIfNeeded( self ):
+        
+        if self._children_list_needs_updating and self._dropdown_notebook.currentWidget() == self._children_list:
+            
+            tag_service_key = self._tag_service_key
+            context_tags = set( self._current_context_tags )
+            tags_to_children_cache = dict( self._tags_to_children_cache )
+            
+            def work_callable():
+                
+                uncached_context_tags = { tag for tag in context_tags if tag not in tags_to_children_cache }
+                
+                if len( uncached_context_tags ) > 0:
+                    
+                    new_tags_to_children = CG.client_controller.Read( 'tag_descendants_lookup', tag_service_key, uncached_context_tags )
+                    
+                else:
+                    
+                    new_tags_to_children = dict()
+                    
+                
+                child_tags = set()
+                
+                for tag in context_tags:
+                    
+                    if tag in tags_to_children_cache:
+                        
+                        child_tags.update( tags_to_children_cache[ tag ] )
+                        
+                    elif tag in new_tags_to_children:
+                        
+                        child_tags.update( new_tags_to_children[ tag ] )
+                        
+                    
+                
+                child_tags.difference_update( context_tags )
+                
+                return ( tag_service_key, child_tags, new_tags_to_children )
+                
+            
+            def publish_callable( result ):
+                
+                ( job_tag_service_key, child_tags, new_tags_to_children ) = result
+                
+                if job_tag_service_key != self._tag_service_key:
+                    
+                    self._children_list.SetPredicates( [] )
+                    
+                    return
+                    
+                
+                child_tags = list( child_tags )
+                
+                self._tags_to_children_cache.update( new_tags_to_children )
+                
+                tag_sort = ClientTagSorting.TagSort( sort_type = ClientTagSorting.SORT_BY_HUMAN_TAG, sort_order = CC.SORT_ASC )
+                
+                ClientTagSorting.SortTags( tag_sort, child_tags )
+                
+                predicates = [ ClientSearch.Predicate( ClientSearch.PREDICATE_TYPE_TAG, value = tag ) for tag in child_tags ]
+                
+                self._children_list.SetPredicates( predicates, preserve_single_selection = True )
+                
+                self._children_list_needs_updating = False
+                
+            
+            def errback_callable( etype, value, tb ):
+                
+                self._children_list.SetPredicates( [] )
+                
+                self._children_list_needs_updating = False
+                
+                HydrusData.ShowText( 'Trying to load some child tags failed, please send this to hydev:' )
+                HydrusData.ShowExceptionTuple( etype, value, tb, do_wait = False )
+                
+            
+            job = ClientGUIAsync.AsyncQtJob( self, work_callable, publish_callable, errback_callable = errback_callable )
+            
+            job.start()
+            
         
     
     def GetLocationContext( self ) -> ClientLocation.LocationContext:
@@ -1793,6 +1896,16 @@ class AutoCompleteDropdownTags( AutoCompleteDropdown ):
             
         
     
+    def SetContextTags( self, tags: typing.Collection[ str ] ):
+        """
+        The search context or the taglist we are editing just changed, so let's tell anything in here that wants to filter or do lookups based on that.
+        """
+        
+        self._current_context_tags = set( tags )
+        
+        self._NotifyChildrenListNeedsUpdating()
+        
+    
     def SetTagServiceKey( self, tag_service_key ):
         
         self._SetTagService( tag_service_key )
@@ -1803,7 +1916,7 @@ class AutoCompleteDropdownTagsRead( AutoCompleteDropdownTags ):
     searchChanged = QC.Signal( ClientSearch.FileSearchContext )
     searchCancelled = QC.Signal()
     
-    def __init__( self, parent: QW.QWidget, page_key, file_search_context: ClientSearch.FileSearchContext, media_sort_widget: typing.Optional[ ClientGUIResultsSortCollect.MediaSortControl ] = None, media_collect_widget: typing.Optional[ ClientGUIResultsSortCollect.MediaCollectControl ] = None, media_callable = None, synchronised = True, include_unusual_predicate_types = True, allow_all_known_files = True, force_system_everything = False, hide_favourites_edit_actions = False, fixed_results_list_height = None ):
+    def __init__( self, parent: QW.QWidget, page_key, file_search_context: ClientSearch.FileSearchContext, media_sort_widget: typing.Optional[ ClientGUIResultsSortCollect.MediaSortControl ] = None, media_collect_widget: typing.Optional[ ClientGUIResultsSortCollect.MediaCollectControl ] = None, media_callable = None, synchronised = True, include_unusual_predicate_types = True, allow_all_known_files = True, only_allow_local_file_domains = False, force_system_everything = False, hide_favourites_edit_actions = False, fixed_results_list_height = None ):
         
         self._page_key = page_key
         
@@ -1832,15 +1945,16 @@ class AutoCompleteDropdownTagsRead( AutoCompleteDropdownTags ):
         
         AutoCompleteDropdownTags.__init__( self, parent, location_context, tag_context.service_key )
         
+        self._location_context_button.SetOnlyLocalFileDomainsAllowed( only_allow_local_file_domains )
         self._location_context_button.SetAllKnownFilesAllowed( allow_all_known_files, True )
         
         #
         
         self._paste_button = ClientGUICommon.BetterBitmapButton( self._text_input_panel, CC.global_pixmaps().paste, self._Paste )
-        self._paste_button.setToolTip( 'You can paste a newline-separated list of regular tags and/or system predicates.' )
+        self._paste_button.setToolTip( ClientGUIFunctions.WrapToolTip( 'You can paste a newline-separated list of regular tags and/or system predicates.' ) )
         
         self._favourite_searches_button = ClientGUICommon.BetterBitmapButton( self._text_input_panel, CC.global_pixmaps().star, self._FavouriteSearchesMenu )
-        self._favourite_searches_button.setToolTip( 'Load or save a favourite search.' )
+        self._favourite_searches_button.setToolTip( ClientGUIFunctions.WrapToolTip( 'Load or save a favourite search.' ) )
         
         self._cancel_search_button = ClientGUICommon.BetterBitmapButton( self._text_input_panel, CC.global_pixmaps().stop, self.searchCancelled.emit )
         
@@ -1853,15 +1967,15 @@ class AutoCompleteDropdownTagsRead( AutoCompleteDropdownTags ):
         #
         
         self._include_current_tags = ClientGUICommon.OnOffButton( self._dropdown_window, on_label = 'include current tags', off_label = 'exclude current tags', start_on = tag_context.include_current_tags )
-        self._include_current_tags.setToolTip( 'select whether to include current tags in the search' )
+        self._include_current_tags.setToolTip( ClientGUIFunctions.WrapToolTip( 'select whether to include current tags in the search' ) )
         self._include_pending_tags = ClientGUICommon.OnOffButton( self._dropdown_window, on_label = 'include pending tags', off_label = 'exclude pending tags', start_on = tag_context.include_pending_tags )
-        self._include_pending_tags.setToolTip( 'select whether to include pending tags in the search' )
+        self._include_pending_tags.setToolTip( ClientGUIFunctions.WrapToolTip( 'select whether to include pending tags in the search' ) )
         
         self._search_pause_play = ClientGUICommon.OnOffButton( self._dropdown_window, on_label = 'searching immediately', off_label = 'search paused', start_on = synchronised )
-        self._search_pause_play.setToolTip( 'select whether to renew the search as soon as a new predicate is entered' )
+        self._search_pause_play.setToolTip( ClientGUIFunctions.WrapToolTip( 'select whether to renew the search as soon as a new predicate is entered' ) )
         
         self._or_basic = ClientGUICommon.BetterButton( self._dropdown_window, 'OR', self._CreateNewOR )
-        self._or_basic.setToolTip( 'Create a new empty OR predicate in the dialog.' )
+        self._or_basic.setToolTip( ClientGUIFunctions.WrapToolTip( 'Create a new empty OR predicate in the dialog.' ) )
         
         if not CG.client_controller.new_options.GetBoolean( 'advanced_mode' ):
             
@@ -1869,7 +1983,7 @@ class AutoCompleteDropdownTagsRead( AutoCompleteDropdownTags ):
             
         
         self._or_advanced = ClientGUICommon.BetterButton( self._dropdown_window, 'advanced', self._AdvancedORInput )
-        self._or_advanced.setToolTip( 'You can paste complicated predicate strings in here and it will parse into proper logic.' )
+        self._or_advanced.setToolTip( ClientGUIFunctions.WrapToolTip( 'You can paste complicated predicate strings in here and it will parse into proper logic.' ) )
         
         if not CG.client_controller.new_options.GetBoolean( 'advanced_mode' ):
             
@@ -1877,11 +1991,11 @@ class AutoCompleteDropdownTagsRead( AutoCompleteDropdownTags ):
             
         
         self._or_cancel = ClientGUICommon.BetterBitmapButton( self._dropdown_window, CC.global_pixmaps().delete, self._CancelORConstruction )
-        self._or_cancel.setToolTip( 'Cancel OR Predicate construction.' )
+        self._or_cancel.setToolTip( ClientGUIFunctions.WrapToolTip( 'Cancel OR Predicate construction.' ) )
         self._or_cancel.hide()
         
         self._or_rewind = ClientGUICommon.BetterBitmapButton( self._dropdown_window, CC.global_pixmaps().previous, self._RewindORConstruction )
-        self._or_rewind.setToolTip( 'Rewind OR Predicate construction.' )
+        self._or_rewind.setToolTip( ClientGUIFunctions.WrapToolTip( 'Rewind OR Predicate construction.' ) )
         self._or_rewind.hide()
         
         button_hbox_1 = QP.HBoxLayout()
@@ -1916,6 +2030,12 @@ class AutoCompleteDropdownTagsRead( AutoCompleteDropdownTags ):
         self._include_current_tags.valueChanged.connect( self._IncludeCurrentChanged )
         self._include_pending_tags.valueChanged.connect( self._IncludePendingChanged )
         self._search_pause_play.valueChanged.connect( self._SynchronisedChanged )
+        
+        predicates = self._file_search_context.GetPredicates()
+        
+        tags = [ predicate.GetValue() for predicate in predicates if predicate.GetType() == ClientSearch.PREDICATE_TYPE_TAG ]
+        
+        self.SetContextTags( tags )
         
     
     def _AdvancedORInput( self ):
@@ -2284,7 +2404,7 @@ class AutoCompleteDropdownTagsRead( AutoCompleteDropdownTags ):
             
         except Exception as e:
             
-            ClientGUIFunctions.PresentClipboardParseError( self, raw_text, 'Lines of tags', e )
+            ClientGUIDialogsQuick.PresentClipboardParseError( self, raw_text, 'Lines of tags', e )
             
         
     
@@ -2361,7 +2481,13 @@ class AutoCompleteDropdownTagsRead( AutoCompleteDropdownTags ):
     
     def _NotifyPredicatesBoxChanged( self ):
         
-        self._file_search_context.SetPredicates( self._predicates_listbox.GetPredicates() )
+        predicates = self._predicates_listbox.GetPredicates()
+        
+        self._file_search_context.SetPredicates( predicates )
+        
+        tags = [ predicate.GetValue() for predicate in predicates if predicate.GetType() == ClientSearch.PREDICATE_TYPE_TAG ]
+        
+        self.SetContextTags( tags )
         
         self._SignalNewSearchState()
         
@@ -2844,14 +2970,11 @@ class AutoCompleteDropdownTagsWrite( AutoCompleteDropdownTags ):
     nullEntered = QC.Signal()
     tagsPasted = QC.Signal( list )
     
-    def __init__( self, parent, chosen_tag_callable, location_context, tag_service_key, tag_service_key_changed_callable = None, show_paste_button = False ):
+    def __init__( self, parent, chosen_tag_callable, location_context, tag_service_key, show_paste_button = False ):
         
         self._display_tag_service_key = tag_service_key
         
         self._chosen_tag_callable = chosen_tag_callable
-        self._tag_service_key_changed_callable = tag_service_key_changed_callable
-        
-        service = CG.client_controller.services_manager.GetService( tag_service_key )
         
         tag_autocomplete_options = CG.client_controller.tag_display_manager.GetTagAutocompleteOptions( tag_service_key )
         
@@ -2862,7 +2985,7 @@ class AutoCompleteDropdownTagsWrite( AutoCompleteDropdownTags ):
         self._location_context_button.SetAllKnownFilesAllowed( True, False )
         
         self._paste_button = ClientGUICommon.BetterBitmapButton( self._text_input_panel, CC.global_pixmaps().paste, self._Paste )
-        self._paste_button.setToolTip( 'Paste from the clipboard and quick-enter as if you had typed. This can take multiple newline-separated tags.' )
+        self._paste_button.setToolTip( ClientGUIFunctions.WrapToolTip( 'Paste from the clipboard and quick-enter as if you had typed. This can take multiple newline-separated tags.' ) )
         
         if not show_paste_button:
             
@@ -2894,16 +3017,6 @@ class AutoCompleteDropdownTagsWrite( AutoCompleteDropdownTags ):
             
         
         self._ClearInput()
-        
-    
-    def _TagContextJustChanged( self, tag_context: ClientSearch.TagContext ):
-        
-        it_changed = AutoCompleteDropdownTags._TagContextJustChanged( self, tag_context )
-        
-        if it_changed and self._tag_service_key_changed_callable is not None:
-            
-            self._tag_service_key_changed_callable( self._tag_service_key )
-            
         
     
     def _GetCurrentBroadcastTextPredicate( self ) -> typing.Optional[ ClientSearch.Predicate ]:
@@ -2982,7 +3095,7 @@ class AutoCompleteDropdownTagsWrite( AutoCompleteDropdownTags ):
             
         except Exception as e:
             
-            ClientGUIFunctions.PresentClipboardParseError( self, raw_text, 'Lines of tags', e )
+            ClientGUIDialogsQuick.PresentClipboardParseError( self, raw_text, 'Lines of tags', e )
             
             raise
             
@@ -3089,9 +3202,9 @@ class EditAdvancedORPredicates( ClientGUIScrolledPanels.EditPanel ):
         vbox = QP.VBoxLayout()
         
         summary = 'Enter a complicated tag search here as text, such as \'( blue eyes and blonde hair ) or ( green eyes and red hair )\', and this should turn it into hydrus-compatible search predicates.'
-        summary += os.linesep * 2
+        summary += '\n' * 2
         summary += 'Accepted operators: not (!, -), and (&&), or (||), implies (=>), xor, xnor (iff, <=>), nand, nor. Many system predicates are also supported.'
-        summary += os.linesep * 2
+        summary += '\n' * 2
         summary += 'Parentheses work the usual way. \\ can be used to escape characters (e.g. to search for tags including parentheses)'
         
         st = ClientGUICommon.BetterStaticText( self, summary )
@@ -3222,7 +3335,7 @@ class EditAdvancedORPredicates( ClientGUIScrolledPanels.EditPanel ):
                         
                     
                 
-                output = os.linesep.join( ( pred.ToString() for pred in self._current_predicates ) )
+                output = '\n'.join( ( pred.ToString() for pred in self._current_predicates ) )
                 object_name = 'HydrusValid'
                 
             except ValueError as e:

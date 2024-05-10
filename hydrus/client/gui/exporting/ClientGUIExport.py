@@ -91,9 +91,9 @@ class EditExportFoldersPanel( ClientGUIScrolledPanels.EditPanel ):
         if len( metadata_routers ) > 0:
             
             message = 'You have some default metadata sidecar settings, most likely from a previous file export. They look like this:'
-            message += os.linesep * 2
-            message += os.linesep.join( [ router.ToString( pretty = True ) for router in metadata_routers ] )
-            message += os.linesep * 2
+            message += '\n' * 2
+            message += '\n'.join( [ router.ToString( pretty = True ) for router in metadata_routers ] )
+            message += '\n' * 2
             message += 'Do you want these in the new export folder?'
 
             ( result, cancelled ) = ClientGUIDialogsQuick.GetYesNo( self, message, no_label = 'no, I want an empty sidecar list', check_for_cancelled = True )
@@ -264,7 +264,7 @@ class EditExportFolderPanel( ClientGUIScrolledPanels.EditPanel ):
         
         if HC.PLATFORM_WINDOWS:
             
-            self._export_symlinks.setToolTip( 'You probably need to run hydrus as Admin for this to work on Windows.')
+            self._export_symlinks.setToolTip( ClientGUIFunctions.WrapToolTip( 'You probably need to run hydrus as Admin for this to work on Windows.' ) )
             
         
         #
@@ -569,7 +569,7 @@ class ReviewExportFilesPanel( ClientGUIScrolledPanels.ReviewPanel ):
         
         if HC.PLATFORM_WINDOWS:
             
-            self._export_symlinks.setToolTip( 'You probably need to run hydrus as Admin for this to work on Windows.')
+            self._export_symlinks.setToolTip( ClientGUIFunctions.WrapToolTip( 'You probably need to run hydrus as Admin for this to work on Windows.' ) )
             
         
         metadata_routers = new_options.GetDefaultExportFilesMetadataRouters()
@@ -723,7 +723,7 @@ class ReviewExportFilesPanel( ClientGUIScrolledPanels.ReviewPanel ):
             
             if delete_afterwards:
                 
-                message += os.linesep * 2
+                message += '\n' * 2
                 message += 'THE FILES WILL BE DELETED FROM THE CLIENT AFTERWARDS'
                 
             
@@ -806,7 +806,7 @@ class ReviewExportFilesPanel( ClientGUIScrolledPanels.ReviewPanel ):
                 
             
         
-        def do_it( directory, metadata_routers, delete_afterwards, export_symlinks, quit_afterwards ):
+        def do_it( directory, metadata_routers, delete_afterwards, export_symlinks, quit_afterwards, media_to_number_indices ):
             
             job_status = ClientThreading.JobStatus( cancellable = True )
             
@@ -818,7 +818,7 @@ class ReviewExportFilesPanel( ClientGUIScrolledPanels.ReviewPanel ):
             
             for ( index, ( media, dest_path ) ) in enumerate( to_do ):
                 
-                number = self._media_to_number_indices[ media ]
+                number = media_to_number_indices[ media ]
                 
                 if job_status.IsCancelled():
                     
@@ -881,7 +881,16 @@ class ReviewExportFilesPanel( ClientGUIScrolledPanels.ReviewPanel ):
                     
                 except:
                     
-                    ClientGUIDialogsMessage.ShowCritical( self, 'Problem during file export!', f'Encountered a problem while attempting to export file #{HydrusData.ToHumanInt( number )}:\n\n{traceback.format_exc()}' )
+                    if QP.isValid( self ):
+                        
+                        win = self
+                        
+                    else:
+                        
+                        win = CG.client_controller.gui
+                        
+                    
+                    ClientGUIDialogsMessage.ShowCritical( win, 'Problem during file export!', f'Encountered a problem while attempting to export file #{HydrusData.ToHumanInt( number )}:\n\n{traceback.format_exc()}' )
                     
                     break
                     
@@ -938,7 +947,7 @@ class ReviewExportFilesPanel( ClientGUIScrolledPanels.ReviewPanel ):
             QP.CallAfter( qt_done, quit_afterwards )
             
         
-        CG.client_controller.CallToThread( do_it, directory, metadata_routers, delete_afterwards, export_symlinks, quit_afterwards )
+        CG.client_controller.CallToThread( do_it, directory, metadata_routers, delete_afterwards, export_symlinks, quit_afterwards, self._media_to_number_indices )
         
     
     def _GetPath( self, media ):
