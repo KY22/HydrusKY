@@ -10,7 +10,7 @@ cloudscraper>=1.2.33
 html5lib>=1.0.1
 lxml>=4.5.0
 lz4>=3.0.0
-numpy>=1.16.0
+numpy>=1.16.0,<2.0.0
 olefile>=0.47
 psd-tools>=1.9.28
 Pillow>=10.0.1
@@ -29,6 +29,6 @@ mpv==1.0.6
 requests==2.31.0
 
 QtPy==2.4.1
-PySide6==6.6.0
+PySide6==6.6.3.1
 
 setuptools==69.1.1
