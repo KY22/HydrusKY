@@ -35,6 +35,77 @@
             <h1 id="changelog"><a href="#changelog">changelog</a></h1>
             <ul>
                 <li>
+                    <h2 id="version_582"><a href="#version_582">version 582</a></h2>
+                    <ul>
+                        <li><h3>fixes</h3></li>
+                        <li>fixed an issue where setting a file 'collect' was not automatically sorting the collected objects internally properly. normally when you collect, each collected object is supposed to be sorted internally by filesize or namespace or whatever--this is working again</li>
+                        <li>fixed a weird internal error state in the import folders manager where it could get confused about and throw an error regarding the import folders' next work times if an internal update notification occured during an import folder working</li>
+                        <li>fixed a typo error with the shortcut set 'special duplicate' button</li>
+                        <li>fixed pasting new query texts into the manage subscriptions dialog when one of the pasted texts resurrects a DEAD query. my new summary generation text was handling the DEAD report wrong!</li>
+                        <li><h3>misc</h3></li>
+                        <li>the advanced 'all deleted files' service, which is mostly just used for behind the scenes caching calculations, is renamed to 'deleted from anywhere'. the related 'regen-&gt;all deleted files' database command is also moved to 'check and repair-&gt;sync combined deleted files'</li>
+                        <li>the edit tag filter panel's 'load' button now shows all the current tag repositories' tag filters</li>
+                        <li>when you hit ctrl-enter on some tags (or otherwise trigger a linked remove+add action) in an active search list (e.g. top-left on a search page), which causes those tags to invert and thus sometimes sorted to a different position, the current selection now propagates through the inversion, with the keyboard focus moved to the post-topmost item. so, you can now basically hit ctrl+enter twice for a no-op</li>
+                        <li>fixed the paste button in the new 'purge tags' dialog</li>
+                        <li>thanks to a user, we have a new 'Purple' stylesheet</li>
+                        <li>I tweaked the some default stylesheet colours and think I fixed the display of the 'valid/invalid' controls you sometimes see (for instance in the new regex input, which goes green/red) for dark mode stylesheets that don't define colours for these. previously, the dark mode text, usually a light grey, was being washed out by the default green</li>
+                        <li><h3>custom colours in QSS</h3></li>
+                        <li>you can now set the _options-&gt;colours_ colours in a QSS stylesheet! if you are a stylesheet maker, check the default_hydrus.qss file to see how it works--it is the same deal as the animation scanbar previously</li>
+                        <li>the options in _options-&gt;colours_ remain, but they are now wrapped in a 'overwrite your stylesheet with these colours' checkbox _for now_. existing users are going to be set to 'yes overwrite', so nothing will suddenly change, but new users are going to default to using whatever the current QSS says. in future, I may collapse the light/darkmode distinction into one option set; I may morph it into a "colour highly rated files' thumbnail borders gold" dynamic options system; I may simply delete the whole thing and replace it with in-client QSS editing or something. not sure, so let's see how it goes and how Qt 7's darkmode stuff turns out.</li>
+                        <li>I have pasted the hydrus default darkmode colours into all the other stylesheets that come with the program, so new users selecting a darkmode style are going to get something reasonable out of the box rather than the previous ugly clash. the users who made the original stylesheets are welcome to figure out better colours and send them in</li>
+                        <li>if you are not set to override with the custom colours in _options-&gt;colours_, then hitting _help-&gt;darkmode_ now gives you a popup telling you what is going on</li>
+                        <li><h3>sidecar UI</h3></li>
+                        <li>the four 'edit sidecars' panels (under manual imports, import folders, manual exports, and export folders), which use paths and media as sources respectively, now have test panels to review the current sidecar route you have set up. they use up to 25 rows of example file paths/media from the actual thing you are working on. it provides a live update of what the sources you set up will load, so you know you have the json parse or .txt separator set up correct</li>
+                        <li>for the export folders case, there is a button in the panel 'edit export folders' panel to populate the text context, under your control, since this involves a potentially slow file search</li>
+                        <li>there is more to do here. I would like better test panels in the sub-dialogs and I'd like to collapse the related 'eight-nested-dialogs-deep' problem, and in the string processing and parsing UI more generally, but I'm happy with this step forward. let me know where it goes wrong!</li>
+                        <li><h3>advanced autocomplete logic fixes</h3></li>
+                        <li>when you enter a wildcard into a Read tag autocomplete, it no longer always delivers the 'always autocompleting' version. so, if you enter `sa*s`, it will suggest `sa*s (wildcard search)` and perhaps `sa*s (any namespace)`, but it will no longer suggest the `sa*s*` variants until you, obviously, actually type that trailing asterisk yourself. I intermittently had no idea what the hell I was doing when I originally developed this stuff</li>
+                        <li>the 'unnamespaced input gives `(any namespace)` wildcard results' tag display option is now correctly negatively enforced when entering unnamespaced wildcards. previously it was always adding them, and sometimes inserting them at the top of the list. the `(any namespace)` variant is now always below the unnamespaced when both are present</li>
+                        <li>fixed up a bunch of jank unit tests that were testing this badly</li>
+                    </ul>
+                </li>
+                <li>
+                    <h2 id="version_581"><a href="#version_581">version 581</a></h2>
+                    <ul>
+                        <li><h3>misc</h3></li>
+                        <li>thanks to a user, we have a much improved shimmie parser, for both file and gallery urls, that fetches md5 better, improves gallery navigation, stops grabbing bad urls and related tags by accident, and can handle namespaces for those shimmies that use them. for our purposes, this improves r34h and r34@paheal downloaders by default</li>
+                        <li>thanks to a user, we have a new 'Dark Blue 1.1' styesheet with some improvements. the recommendation is: check the different scrollbar styling to see if you prefer the old version</li>
+                        <li>timedelta widgets now enforce their minimum time on focus-out rather than value change. if it wants at least 20 minutes, you can now type in '5...' in the minutes column without it going nuts. let me know if you discover a way to out-fox the focus-out detection!</li>
+                        <li>added a checkbox to file import options to govern whether 'import destinations' and 'archive all imports' apply to 'already in db' files. this turns on/off the logic that I made more reliable last week. default is that they do</li>
+                        <li>added 'do sleep check' to _options-&gt;system_ to try some things out on systems that often false-positive this check</li>
+                        <li>the 'review current network jobs' multi-column list has a new right-click menu to show a bit more debug info about each job: each of its network contexts, how the bandwidth is on each context, if the domain is ok, if it is waiting on a connection error, if it is waiting on serverside bandwidth, if it obey bandwidth, and if its tokens are ok. if you have been working with me on gallery jobs that just sit on 'starting soon', please check it out and let me know what you see. also, 'review current network jobs' is duplicated to the help-&gt;debug menu. I forgot where it was, so let's have it in both places</li>
+                        <li>on the filename-import tagging panel, the filename and directory checkbox-and-text-edit widgets no longer emit a (sometimes laggy) update signal when typing when the checkbox is unchecked</li>
+                        <li><h3>janitor stuff</h3></li>
+                        <li>if you are a repository janitor, right-clicking on any tag shows a new 'admin' menu</li>
+                        <li>if you have 'change options' permission, you will see 'block x'/'re-allow x' to let you quickly see if tags are blocked and then edit the repository tag filter respectively</li>
+                        <li>if you have 'mappings petition resolution' permission, you can 'purge' the selected tags, which will deleted them from the service entirely. this launches a review window that previews the job and allows adding of more tags using the standard autocomplete interface. when 'fired off', it launches a tag migration job to queue up the full petition/delete upload</li>
+                        <li>this new 'purge' window is also available from the normal 'administrate services' menu in the main gui</li>
+                        <li>also under the 'administrate services' is a new 'purge tag filter' command, which applies the existing repository tag filter to its own mappings store, retroactively syncing you to it</li>
+                        <li><h3>tag filters and migration</h3></li>
+                        <li>I wrote a database routine that quickly converts a hydrus tag filter into the list of tags within a file and tag search context. this tech will have a variety of uses in the genre of 'hey please delete/fetch/check all these tags'</li>
+                        <li>to start with, it is now plugged into the tag migration system, so when you set up, say, an 'all known files' tag migration that only looks for a namespace or a bunch of single tags, the 'setup' phase is now massively, massively faster (previously, with something like the PTR, this would be scanning through tens of millions of files for minutes; now it just targets the 50k or whatever using existing tag search tech usually within less than a second)</li>
+                        <li>cleaned (KISSed) and reworked the tag filter logic a bit--it can now, underlyingly, handle 'no namespaced tags, except for creator:anything, but still allowing creator:blah'</li>
+                        <li>optimised how tag filters do 'apply unnamespaced rules to namespaced tags' (which happens in some blacklists that want to be expansive)</li>
+                        <li>improved how the tag filter describes itself in many cases. it should make more grammatical sense and repeat itself less now (e.g. no more 'all tags and namespaced tags and unnamespaced tags' rubbish)</li>
+                        <li>improved how some tag filter rules are handled across the program, including fixing some edge-case false-positive namespace-rule detection</li>
+                        <li>deleted some ancient and no longer used tag filtering code</li>
+                        <li><h3>boring multi-column list stuff</h3></li>
+                        <li>did more 'select, sort, and scroll' code cleanup in my multi-column lists, specifically: manage import folders; manage export folders; the string-to-string dict list; edit ngug; edit downloader display (both gugs and url classes, and with a one-shot show/hide choice on a multi-selection rather than asking for each in turn); the special 'duplicate' command of edit shortcut set; and the string converter conversions list (including better select logic on move up/down)</li>
+                        <li>in keeping with the new general policy of 'when you edit a multi-column list, you just edit one row', the various 'edit' buttons under these lists across the program are now generally only enabled when you have one row selected</li>
+                        <li>the new 'select, sort, and scroll to new item when a human adds it' tech now _deselects_ the previous selection. let me know if this screws up anywhere (maybe in a hacky multi-add somewhere it'll only select the last added?)</li>
+                        <li>the aggravating 'clear the focus of the list on most changes bro' jank seems to be fixed--it was a dumb legacy thing</li>
+                        <li>whenever the multi-column list does its new 'scroll-to' action, it now takes focus to better highlight where we are (rather than stay, for instance, leaving focus on the 'add' button you just clicked)</li>
+                        <li><h3>other boring stuff</h3></li>
+                        <li>worked a little more on a routine that collapses an arbitrary list of strings to a human-presentable summary and replaced the hardcoded hacky version that presents the 'paste queries' result in the 'edit subscription' panel with it</li>
+                        <li>wrote a similar new routine to collapse an arbitrary list of strings to a single-line summary, appropriate for menu labels and such</li>
+                        <li>fixed a layout issue in the 'manage downloader display' dialog that caused the 'edit' button on the 'media viewer urls' side to not show, lmaooooooo</li>
+                        <li>ephemeral 'watcher' and 'gallery' network contexts now describe themselves with a nicer string</li>
+                        <li>decoupled how some service admin stuff works behind the scenes to make it easier to launch this stuff from different UI widgets</li>
+                        <li>refactored `ToHumanInt` and the `ToPrettyOrdinalString` guys to a new `HydrusNumbers.py` file</li>
+                        <li>fixed some bad Client API documentation for the params in `/get_files/search_files`</li>
+                    </ul>
+                </li>
+                <li>
                     <h2 id="version_580"><a href="#version_580">version 580</a></h2>
                     <ul>
                         <li><h3>misc</h3></li>
