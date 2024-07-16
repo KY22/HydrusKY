@@ -7,6 +7,91 @@ title: Changelog
 !!! note
     This is the new changelog, only the most recent builds. For all versions, see the [old changelog](old_changelog.html).
 
+## [Version 582](https://github.com/hydrusnetwork/hydrus/releases/tag/v582)
+
+### fixes
+
+* fixed an issue where setting a file 'collect' was not automatically sorting the collected objects internally properly. normally when you collect, each collected object is supposed to be sorted internally by filesize or namespace or whatever--this is working again
+* fixed a weird internal error state in the import folders manager where it could get confused about and throw an error regarding the import folders' next work times if an internal update notification occured during an import folder working
+* fixed a typo error with the shortcut set 'special duplicate' button
+* fixed pasting new query texts into the manage subscriptions dialog when one of the pasted texts resurrects a DEAD query. my new summary generation text was handling the DEAD report wrong!
+
+### misc
+
+* the advanced 'all deleted files' service, which is mostly just used for behind the scenes caching calculations, is renamed to 'deleted from anywhere'. the related 'regen-&gt;all deleted files' database command is also moved to 'check and repair-&gt;sync combined deleted files'
+* the edit tag filter panel's 'load' button now shows all the current tag repositories' tag filters
+* when you hit ctrl-enter on some tags (or otherwise trigger a linked remove+add action) in an active search list (e.g. top-left on a search page), which causes those tags to invert and thus sometimes sorted to a different position, the current selection now propagates through the inversion, with the keyboard focus moved to the post-topmost item. so, you can now basically hit ctrl+enter twice for a no-op
+* fixed the paste button in the new 'purge tags' dialog
+* thanks to a user, we have a new 'Purple' stylesheet
+* I tweaked the some default stylesheet colours and think I fixed the display of the 'valid/invalid' controls you sometimes see (for instance in the new regex input, which goes green/red) for dark mode stylesheets that don't define colours for these. previously, the dark mode text, usually a light grey, was being washed out by the default green
+
+### custom colours in QSS
+
+* you can now set the _options-&gt;colours_ colours in a QSS stylesheet! if you are a stylesheet maker, check the default_hydrus.qss file to see how it works--it is the same deal as the animation scanbar previously
+* the options in _options-&gt;colours_ remain, but they are now wrapped in a 'overwrite your stylesheet with these colours' checkbox _for now_. existing users are going to be set to 'yes overwrite', so nothing will suddenly change, but new users are going to default to using whatever the current QSS says. in future, I may collapse the light/darkmode distinction into one option set; I may morph it into a "colour highly rated files' thumbnail borders gold" dynamic options system; I may simply delete the whole thing and replace it with in-client QSS editing or something. not sure, so let's see how it goes and how Qt 7's darkmode stuff turns out.
+* I have pasted the hydrus default darkmode colours into all the other stylesheets that come with the program, so new users selecting a darkmode style are going to get something reasonable out of the box rather than the previous ugly clash. the users who made the original stylesheets are welcome to figure out better colours and send them in
+* if you are not set to override with the custom colours in _options-&gt;colours_, then hitting _help-&gt;darkmode_ now gives you a popup telling you what is going on
+
+### sidecar UI
+
+* the four 'edit sidecars' panels (under manual imports, import folders, manual exports, and export folders), which use paths and media as sources respectively, now have test panels to review the current sidecar route you have set up. they use up to 25 rows of example file paths/media from the actual thing you are working on. it provides a live update of what the sources you set up will load, so you know you have the json parse or .txt separator set up correct
+* for the export folders case, there is a button in the panel 'edit export folders' panel to populate the text context, under your control, since this involves a potentially slow file search
+* there is more to do here. I would like better test panels in the sub-dialogs and I'd like to collapse the related 'eight-nested-dialogs-deep' problem, and in the string processing and parsing UI more generally, but I'm happy with this step forward. let me know where it goes wrong!
+
+### advanced autocomplete logic fixes
+
+* when you enter a wildcard into a Read tag autocomplete, it no longer always delivers the 'always autocompleting' version. so, if you enter `sa*s`, it will suggest `sa*s (wildcard search)` and perhaps `sa*s (any namespace)`, but it will no longer suggest the `sa*s*` variants until you, obviously, actually type that trailing asterisk yourself. I intermittently had no idea what the hell I was doing when I originally developed this stuff
+* the 'unnamespaced input gives `(any namespace)` wildcard results' tag display option is now correctly negatively enforced when entering unnamespaced wildcards. previously it was always adding them, and sometimes inserting them at the top of the list. the `(any namespace)` variant is now always below the unnamespaced when both are present
+* fixed up a bunch of jank unit tests that were testing this badly
+
+## [Version 581](https://github.com/hydrusnetwork/hydrus/releases/tag/v581)
+
+### misc
+
+* thanks to a user, we have a much improved shimmie parser, for both file and gallery urls, that fetches md5 better, improves gallery navigation, stops grabbing bad urls and related tags by accident, and can handle namespaces for those shimmies that use them. for our purposes, this improves r34h and r34@paheal downloaders by default
+* thanks to a user, we have a new 'Dark Blue 1.1' styesheet with some improvements. the recommendation is: check the different scrollbar styling to see if you prefer the old version
+* timedelta widgets now enforce their minimum time on focus-out rather than value change. if it wants at least 20 minutes, you can now type in '5...' in the minutes column without it going nuts. let me know if you discover a way to out-fox the focus-out detection!
+* added a checkbox to file import options to govern whether 'import destinations' and 'archive all imports' apply to 'already in db' files. this turns on/off the logic that I made more reliable last week. default is that they do
+* added 'do sleep check' to _options-&gt;system_ to try some things out on systems that often false-positive this check
+* the 'review current network jobs' multi-column list has a new right-click menu to show a bit more debug info about each job: each of its network contexts, how the bandwidth is on each context, if the domain is ok, if it is waiting on a connection error, if it is waiting on serverside bandwidth, if it obey bandwidth, and if its tokens are ok. if you have been working with me on gallery jobs that just sit on 'starting soon', please check it out and let me know what you see. also, 'review current network jobs' is duplicated to the help-&gt;debug menu. I forgot where it was, so let's have it in both places
+* on the filename-import tagging panel, the filename and directory checkbox-and-text-edit widgets no longer emit a (sometimes laggy) update signal when typing when the checkbox is unchecked
+
+### janitor stuff
+
+* if you are a repository janitor, right-clicking on any tag shows a new 'admin' menu
+* if you have 'change options' permission, you will see 'block x'/'re-allow x' to let you quickly see if tags are blocked and then edit the repository tag filter respectively
+* if you have 'mappings petition resolution' permission, you can 'purge' the selected tags, which will deleted them from the service entirely. this launches a review window that previews the job and allows adding of more tags using the standard autocomplete interface. when 'fired off', it launches a tag migration job to queue up the full petition/delete upload
+* this new 'purge' window is also available from the normal 'administrate services' menu in the main gui
+* also under the 'administrate services' is a new 'purge tag filter' command, which applies the existing repository tag filter to its own mappings store, retroactively syncing you to it
+
+### tag filters and migration
+
+* I wrote a database routine that quickly converts a hydrus tag filter into the list of tags within a file and tag search context. this tech will have a variety of uses in the genre of 'hey please delete/fetch/check all these tags'
+* to start with, it is now plugged into the tag migration system, so when you set up, say, an 'all known files' tag migration that only looks for a namespace or a bunch of single tags, the 'setup' phase is now massively, massively faster (previously, with something like the PTR, this would be scanning through tens of millions of files for minutes; now it just targets the 50k or whatever using existing tag search tech usually within less than a second)
+* cleaned (KISSed) and reworked the tag filter logic a bit--it can now, underlyingly, handle 'no namespaced tags, except for creator:anything, but still allowing creator:blah'
+* optimised how tag filters do 'apply unnamespaced rules to namespaced tags' (which happens in some blacklists that want to be expansive)
+* improved how the tag filter describes itself in many cases. it should make more grammatical sense and repeat itself less now (e.g. no more 'all tags and namespaced tags and unnamespaced tags' rubbish)
+* improved how some tag filter rules are handled across the program, including fixing some edge-case false-positive namespace-rule detection
+* deleted some ancient and no longer used tag filtering code
+
+### boring multi-column list stuff
+
+* did more 'select, sort, and scroll' code cleanup in my multi-column lists, specifically: manage import folders; manage export folders; the string-to-string dict list; edit ngug; edit downloader display (both gugs and url classes, and with a one-shot show/hide choice on a multi-selection rather than asking for each in turn); the special 'duplicate' command of edit shortcut set; and the string converter conversions list (including better select logic on move up/down)
+* in keeping with the new general policy of 'when you edit a multi-column list, you just edit one row', the various 'edit' buttons under these lists across the program are now generally only enabled when you have one row selected
+* the new 'select, sort, and scroll to new item when a human adds it' tech now _deselects_ the previous selection. let me know if this screws up anywhere (maybe in a hacky multi-add somewhere it'll only select the last added?)
+* the aggravating 'clear the focus of the list on most changes bro' jank seems to be fixed--it was a dumb legacy thing
+* whenever the multi-column list does its new 'scroll-to' action, it now takes focus to better highlight where we are (rather than stay, for instance, leaving focus on the 'add' button you just clicked)
+
+### other boring stuff
+
+* worked a little more on a routine that collapses an arbitrary list of strings to a human-presentable summary and replaced the hardcoded hacky version that presents the 'paste queries' result in the 'edit subscription' panel with it
+* wrote a similar new routine to collapse an arbitrary list of strings to a single-line summary, appropriate for menu labels and such
+* fixed a layout issue in the 'manage downloader display' dialog that caused the 'edit' button on the 'media viewer urls' side to not show, lmaooooooo
+* ephemeral 'watcher' and 'gallery' network contexts now describe themselves with a nicer string
+* decoupled how some service admin stuff works behind the scenes to make it easier to launch this stuff from different UI widgets
+* refactored `ToHumanInt` and the `ToPrettyOrdinalString` guys to a new `HydrusNumbers.py` file
+* fixed some bad Client API documentation for the params in `/get_files/search_files`
+
 ## [Version 580](https://github.com/hydrusnetwork/hydrus/releases/tag/v580)
 
 ### misc
@@ -285,70 +370,3 @@ title: Changelog
 * the local booru review services panel no longer shows nor allows management of its shares
 * deleted the local booru unit tests
 * deleted the local booru help and ancient screenshots
-
-## [Version 572](https://github.com/hydrusnetwork/hydrus/releases/tag/v572)
-
-### misc
-
-* added a new checkbox to _options-&gt;files and trash_ to say 'include skipped files when you remove files after archive/delete'
-* thanks to a user, we now have an 'e621' stylsheet in _options-&gt;style_. this is the first default stylesheet that uses assets (some checkbox etc.. svgs), which means some users--I think just those who run from source--will need to be careful that their CWD is the hydrus install dir when they boot, or this won't load properly! if you try it and get errors in your log as it tries to load the svgs, let me know!
-
-### share menu
-
-* like the 'open' menu a couple weeks ago, the 'share' menu off of thumbnails or the media viewer is rewritten to nicer code. no major differences, but it has a clearer, universal layout, provides more options for 'the currently focused file' vs 'all selected files', is more careful about only providing commands it can deliver on (e.g. no file copy for remote files), and now everything it does is mappable in the shortcut system under the 'media' shortcut set
-* you can now copy a file's thumbnail as a bitmap from this menu!
-* the canvas now supports 'export files'. the 'export files' window just pops on top of it with the one file
-* 'copy file id' is no longer hidden by advanced mode--go nuts!
-* the share menu no longer has 'share on local booru'. the local booru service was an interesting experiment, but I could never find time to properly dev it and there are better answers with the Client API or simple third-party image hosting services that you can drag and drop to. thus, I am finally sunsetting it. I'll strip away its features over the coming weeks until it is completely removed
-
-### shortcut updates
-
-* the 'copy file hash' shortcut actions, which used to be four separate things, have been collapsed to one action that has a 'hash type' dropdown (and a 'target' dropdown to select either all selected files or just the currently focused file, which will default to 'all selected' on update, which was the previous behaviour). you can also now set 'pixel_hash' or 'blurhash' as the hash type
-* the 'copy file bitmap' shortcuts have similarly been collapsed down to one action with a dropdown, also with the new 'copy thumbnail' command
-* the 'copy files', 'copy file paths', and 'copy file id' shortcuts now have a dropdown for whether you want all selected files or just the currently focused file. updated commands will default to 'all selected', which was the previous behaviour
-* added a 'copy ipfs multihash' shortcut action, which has this new 'focused vs all selected' parameter and the ipfs service to copy from as its options
-
-### boring code cleanup
-
-* wrote a new command for copying arbitrary file hashes, with a new 'file command target'
-* simplified the media hash copying code
-* wrote a new command for copying arbitrary bitmap types
-* combined the bitmap copying code into one shared function call and simplified the surrounding code
-* combined the file and path copying code into shared functions, simplified the code, and added tech for focused vs all selected targeting
-* and the same thing for copying ipfs multihashes
-* wrote a routine to copy a file's thumbnail in the normal clipboard copying pubsub
-* with the recent rounds of simplication, the core thumbnail menu call is now but a mere 600 lines of spaghetti code
-* misc renaming of some enums here so they are more in agreement ('xxx files' instead of 'xxx file', etc...)
-* renamed the various simple commands I have replaced in the past few weeks as 'legacy', so we don't accidentally refer to them again in real code
-* the unit test for 'dateparser decode' is no longer run if dateparser is not in the environment
-* fixed the file metadata parsing unit tests to account for newer ffmpeg, which sees a -10ms different duration on one of the test files, and made the various tests +/-20% lenient to handle this stuff if it comes up again in future
-
-## [Version 571](https://github.com/hydrusnetwork/hydrus/releases/tag/v571)
-
-### clean install
-
-* the recent 'future build' test went well, so I am rolling these updates into the normal release for everyone. on Windows and Linux, the built program is now running Python 3.11, and, on all platforms, updated versions of Qt (UI) and OpenCV (image-processing). there's nothing earth-shattering about these changes, but some things will work better and faster
-* **because of the jump, v570 and v571 have dll conflicts! if you are on Windows or Linux and use the .zip or .tar.zst "Extract" release, you will need to a clean install as here**: https://hydrusnetwork.github.io/hydrus/getting_started_installing.html#clean_installs
-* **if you are a Windows installer/macOS App/source user, you do not need to do a clean install, just update as normal**
-
-### misc
-
-* when you finish an archive/delete filter and there are several domains you could delete from, the 'commit' buttons are now disabled for 1.2 seconds. this catches you from accidentally spamming enter through a surprise complicated decision
-* under _options-&gt;files and trash_, you can now say 'when finishing filtering, always delete from all possible domains', which makes the above decision always single domain. hit this if you do want to spam through this and are fine always deleting from everywhere
-* the client will now, by default, attempt to load truncated images. this was previously off until you set it per-session-on in a debug menu, but is now a checkbox under _options-&gt;media_. some weird damaged jpegs and pngs should now load, fingers crossed
-* the 'load images with PIL' setting is now default on for new users and no longer IN TESTING
-* every normal single column text list across the program now copies text better if you explicitly hit ctrl+c/ctrl+insert. they now copy all selected rows (rather than just one), and when the display text differs from the underlying data/sort text, you'll now get the sort text (e.g. on manage urls launched on multiple files, you might see 'site.com/123456 (2)', but now, when it copies, that ' (1)' display cruft is omitted). I spammed this to 22 locations and tested 2 so there are definitely no weird string copy bugs anywhere
-* fixed an issue opening/closing manage parsers, url classes, or url class links if you have url classes with invalid example urls or critically missing default values in your storage
-* the server has a new 'restart_services' command, only triggerable by an admin with service modification ability, which tells all the services on all ports to stop and restart. if there's a new ssl cert, they load the new one
-
-### client api
-
-* the 'associate urls' command has a new 'normalise_urls' parameter (default true, which was the behaviour before) to let you force-add un-normalised URLs or URIs or whatever
-* added some unit tests to test this new param
-* client api version is now 64
-
-### help docs
-
-* wrote a new help document, 'help my db disappeared.txt' for the db directory that tells you what to do if you boot one day and suddenly get the 'this looks like the first time you ran this program' popup
-* clarified the Windows 'running from source' help a little around 'git' and added a 'here is the Python version you want' link for Win 7 users
-* gave the install help a very light pass, just fixing and updating a few things here and there. I also warn Linux users that the AUR package may throw errors if Arch updates a Qt library or something before we have had a chance to test it (as we have seen a couple times recently), and I generally suggest AUR people run from source manually if they can

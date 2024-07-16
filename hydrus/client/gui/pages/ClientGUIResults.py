@@ -1,6 +1,5 @@
 import collections
 import itertools
-import os
 import random
 import time
 import typing
@@ -13,9 +12,9 @@ from hydrus.core import HydrusConstants as HC
 from hydrus.core import HydrusData
 from hydrus.core import HydrusExceptions
 from hydrus.core import HydrusGlobals as HG
+from hydrus.core import HydrusNumbers
 from hydrus.core import HydrusPaths
 from hydrus.core import HydrusTime
-from hydrus.core.files.images import HydrusImageHandling
 from hydrus.core.networking import HydrusNetwork
 
 from hydrus.client import ClientApplicationCommand as CAC
@@ -171,6 +170,20 @@ class MediaPanel( CAC.ApplicationCommandProcessorMixin, ClientMedia.ListeningMed
         
         QW.QScrollArea.__init__( self, parent )
         
+        self._qss_colours = {
+            CC.COLOUR_THUMBGRID_BACKGROUND : QG.QColor( 255, 255, 255 ),
+            CC.COLOUR_THUMB_BACKGROUND : QG.QColor( 255, 255, 255 ),
+            CC.COLOUR_THUMB_BACKGROUND_SELECTED : QG.QColor( 217, 242, 255 ),
+            CC.COLOUR_THUMB_BACKGROUND_REMOTE : QG.QColor( 32, 32, 36 ),
+            CC.COLOUR_THUMB_BACKGROUND_REMOTE_SELECTED : QG.QColor( 64, 64, 72 ),
+            CC.COLOUR_THUMB_BORDER : QG.QColor( 223, 227, 230 ),
+            CC.COLOUR_THUMB_BORDER_SELECTED : QG.QColor( 1, 17, 26 ),
+            CC.COLOUR_THUMB_BORDER_REMOTE : QG.QColor( 248, 208, 204 ),
+            CC.COLOUR_THUMB_BORDER_REMOTE_SELECTED : QG.QColor( 227, 66, 52 )
+        }
+        
+        self.setObjectName( 'HydrusMediaList' )
+        
         self.setFrameStyle( QW.QFrame.Panel | QW.QFrame.Sunken )
         self.setLineWidth( 2 )
         
@@ -225,7 +238,7 @@ class MediaPanel( CAC.ApplicationCommandProcessorMixin, ClientMedia.ListeningMed
                 
                 if len( hashes ) > 1:
                     
-                    message = 'Archive ' + HydrusData.ToHumanInt( len( hashes ) ) + ' files?'
+                    message = 'Archive ' + HydrusNumbers.ToHumanInt( len( hashes ) ) + ' files?'
                     
                     result = ClientGUIDialogsQuick.GetYesNo( self, message )
                     
@@ -463,7 +476,7 @@ class MediaPanel( CAC.ApplicationCommandProcessorMixin, ClientMedia.ListeningMed
             # if 1 selected, we show the whole mime string, so no need to specify
             if num_selected == 1 or selected_files_string == num_files_string:
                 
-                selected_files_string = HydrusData.ToHumanInt( num_selected )
+                selected_files_string = HydrusNumbers.ToHumanInt( num_selected )
                 
             
             if num_selected == 1: # 23 files - 1 video selected, file_info
@@ -488,7 +501,7 @@ class MediaPanel( CAC.ApplicationCommandProcessorMixin, ClientMedia.ListeningMed
                     
                 else:
                     
-                    inbox_phrase = '{} in inbox and {} archived'.format( HydrusData.ToHumanInt( num_inbox ), HydrusData.ToHumanInt( num_selected - num_inbox ) )
+                    inbox_phrase = '{} in inbox and {} archived'.format( HydrusNumbers.ToHumanInt( num_inbox ), HydrusNumbers.ToHumanInt( num_selected - num_inbox ) )
                     
                 
                 pretty_total_size = self._GetPrettyTotalSize( only_selected = True )
@@ -636,7 +649,7 @@ class MediaPanel( CAC.ApplicationCommandProcessorMixin, ClientMedia.ListeningMed
                     
                     collections_suffix = 's' if num_collections > 1 else ''
                     
-                    return 'file{} in {} collection{}'.format( suffix, HydrusData.ToHumanInt( num_collections ), collections_suffix )
+                    return 'file{} in {} collection{}'.format( suffix, HydrusNumbers.ToHumanInt( num_collections ), collections_suffix )
                     
                 else:
                     
@@ -856,7 +869,7 @@ class MediaPanel( CAC.ApplicationCommandProcessorMixin, ClientMedia.ListeningMed
                 
                 if len( hashes ) > 1:
                     
-                    message = 'Send {} files to inbox?'.format( HydrusData.ToHumanInt( len( hashes ) ) )
+                    message = 'Send {} files to inbox?'.format( HydrusNumbers.ToHumanInt( len( hashes ) ) )
                     
                     result = ClientGUIDialogsQuick.GetYesNo( self, message )
                     
@@ -982,7 +995,7 @@ class MediaPanel( CAC.ApplicationCommandProcessorMixin, ClientMedia.ListeningMed
             
             num_files = self._GetNumSelected()
             
-            title = 'manage tags for ' + HydrusData.ToHumanInt( num_files ) + ' files'
+            title = 'manage tags for ' + HydrusNumbers.ToHumanInt( num_files ) + ' files'
             frame_key = 'manage_tags_dialog'
             
             with ClientGUITopLevelWindowsPanels.DialogManage( self, title, frame_key ) as dlg:
@@ -1145,7 +1158,7 @@ class MediaPanel( CAC.ApplicationCommandProcessorMixin, ClientMedia.ListeningMed
                     
                 else:
                     
-                    message = 'Enter a reason for these {} files to be removed from {}.'.format( HydrusData.ToHumanInt( len( hashes ) ), remote_service.GetName() )
+                    message = 'Enter a reason for these {} files to be removed from {}.'.format( HydrusNumbers.ToHumanInt( len( hashes ) ), remote_service.GetName() )
                     
                 
                 with ClientGUIDialogs.DialogTextEntry( self, message ) as dlg:
@@ -1253,17 +1266,17 @@ class MediaPanel( CAC.ApplicationCommandProcessorMixin, ClientMedia.ListeningMed
             
             if job_type == ClientFiles.REGENERATE_FILE_DATA_JOB_FILE_METADATA:
                 
-                message = 'This will reparse the {} selected files\' metadata.'.format( HydrusData.ToHumanInt( num_files ) )
+                message = 'This will reparse the {} selected files\' metadata.'.format( HydrusNumbers.ToHumanInt( num_files ) )
                 message += '\n' * 2
                 message += 'If the files were imported before some more recent improvement in the parsing code (such as EXIF rotation or bad video resolution or duration or frame count calculation), this will update them.'
                 
             elif job_type == ClientFiles.REGENERATE_FILE_DATA_JOB_FORCE_THUMBNAIL:
                 
-                message = 'This will force-regenerate the {} selected files\' thumbnails.'.format( HydrusData.ToHumanInt( num_files ) )
+                message = 'This will force-regenerate the {} selected files\' thumbnails.'.format( HydrusNumbers.ToHumanInt( num_files ) )
                 
             elif job_type == ClientFiles.REGENERATE_FILE_DATA_JOB_REFIT_THUMBNAIL:
                 
-                message = 'This will regenerate the {} selected files\' thumbnails, but only if they are the wrong size.'.format( HydrusData.ToHumanInt( num_files ) )
+                message = 'This will regenerate the {} selected files\' thumbnails, but only if they are the wrong size.'.format( HydrusNumbers.ToHumanInt( num_files ) )
                 
             else:
                 
@@ -1275,7 +1288,7 @@ class MediaPanel( CAC.ApplicationCommandProcessorMixin, ClientMedia.ListeningMed
             if num_files > 50:
                 
                 message += '\n' * 2
-                message += 'You have selected {} files, so this job may take some time. You can run it all now or schedule it to the overall file maintenance queue for later spread-out processing.'.format( HydrusData.ToHumanInt( num_files ) )
+                message += 'You have selected {} files, so this job may take some time. You can run it all now or schedule it to the overall file maintenance queue for later spread-out processing.'.format( HydrusNumbers.ToHumanInt( num_files ) )
                 
                 yes_tuples = []
                 
@@ -1457,7 +1470,7 @@ class MediaPanel( CAC.ApplicationCommandProcessorMixin, ClientMedia.ListeningMed
                 flat_media = ClientMedia.FlattenMedia( media_group )
                 
             
-            num_files_str = HydrusData.ToHumanInt( len( flat_media ) )
+            num_files_str = HydrusNumbers.ToHumanInt( len( flat_media ) )
             
             if len( flat_media ) < 2:
                 
@@ -1477,7 +1490,7 @@ class MediaPanel( CAC.ApplicationCommandProcessorMixin, ClientMedia.ListeningMed
             
         else:
             
-            num_files_str = HydrusData.ToHumanInt( len( self._GetSelectedFlatMedia() ) )
+            num_files_str = HydrusNumbers.ToHumanInt( len( self._GetSelectedFlatMedia() ) )
             
         
         if len( media_pairs ) == 0:
@@ -1492,7 +1505,7 @@ class MediaPanel( CAC.ApplicationCommandProcessorMixin, ClientMedia.ListeningMed
             
             if len( media_pairs ) > 1 and duplicate_type in ( HC.DUPLICATE_FALSE_POSITIVE, HC.DUPLICATE_ALTERNATE ):
                 
-                media_pairs_str = HydrusData.ToHumanInt( len( media_pairs ) )
+                media_pairs_str = HydrusNumbers.ToHumanInt( len( media_pairs ) )
                 
                 message = 'Are you sure you want to {} for the {} selected files? The relationship will be applied between every pair combination in the file selection ({} pairs).'.format( yes_no_text, num_files_str, media_pairs_str )
                 
@@ -1691,7 +1704,7 @@ class MediaPanel( CAC.ApplicationCommandProcessorMixin, ClientMedia.ListeningMed
             
             media_pairs = [ ( better_media, worse_media ) for worse_media in worse_flat_media ]
             
-            message = 'Are you sure you want to set the focused file as better than the {} other files in the selection?'.format( HydrusData.ToHumanInt( len( worse_flat_media ) ) )
+            message = 'Are you sure you want to set the focused file as better than the {} other files in the selection?'.format( HydrusNumbers.ToHumanInt( len( worse_flat_media ) ) )
             
             result = ClientGUIDialogsQuick.GetYesNo( self, message )
             
@@ -1914,6 +1927,20 @@ class MediaPanel( CAC.ApplicationCommandProcessorMixin, ClientMedia.ListeningMed
         self._RecalculateVirtualSize()
         
         self.Sort()
+        
+    
+    def GetColour( self, colour_type ):
+        
+        if CG.client_controller.new_options.GetBoolean( 'override_stylesheet_colours' ):
+            
+            bg_colour = CG.client_controller.new_options.GetColour( colour_type )
+            
+        else:
+            
+            bg_colour = self._qss_colours.get( colour_type, QG.QColor( 127, 127, 127 ) )
+            
+        
+        return bg_colour
         
     
     def GetTotalFileSize( self ):
@@ -2522,6 +2549,106 @@ class MediaPanel( CAC.ApplicationCommandProcessorMixin, ClientMedia.ListeningMed
         pass
         
     
+    def get_hmrp_background( self ):
+        
+        return self._qss_colours[ CC.COLOUR_THUMBGRID_BACKGROUND ]
+        
+    
+    def get_hmrp_thumbnail_local_background_normal( self ):
+        
+        return self._qss_colours[ CC.COLOUR_THUMB_BACKGROUND ]
+        
+    
+    def get_hmrp_thumbnail_local_background_selected( self ):
+        
+        return self._qss_colours[ CC.COLOUR_THUMB_BACKGROUND_SELECTED ]
+        
+    
+    def get_hmrp_thumbnail_local_border_normal( self ):
+        
+        return self._qss_colours[ CC.COLOUR_THUMB_BORDER ]
+        
+    
+    def get_hmrp_thumbnail_local_border_selected( self ):
+        
+        return self._qss_colours[ CC.COLOUR_THUMB_BORDER_SELECTED ]
+        
+    
+    def get_hmrp_thumbnail_not_local_background_normal( self ):
+        
+        return self._qss_colours[ CC.COLOUR_THUMB_BACKGROUND_REMOTE ]
+        
+    
+    def get_hmrp_thumbnail_not_local_background_selected( self ):
+        
+        return self._qss_colours[ CC.COLOUR_THUMB_BACKGROUND_REMOTE_SELECTED ]
+        
+    
+    def get_hmrp_thumbnail_not_local_border_normal( self ):
+        
+        return self._qss_colours[ CC.COLOUR_THUMB_BORDER_REMOTE ]
+        
+    
+    def get_hmrp_thumbnail_not_local_border_selected( self ):
+        
+        return self._qss_colours[ CC.COLOUR_THUMB_BORDER_REMOTE_SELECTED ]
+        
+    
+    def set_hmrp_background( self, colour ):
+        
+        self._qss_colours[ CC.COLOUR_THUMBGRID_BACKGROUND ] = colour
+        
+    
+    def set_hmrp_thumbnail_local_background_normal( self, colour ):
+        
+        self._qss_colours[ CC.COLOUR_THUMB_BACKGROUND ] = colour
+        
+    
+    def set_hmrp_thumbnail_local_background_selected( self, colour ):
+        
+        self._qss_colours[ CC.COLOUR_THUMB_BACKGROUND_SELECTED ] = colour
+        
+    
+    def set_hmrp_thumbnail_local_border_normal( self, colour ):
+        
+        self._qss_colours[ CC.COLOUR_THUMB_BORDER ] = colour
+        
+    
+    def set_hmrp_thumbnail_local_border_selected( self, colour ):
+        
+        self._qss_colours[ CC.COLOUR_THUMB_BORDER_SELECTED ] = colour
+        
+    
+    def set_hmrp_thumbnail_not_local_background_normal( self, colour ):
+        
+        self._qss_colours[ CC.COLOUR_THUMB_BACKGROUND_REMOTE ] = colour
+        
+    
+    def set_hmrp_thumbnail_not_local_background_selected( self, colour ):
+        
+        self._qss_colours[ CC.COLOUR_THUMB_BACKGROUND_REMOTE_SELECTED ] = colour
+        
+    
+    def set_hmrp_thumbnail_not_local_border_normal( self, colour ):
+        
+        self._qss_colours[ CC.COLOUR_THUMB_BORDER_REMOTE ] = colour
+        
+    
+    def set_hmrp_thumbnail_not_local_border_selected( self, colour ):
+        
+        self._qss_colours[ CC.COLOUR_THUMB_BORDER_REMOTE_SELECTED ] = colour
+        
+    
+    hmrp_background = QC.Property( QG.QColor, get_hmrp_background, set_hmrp_background )
+    hmrp_thumbnail_local_background_normal = QC.Property( QG.QColor, get_hmrp_thumbnail_local_background_normal, set_hmrp_thumbnail_local_background_normal )
+    hmrp_thumbnail_local_background_selected = QC.Property( QG.QColor, get_hmrp_thumbnail_local_background_selected, set_hmrp_thumbnail_local_background_selected )
+    hmrp_thumbnail_local_border_normal = QC.Property( QG.QColor, get_hmrp_thumbnail_local_border_normal, set_hmrp_thumbnail_local_border_normal )
+    hmrp_thumbnail_local_border_selected = QC.Property( QG.QColor, get_hmrp_thumbnail_local_border_selected, set_hmrp_thumbnail_local_border_selected )
+    hmrp_thumbnail_not_local_background_normal = QC.Property( QG.QColor, get_hmrp_thumbnail_not_local_background_normal, set_hmrp_thumbnail_not_local_background_normal )
+    hmrp_thumbnail_not_local_background_selected = QC.Property( QG.QColor, get_hmrp_thumbnail_not_local_background_selected, set_hmrp_thumbnail_not_local_background_selected )
+    hmrp_thumbnail_not_local_border_normal = QC.Property( QG.QColor, get_hmrp_thumbnail_not_local_border_normal, set_hmrp_thumbnail_not_local_border_normal )
+    hmrp_thumbnail_not_local_border_selected = QC.Property( QG.QColor, get_hmrp_thumbnail_not_local_border_selected, set_hmrp_thumbnail_not_local_border_selected )
+    
     class _InnerWidget( QW.QWidget ):
         
         def __init__( self, parent ):
@@ -2535,7 +2662,7 @@ class MediaPanel( CAC.ApplicationCommandProcessorMixin, ClientMedia.ListeningMed
             
             painter = QG.QPainter( self )
             
-            bg_colour = CG.client_controller.new_options.GetColour( CC.COLOUR_THUMBGRID_BACKGROUND )
+            bg_colour = self._parent.GetColour( CC.COLOUR_THUMBGRID_BACKGROUND )
             
             painter.setBackground( QG.QBrush( bg_colour ) )
             
@@ -2572,11 +2699,11 @@ class MediaPanelLoading( MediaPanel ):
         
         if self._current is not None:
             
-            s += ' ' + HydrusData.ToHumanInt( self._current )
+            s += ' ' + HydrusNumbers.ToHumanInt( self._current )
             
             if self._max is not None:
                 
-                s += ' of ' + HydrusData.ToHumanInt( self._max )
+                s += ' of ' + HydrusNumbers.ToHumanInt( self._max )
                 
             
         
@@ -2724,7 +2851,7 @@ class MediaPanelThumbnails( MediaPanel ):
         
         new_options = CG.client_controller.new_options
         
-        bg_colour = CG.client_controller.new_options.GetColour( CC.COLOUR_THUMBGRID_BACKGROUND )
+        bg_colour = self.GetColour( CC.COLOUR_THUMBGRID_BACKGROUND )
         
         if HG.thumbnail_debug_mode and page_index % 2 == 0:
             
@@ -2785,7 +2912,7 @@ class MediaPanelThumbnails( MediaPanel ):
                 
                 y = ( thumbnail_row - ( page_index * self._num_rows_per_canvas_page ) ) * thumbnail_span_height + thumbnail_margin
                 
-                painter.drawImage( x, y, thumbnail.GetQtImage( self.devicePixelRatio() ) )
+                painter.drawImage( x, y, thumbnail.GetQtImage( self, self.devicePixelRatio() ) )
                 
             else:
                 
@@ -2846,7 +2973,7 @@ class MediaPanelThumbnails( MediaPanel ):
             
             self._StopFading( hash )
             
-            bitmap = thumbnail.GetQtImage( self.devicePixelRatio() )
+            bitmap = thumbnail.GetQtImage( self, self.devicePixelRatio() )
             
             fade_thumbnails = CG.client_controller.new_options.GetBoolean( 'fade_thumbnails' )
             
@@ -4133,7 +4260,7 @@ class MediaPanelThumbnails( MediaPanel ):
             
             if num_notes > 0:
                 
-                notes_str = '{} ({})'.format( notes_str, HydrusData.ToHumanInt( num_notes ) )
+                notes_str = '{} ({})'.format( notes_str, HydrusNumbers.ToHumanInt( num_notes ) )
                 
             
             ClientGUIMenus.AppendMenuItem( manage_menu, notes_str, 'Manage notes for the focused file.', self._ManageNotes )
@@ -4475,7 +4602,7 @@ class MediaPanelThumbnails( MediaPanel ):
             
             y_start = self._parent._GetYStart()
             
-            bg_colour = CG.client_controller.new_options.GetColour( CC.COLOUR_THUMBGRID_BACKGROUND )
+            bg_colour = self._parent.GetColour( CC.COLOUR_THUMBGRID_BACKGROUND )
             
             painter.setBackground( QG.QBrush( bg_colour ) )
             
@@ -4801,7 +4928,7 @@ class Thumbnail( Selectable ):
         self._last_lower_summary = None
         
     
-    def GetQtImage( self, device_pixel_ratio ) -> QG.QImage:
+    def GetQtImage( self, media_panel: MediaPanel, device_pixel_ratio ) -> QG.QImage:
         
         # we probably don't really want to say DPR as a param here, but instead ask for a qt_image in a certain resolution?
         # or just give the qt_image to be drawn to?
@@ -4901,7 +5028,9 @@ class Thumbnail( Selectable ):
         
         painter.setFont( f )
         
-        painter.fillRect( thumbnail_border, thumbnail_border, width - ( thumbnail_border * 2 ), height - ( thumbnail_border * 2 ), new_options.GetColour( background_colour_type ) )
+        bg_color = media_panel.GetColour( background_colour_type )
+        
+        painter.fillRect( thumbnail_border, thumbnail_border, width - ( thumbnail_border * 2 ), height - ( thumbnail_border * 2 ), bg_color )
         
         raw_thumbnail_qt_image = thumbnail_hydrus_bmp.GetQtImage()
         
@@ -5043,7 +5172,9 @@ class Thumbnail( Selectable ):
             # _  .___//_/  /_/|_| \___//_/  /____/     _\__, / \____/      \__/ \____/      /_/ /_/\___//_/  /_/  (_)   
             # /_/                                      /____/                                                            
             
-            painter.setBrush( QG.QBrush( new_options.GetColour( border_colour_type ) ) )
+            bd_colour = media_panel.GetColour( border_colour_type )
+            
+            painter.setBrush( QG.QBrush( bd_colour ) )
             painter.setPen( QG.QPen( QC.Qt.NoPen ) )
             
             rectangles = []
@@ -5106,7 +5237,7 @@ class Thumbnail( Selectable ):
             
             painter.drawPixmap( icon_x, icon_y, icon )
             
-            num_files_str = HydrusData.ToHumanInt( self.GetNumFiles() )
+            num_files_str = HydrusNumbers.ToHumanInt( self.GetNumFiles() )
             
             ( text_size, num_files_str ) = ClientGUIFunctions.GetTextSizeFromPainter( painter, num_files_str )
             

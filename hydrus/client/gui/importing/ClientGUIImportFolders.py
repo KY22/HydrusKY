@@ -1,4 +1,5 @@
 import os
+import typing
 
 from qtpy import QtWidgets as QW
 
@@ -19,6 +20,7 @@ from hydrus.client.gui.importing import ClientGUIImportOptions
 from hydrus.client.gui.lists import ClientGUIListConstants as CGLC
 from hydrus.client.gui.lists import ClientGUIListCtrl
 from hydrus.client.gui.metadata import ClientGUIMetadataMigration
+from hydrus.client.gui.metadata import ClientGUIMetadataMigrationTest
 from hydrus.client.gui.metadata import ClientGUITime
 from hydrus.client.gui.panels import ClientGUIScrolledPanels
 from hydrus.client.gui.widgets import ClientGUICommon
@@ -41,7 +43,7 @@ class EditImportFoldersPanel( ClientGUIScrolledPanels.EditPanel ):
         import_folders_panel.SetListCtrl( self._import_folders )
         
         import_folders_panel.AddButton( 'add', self._Add )
-        import_folders_panel.AddButton( 'edit', self._Edit, enabled_only_on_selection = True )
+        import_folders_panel.AddButton( 'edit', self._Edit, enabled_only_on_single_selection = True )
         import_folders_panel.AddDeleteButton()
         
         #
@@ -85,9 +87,7 @@ class EditImportFoldersPanel( ClientGUIScrolledPanels.EditPanel ):
                 
                 import_folder.SetNonDupeName( self._GetExistingNames() )
                 
-                self._import_folders.AddDatas( ( import_folder, ) )
-                
-                self._import_folders.Sort()
+                self._import_folders.AddDatas( ( import_folder, ), select_sort_and_scroll = True )
                 
             
         
@@ -122,40 +122,35 @@ class EditImportFoldersPanel( ClientGUIScrolledPanels.EditPanel ):
     
     def _Edit( self ):
         
-        edited_datas = []
+        import_folder: typing.Optional[ ClientImportLocal.ImportFolder ] = self._import_folders.GetTopSelectedData()
         
-        import_folders = self._import_folders.GetData( only_selected = True )
-        
-        for import_folder in import_folders:
+        if import_folder is None:
             
-            with ClientGUITopLevelWindowsPanels.DialogEdit( self, 'edit import folder' ) as dlg:
-                
-                panel = EditImportFolderPanel( dlg, import_folder )
-                
-                dlg.SetPanel( panel )
-                
-                if dlg.exec() == QW.QDialog.Accepted:
-                    
-                    edited_import_folder = panel.GetValue()
-                    
-                    self._import_folders.DeleteDatas( ( import_folder, ) )
-                    
-                    edited_import_folder.SetNonDupeName( self._GetExistingNames() )
-                    
-                    self._import_folders.AddDatas( ( edited_import_folder, ) )
-                    
-                    edited_datas.append( edited_import_folder )
-                    
-                else:
-                    
-                    break
-                    
-                
+            return
             
         
-        self._import_folders.SelectDatas( edited_datas )
-        
-        self._import_folders.Sort()
+        with ClientGUITopLevelWindowsPanels.DialogEdit( self, 'edit import folder' ) as dlg:
+            
+            panel = EditImportFolderPanel( dlg, import_folder )
+            
+            dlg.SetPanel( panel )
+            
+            if dlg.exec() == QW.QDialog.Accepted:
+                
+                edited_import_folder = panel.GetValue()
+                
+                if edited_import_folder.GetName() != import_folder.GetName():
+                    
+                    existing_names = self._GetExistingNames()
+                    
+                    existing_names.discard( import_folder.GetName() )
+                    
+                    edited_import_folder.SetNonDupeName( existing_names )
+                    
+                
+                self._import_folders.ReplaceData( import_folder, edited_import_folder, sort_and_scroll = True )
+                
+            
         
     
     def _GetExistingNames( self ):
@@ -167,7 +162,7 @@ class EditImportFoldersPanel( ClientGUIScrolledPanels.EditPanel ):
         return names
         
     
-    def GetValue( self ):
+    def GetValue( self ) -> typing.Collection[ ClientImportLocal.ImportFolder ]:
         
         import_folders = self._import_folders.GetData()
         
@@ -259,16 +254,16 @@ class EditImportFolderPanel( ClientGUIScrolledPanels.EditPanel ):
         filename_tagging_options_panel.SetListCtrl( self._filename_tagging_options )
         
         filename_tagging_options_panel.AddButton( 'add', self._AddFilenameTaggingOptions )
-        filename_tagging_options_panel.AddButton( 'edit', self._EditFilenameTaggingOptions, enabled_only_on_selection = True )
+        filename_tagging_options_panel.AddButton( 'edit', self._EditFilenameTaggingOptions, enabled_only_on_single_selection = True )
         filename_tagging_options_panel.AddDeleteButton()
         
         metadata_routers = self._import_folder.GetMetadataRouters()
         allowed_importer_classes = [ ClientMetadataMigrationImporters.SingleFileMetadataImporterTXT, ClientMetadataMigrationImporters.SingleFileMetadataImporterJSON ]
         allowed_exporter_classes = [ ClientMetadataMigrationExporters.SingleFileMetadataExporterMediaTags, ClientMetadataMigrationExporters.SingleFileMetadataExporterMediaNotes, ClientMetadataMigrationExporters.SingleFileMetadataExporterMediaURLs, ClientMetadataMigrationExporters.SingleFileMetadataExporterMediaTimestamps ]
         
-        self._metadata_routers_button = ClientGUIMetadataMigration.SingleFileMetadataRoutersButton( self, metadata_routers, allowed_importer_classes, allowed_exporter_classes )
+        self._sidecar_test_context_factory = ClientGUIMetadataMigrationTest.MigrationTestContextFactorySidecar( [] )
         
-        services_manager = CG.client_controller.services_manager
+        self._metadata_routers_button = ClientGUIMetadataMigration.SingleFileMetadataRoutersButton( self, metadata_routers, allowed_importer_classes, allowed_exporter_classes, self._sidecar_test_context_factory )
         
         #
         
@@ -384,6 +379,10 @@ class EditImportFolderPanel( ClientGUIScrolledPanels.EditPanel ):
         self._check_regularly.clicked.connect( self._UpdateCheckRegularly )
         
         self._UpdateCheckRegularly()
+        
+        self._path.dirPickerChanged.connect( self._PathChanged )
+        
+        self._PathChanged()
         
     
     def _AddFilenameTaggingOptions( self ):
@@ -605,6 +604,27 @@ class EditImportFolderPanel( ClientGUIScrolledPanels.EditPanel ):
             
         
         self._filename_tagging_options.SelectDatas( edited_datas )
+        
+    
+    def _PathChanged( self ):
+        
+        path = self._path.GetPath()
+        
+        try:
+            
+            if os.path.exists( path ) and os.path.isdir( path ):
+                
+                filenames = list( os.listdir( path ) )[:ClientGUIMetadataMigrationTest.HOW_MANY_EXAMPLE_OBJECTS_TO_USE]
+                
+                example_paths = [ os.path.join( path, filename ) for filename in filenames ]
+                
+                self._sidecar_test_context_factory.SetExampleFilePaths( example_paths )
+                
+            
+        except:
+            
+            return
+            
         
     
     def _UpdateCheckRegularly( self ):

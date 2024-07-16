@@ -4,6 +4,7 @@ import os
 import typing
 
 from qtpy import QtCore as QC
+from qtpy import QtGui as QG
 from qtpy import QtWidgets as QW
 
 from hydrus.core import HydrusConstants as HC
@@ -11,6 +12,7 @@ from hydrus.core import HydrusData
 from hydrus.core import HydrusExceptions
 from hydrus.core import HydrusGlobals as HG
 from hydrus.core import HydrusLists
+from hydrus.core import HydrusNumbers
 from hydrus.core import HydrusTags
 from hydrus.core import HydrusText
 from hydrus.core import HydrusTime
@@ -798,8 +800,14 @@ class AutoCompleteDropdown( CAC.ApplicationCommandProcessorMixin, QW.QWidget ):
     
     def __init__( self, parent ):
         
+        self._qss_colours = {
+            CC.COLOUR_AUTOCOMPLETE_BACKGROUND : QG.QColor( 235, 248, 255 )
+        }
+        
         QW.QWidget.__init__( self, parent )
         CAC.ApplicationCommandProcessorMixin.__init__( self )
+        
+        self.setObjectName( 'HydrusTagAutocomplete' )
         
         self._can_intercept_unusual_key_events = True
         
@@ -821,8 +829,6 @@ class AutoCompleteDropdown( CAC.ApplicationCommandProcessorMixin, QW.QWidget ):
         self._text_ctrl = QW.QLineEdit( self._text_input_panel )
         
         self.setFocusProxy( self._text_ctrl )
-        
-        self._UpdateBackgroundColour()
         
         self._last_attempted_dropdown_width = 0
         
@@ -947,6 +953,8 @@ class AutoCompleteDropdown( CAC.ApplicationCommandProcessorMixin, QW.QWidget ):
         
         # trying a second go to see if that improves some positioning
         CG.client_controller.CallLaterQtSafe( self, 0.25, 'hide/show dropdown', self._DropdownHideShow )
+        
+        CG.client_controller.CallLaterQtSafe( self, 0.05, 'do autocomplete background colour', self._UpdateBackgroundColour )
         
     
     def _BroadcastChoices( self, predicates, shift_down ):
@@ -1164,14 +1172,14 @@ class AutoCompleteDropdown( CAC.ApplicationCommandProcessorMixin, QW.QWidget ):
     
     def _UpdateBackgroundColour( self ):
         
-        colour = CG.client_controller.new_options.GetColour( CC.COLOUR_AUTOCOMPLETE_BACKGROUND )
+        bg_colour = self.GetColour( CC.COLOUR_AUTOCOMPLETE_BACKGROUND )
         
         if not self._can_intercept_unusual_key_events:
             
-            colour = ClientGUIFunctions.GetLighterDarkerColour( colour )
+            bg_colour = ClientGUIFunctions.GetLighterDarkerColour( bg_colour )
             
         
-        QP.SetBackgroundColour( self._text_ctrl, colour )
+        QP.SetBackgroundColour( self._text_ctrl, bg_colour )
         
         self._text_ctrl.update()
         
@@ -1409,6 +1417,20 @@ class AutoCompleteDropdown( CAC.ApplicationCommandProcessorMixin, QW.QWidget ):
             
         
     
+    def GetColour( self, colour_type ):
+        
+        new_options = CG.client_controller.new_options
+        
+        if new_options.GetBoolean( 'override_stylesheet_colours' ):
+            
+            return new_options.GetColour( colour_type )
+            
+        else:
+            
+            return self._qss_colours.get( colour_type, QG.QColor( 127, 127, 127 ) )
+            
+        
+    
     def MoveNotebookPageFocus( self, index = None, direction = None ):
         
         new_index = None
@@ -1532,6 +1554,18 @@ class AutoCompleteDropdown( CAC.ApplicationCommandProcessorMixin, QW.QWidget ):
         
         self._DropdownHideShow()
         
+    
+    def get_hta_background( self ):
+        
+        return self._qss_colours[ CC.COLOUR_AUTOCOMPLETE_BACKGROUND ]
+        
+    
+    def set_hta_background( self, colour ):
+        
+        self._qss_colours[ CC.COLOUR_AUTOCOMPLETE_BACKGROUND ] = colour
+        
+    
+    hta_background = QC.Property( QG.QColor, get_hta_background, set_hta_background )
     
 
 class ChildrenTab( ListBoxTagsPredicatesAC ):
@@ -2857,7 +2891,7 @@ class ListBoxTagsActiveSearchPredicates( ClientGUIListBoxes.ListBoxTagsPredicate
                 
             else:
                 
-                desc = '{} search terms'.format( HydrusData.ToHumanInt( len( editable_and_invertible_predicates ) ) )
+                desc = '{} search terms'.format( HydrusNumbers.ToHumanInt( len( editable_and_invertible_predicates ) ) )
                 
             
             label = 'edit {}'.format( desc )
@@ -2931,6 +2965,8 @@ class ListBoxTagsActiveSearchPredicates( ClientGUIListBoxes.ListBoxTagsPredicate
         terms_to_be_added = set()
         terms_to_be_removed = set()
         
+        terms_to_select = set()
+        
         for predicate in predicates:
             
             predicate = predicate.GetCountlessCopy()
@@ -2952,7 +2988,14 @@ class ListBoxTagsActiveSearchPredicates( ClientGUIListBoxes.ListBoxTagsPredicate
                     
                     m_e_preds = self._GetMutuallyExclusivePredicates( predicate )
                     
-                    terms_to_be_removed.update( ( self._GenerateTermFromPredicate( pred ) for pred in m_e_preds ) )
+                    new_removees = [ self._GenerateTermFromPredicate( pred ) for pred in m_e_preds ]
+                    
+                    if True in ( t in self._selected_terms for t in new_removees ):
+                        
+                        terms_to_select.add( term )
+                        
+                    
+                    terms_to_be_removed.update( new_removees )
                     
                 
             
@@ -2962,6 +3005,15 @@ class ListBoxTagsActiveSearchPredicates( ClientGUIListBoxes.ListBoxTagsPredicate
         self._RemoveTerms( terms_to_be_removed )
         
         self._Sort()
+        
+        if len( terms_to_select ) > 0:
+            
+            self._selected_terms.update( terms_to_select )
+            
+            earliest_guy = sorted( terms_to_select, key = lambda t: self._terms_to_logical_indices[ t ] )[0]
+            
+            self._Hit( False, False, self._terms_to_logical_indices[ earliest_guy ] )
+            
         
         self._DataHasChanged()
         

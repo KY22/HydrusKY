@@ -137,6 +137,8 @@ class StringMatchButton( ClientGUICommon.BetterButton ):
     
 class StringProcessorButton( ClientGUICommon.BetterButton ):
     
+    valueChanged = QC.Signal()
+    
     def __init__( self, parent, string_processor: ClientStrings.StringProcessor, test_data_callable: typing.Callable[ [], ClientParsing.ParsingTestData ] ):
         
         ClientGUICommon.BetterButton.__init__( self, parent, 'edit string processor', self._Edit )
@@ -162,6 +164,8 @@ class StringProcessorButton( ClientGUICommon.BetterButton ):
                 self._string_processor = panel.GetValue()
                 
                 self._UpdateLabel()
+                
+                self.valueChanged.emit()
                 
             
         
@@ -213,7 +217,7 @@ class StringMatchToStringMatchDictControl( QW.QWidget ):
         listctrl_panel.SetListCtrl( self._listctrl )
         
         listctrl_panel.AddButton( 'add', self._Add )
-        listctrl_panel.AddButton( 'edit', self._Edit, enabled_only_on_selection = True )
+        listctrl_panel.AddButton( 'edit', self._Edit, enabled_only_on_single_selection = True )
         listctrl_panel.AddDeleteButton()
         
         #
@@ -411,7 +415,7 @@ class StringToStringDictControl( QW.QWidget ):
             listctrl_panel.AddButton( 'add', self._Add )
             
         
-        listctrl_panel.AddButton( 'edit', self._Edit, enabled_only_on_selection = True )
+        listctrl_panel.AddButton( 'edit', self._Edit, enabled_only_on_single_selection = True )
         
         if allow_add_delete:
             
@@ -464,7 +468,7 @@ class StringToStringDictControl( QW.QWidget ):
                         
                         data = ( key, value )
                         
-                        self._listctrl.AddDatas( ( data, ) )
+                        self._listctrl.AddDatas( ( data, ), select_sort_and_scroll = True )
                         
                     
                 
@@ -473,62 +477,56 @@ class StringToStringDictControl( QW.QWidget ):
     
     def _Edit( self ):
         
-        edited_datas = []
+        data = self._listctrl.GetTopSelectedData()
         
-        for data in self._listctrl.GetData( only_selected = True ):
+        if data is None:
             
-            ( key, value ) = data
+            return
             
-            if self._edit_keys:
-                
-                with ClientGUIDialogs.DialogTextEntry( self, 'edit the ' + self._key_name, default = key, allow_blank = False ) as dlg:
-                    
-                    if dlg.exec() == QW.QDialog.Accepted:
-                        
-                        edited_key = dlg.GetValue()
-                        
-                        if edited_key != key and edited_key in self._GetExistingKeys():
-                            
-                            ClientGUIDialogsMessage.ShowWarning( self, 'That {} already exists!'.format( self._key_name ) )
-                            
-                            break
-                            
-                        
-                    else:
-                        
-                        break
-                        
-                    
-                
-            else:
-                
-                edited_key = key
-                
+        
+        ( key, value ) = data
+        
+        if self._edit_keys:
             
-            with ClientGUIDialogs.DialogTextEntry( self, 'edit the ' + self._value_name, default = value, allow_blank = True ) as dlg:
+            with ClientGUIDialogs.DialogTextEntry( self, 'edit the ' + self._key_name, default = key, allow_blank = False ) as dlg:
                 
                 if dlg.exec() == QW.QDialog.Accepted:
                     
-                    edited_value = dlg.GetValue()
+                    edited_key = dlg.GetValue()
+                    
+                    if edited_key != key and edited_key in self._GetExistingKeys():
+                        
+                        ClientGUIDialogsMessage.ShowWarning( self, 'That {} already exists!'.format( self._key_name ) )
+                        
+                        return
+                        
                     
                 else:
                     
-                    break
+                    return
                     
                 
             
-            self._listctrl.DeleteDatas( ( data, ) )
+        else:
             
-            edited_data = ( edited_key, edited_value )
-            
-            self._listctrl.AddDatas( ( edited_data, ) )
-            
-            edited_datas.append( edited_data )
+            edited_key = key
             
         
-        self._listctrl.SelectDatas( edited_datas )
+        with ClientGUIDialogs.DialogTextEntry( self, 'edit the ' + self._value_name, default = value, allow_blank = True ) as dlg:
+            
+            if dlg.exec() == QW.QDialog.Accepted:
+                
+                edited_value = dlg.GetValue()
+                
+            else:
+                
+                return
+                
+            
         
-        self._listctrl.Sort()
+        edited_data = ( edited_key, edited_value )
+        
+        self._listctrl.ReplaceData( data, edited_data, sort_and_scroll = True )
         
     
     def _GetExistingKeys( self ):
@@ -538,9 +536,7 @@ class StringToStringDictControl( QW.QWidget ):
     
     def _SetValue( self, str_to_str_dict: typing.Dict[ str, str ] ):
         
-        self.Clear()
-        
-        self._listctrl.AddDatas( [ ( str( key ), str( value ) ) for ( key, value ) in str_to_str_dict.items() ] )
+        self._listctrl.SetData( [ ( str( key ), str( value ) ) for ( key, value ) in str_to_str_dict.items() ] )
         
         self._listctrl.Sort()
         
@@ -579,7 +575,7 @@ class StringToStringMatchDictControl( QW.QWidget ):
         listctrl_panel.SetListCtrl( self._listctrl )
         
         listctrl_panel.AddButton( 'add', self._Add )
-        listctrl_panel.AddButton( 'edit', self._Edit, enabled_only_on_selection = True )
+        listctrl_panel.AddButton( 'edit', self._Edit, enabled_only_on_single_selection = True )
         listctrl_panel.AddDeleteButton()
         
         #

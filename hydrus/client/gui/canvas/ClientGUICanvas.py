@@ -8,6 +8,7 @@ from hydrus.core import HydrusConstants as HC
 from hydrus.core import HydrusData
 from hydrus.core import HydrusExceptions
 from hydrus.core import HydrusLists
+from hydrus.core import HydrusNumbers
 from hydrus.core import HydrusTags
 from hydrus.core import HydrusTime
 
@@ -142,9 +143,19 @@ def AddAudioVolumeMenu( menu, canvas_type ):
 
 class CanvasBackgroundColourGenerator( object ):
     
+    def __init__( self, my_canvas ):
+        
+        self._my_canvas = my_canvas
+        
+    
+    def _GetColourFromOptions( self ):
+        
+        return self._my_canvas.GetColour( CC.COLOUR_MEDIA_BACKGROUND )
+        
+    
     def GetColour( self ) -> QG.QColor:
         
-        return CG.client_controller.new_options.GetColour( CC.COLOUR_MEDIA_BACKGROUND )
+        return self._GetColourFromOptions()
         
     
     def CanDoTransparencyCheckerboard( self ) -> bool:
@@ -155,13 +166,6 @@ class CanvasBackgroundColourGenerator( object ):
 
 class CanvasBackgroundColourGeneratorDuplicates( CanvasBackgroundColourGenerator ):
     
-    def __init__( self, duplicate_canvas ):
-        
-        CanvasBackgroundColourGenerator.__init__( self )
-        
-        self._duplicate_canvas = duplicate_canvas
-        
-    
     def CanDoTransparencyCheckerboard( self ) -> bool:
         
         return CG.client_controller.new_options.GetBoolean( 'draw_transparency_checkerboard_media_canvas' ) or CG.client_controller.new_options.GetBoolean( 'draw_transparency_checkerboard_media_canvas_duplicates' )
@@ -171,11 +175,11 @@ class CanvasBackgroundColourGeneratorDuplicates( CanvasBackgroundColourGenerator
         
         new_options = CG.client_controller.new_options
         
-        normal_colour = new_options.GetColour( CC.COLOUR_MEDIA_BACKGROUND )
+        normal_colour = self._GetColourFromOptions()
         
-        if self._duplicate_canvas.IsShowingAPair():
+        if self._my_canvas.IsShowingAPair():
             
-            if self._duplicate_canvas.IsShowingFileA():
+            if self._my_canvas.IsShowingFileA():
                 
                 duplicate_intensity = new_options.GetNoneableInteger( 'duplicate_background_switch_intensity_a' )
                 
@@ -314,14 +318,21 @@ class Canvas( CAC.ApplicationCommandProcessorMixin, QW.QWidget ):
     
     def __init__( self, parent, location_context: ClientLocation.LocationContext ):
         
+        self._qss_colours = {
+            CC.COLOUR_MEDIA_BACKGROUND : QG.QColor( 255, 255, 255 ),
+            CC.COLOUR_MEDIA_TEXT : QG.QColor( 0, 0, 0 )
+        }
+        
         QW.QWidget.__init__( self, parent )
         CAC.ApplicationCommandProcessorMixin.__init__( self )
+        
+        self.setObjectName( 'HydrusMediaViewer' )
         
         self.setSizePolicy( QW.QSizePolicy.Expanding, QW.QSizePolicy.Expanding )
         
         self._location_context = location_context
         
-        self._background_colour_generator = CanvasBackgroundColourGenerator()
+        self._background_colour_generator = CanvasBackgroundColourGenerator( self )
         
         self._current_media_start_time_ms = HydrusTime.GetNowMS()
         
@@ -702,6 +713,18 @@ class Canvas( CAC.ApplicationCommandProcessorMixin, QW.QWidget ):
     def GetActiveCustomShortcutNames( self ):
         
         return self._my_shortcuts_handler.GetCustomShortcutNames()
+        
+    
+    def GetColour( self, colour_type ):
+        
+        if self._new_options.GetBoolean( 'override_stylesheet_colours' ):
+            
+            return self._new_options.GetColour( colour_type )
+            
+        else:
+            
+            return self._qss_colours.get( colour_type, QG.QColor( 127, 127, 127 ) )
+            
         
     
     def ManageNotes( self, canvas_key, name_to_start_on = None ):
@@ -1312,6 +1335,29 @@ class Canvas( CAC.ApplicationCommandProcessorMixin, QW.QWidget ):
             
         
     
+    def get_hmv_background( self ):
+        
+        return self._qss_colours[ CC.COLOUR_MEDIA_BACKGROUND ]
+        
+    
+    def get_hmv_text( self ):
+        
+        return self._qss_colours[ CC.COLOUR_MEDIA_TEXT ]
+        
+    
+    def set_hmv_background( self, colour ):
+        
+        self._qss_colours[ CC.COLOUR_MEDIA_BACKGROUND ] = colour
+        
+    
+    def set_hmv_text( self, colour ):
+        
+        self._qss_colours[ CC.COLOUR_MEDIA_TEXT ] = colour
+        
+    
+    hmv_background = QC.Property( QG.QColor, get_hmv_background, set_hmv_background )
+    hmv_text = QC.Property( QG.QColor, get_hmv_text, set_hmv_text )
+    
 
 class MediaContainerDragClickReportingFilter( QC.QObject ):
     
@@ -1505,7 +1551,7 @@ class CanvasPanel( Canvas ):
             
             if num_notes > 0:
                 
-                notes_str = '{} ({})'.format( notes_str, HydrusData.ToHumanInt( num_notes ) )
+                notes_str = '{} ({})'.format( notes_str, HydrusNumbers.ToHumanInt( num_notes ) )
                 
             
             ClientGUIMenus.AppendMenuItem( manage_menu, notes_str, 'Manage this file\'s notes.', self._ManageNotes )
@@ -1842,7 +1888,9 @@ class CanvasWithDetails( Canvas ):
         
         # top-middle
         
-        painter.setPen( QG.QPen( self._new_options.GetColour( CC.COLOUR_MEDIA_TEXT ) ) )
+        pen_colour = self.GetColour( CC.COLOUR_MEDIA_TEXT )
+        
+        painter.setPen( QG.QPen( pen_colour ) )
         
         current_y = 3
         
@@ -1970,7 +2018,9 @@ class CanvasWithDetails( Canvas ):
             current_y += 18
             
         
-        painter.setPen( QG.QPen( self._new_options.GetColour( CC.COLOUR_MEDIA_TEXT ) ) )
+        pen_colour = self.GetColour( CC.COLOUR_MEDIA_TEXT )
+        
+        painter.setPen( QG.QPen( pen_colour ) )
         
         # repo strings
         
@@ -2644,12 +2694,12 @@ class CanvasFilterDuplicates( CanvasWithHovers ):
             
             if num_committable > 0:
                 
-                components.append( '{} decisions'.format( HydrusData.ToHumanInt( num_committable ) ) )
+                components.append( '{} decisions'.format( HydrusNumbers.ToHumanInt( num_committable ) ) )
                 
             
             if num_deletable > 0:
                 
-                components.append( '{} deletes'.format( HydrusData.ToHumanInt( num_deletable ) ) )
+                components.append( '{} deletes'.format( HydrusNumbers.ToHumanInt( num_deletable ) ) )
                 
             
             if len( components ) == 0:
@@ -3017,12 +3067,12 @@ class CanvasFilterDuplicates( CanvasWithHovers ):
                     
                     if num_committable > 0:
                         
-                        components.append( '{} decisions'.format( HydrusData.ToHumanInt( num_committable ) ) )
+                        components.append( '{} decisions'.format( HydrusNumbers.ToHumanInt( num_committable ) ) )
                         
                     
                     if num_deletable > 0:
                         
-                        components.append( '{} deletes'.format( HydrusData.ToHumanInt( num_deletable ) ) )
+                        components.append( '{} deletes'.format( HydrusNumbers.ToHumanInt( num_deletable ) ) )
                         
                     
                     label = 'commit {} and continue?'.format( ' and '.join( components ) )
@@ -3316,12 +3366,12 @@ class CanvasFilterDuplicates( CanvasWithHovers ):
             
             if num_committable > 0:
                 
-                components.append( '{} decisions'.format( HydrusData.ToHumanInt( num_committable ) ) )
+                components.append( '{} decisions'.format( HydrusNumbers.ToHumanInt( num_committable ) ) )
                 
             
             if num_deletable > 0:
                 
-                components.append( '{} deletes'.format( HydrusData.ToHumanInt( num_deletable ) ) )
+                components.append( '{} deletes'.format( HydrusNumbers.ToHumanInt( num_deletable ) ) )
                 
             
             label = 'commit {}?'.format( ' and '.join( components ) )
@@ -3430,7 +3480,7 @@ class CanvasMediaList( ClientMedia.ListeningMediaList, CanvasWithHovers ):
         
         if self._current_media is None:
             
-            index_string = '-/' + HydrusData.ToHumanInt( len( self._sorted_media ) )
+            index_string = '-/' + HydrusNumbers.ToHumanInt( len( self._sorted_media ) )
             
         else:
             
@@ -3766,7 +3816,7 @@ class CanvasMediaListFilterArchiveDelete( CanvasMediaList ):
             
             if len( kept ) > 0:
                 
-                kept_label = 'keep {}'.format( HydrusData.ToHumanInt( len( kept ) ) )
+                kept_label = 'keep {}'.format( HydrusNumbers.ToHumanInt( len( kept ) ) )
                 
             else:
                 
@@ -3839,7 +3889,7 @@ class CanvasMediaListFilterArchiveDelete( CanvasMediaList ):
                             location_label = location_context.ToString( CG.client_controller.services_manager.GetName )
                             
                         
-                        delete_label = 'delete {} from {}'.format( HydrusData.ToHumanInt( num_deletable ), location_label )
+                        delete_label = 'delete {} from {}'.format( HydrusNumbers.ToHumanInt( num_deletable ), location_label )
                         
                         deletion_options.append( ( location_context, delete_label ) )
                         
@@ -4626,7 +4676,7 @@ class CanvasMediaListBrowser( CanvasMediaListNavigable ):
             
             if num_notes > 0:
                 
-                notes_str = '{} ({})'.format( notes_str, HydrusData.ToHumanInt( num_notes ) )
+                notes_str = '{} ({})'.format( notes_str, HydrusNumbers.ToHumanInt( num_notes ) )
                 
             
             ClientGUIMenus.AppendMenuItem( manage_menu, notes_str, 'Manage this file\'s notes.', self._ManageNotes )

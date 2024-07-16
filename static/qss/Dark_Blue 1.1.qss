@@ -1,6 +1,11 @@
 /* 
 Dark Blue: A Dark Blue theme for Hydrus Network by B1N4RYJ4N
-Version..: 1.0
+Version..: 1.1
+
+Changelog for 1.1:
+- Added New Style Block for HydrusAnimationBar
+- QScrollBar increased width and a new handle color
+- Added some color properties for QTextEdit, QTextEdit#HydrusValid and QTextEdit#HydrusIndeterminate
 
 To achieve the intended results you must:
 
@@ -53,7 +58,7 @@ QAbstractItemView {
 QWidget {
     color: #CCCCCC;
     background-color: #252526;
-  	alternate-background-color: #252526;
+    alternate-background-color: #252526;
 }
 
 QWidget::disabled {
@@ -70,6 +75,13 @@ QWidget::item:hover {
     background-color: #569cd6;
 }
 
+QWidget#HydrusAnimationBar
+{
+    qproperty-hab_border: #271F89;
+    qproperty-hab_background: #569CD6;
+    qproperty-hab_nub: #007ACC;
+}
+
 /*
    ____  _____            _ _____ _       
   /___ \/__   \___   ___ | /__   (_)_ __  
@@ -81,8 +93,9 @@ QWidget::item:hover {
 */
 
 QToolTip {
+    color: #8be9fd;
     border: 1px solid black;
-    background-color: #CCCCCC;
+    background-color: #1E1E1E;
     padding: 1px;
 }
 
@@ -96,8 +109,8 @@ QToolTip {
 */
 
 QMenu {
-	color: #CCCCCC;
-	background: #252526;
+    color: #CCCCCC;
+    background: #252526;
 }
 
 QMenu::item {
@@ -123,7 +136,7 @@ QMenuBar::item {
 }
 
 QMenuBar::item:selected {
-	color: #FFF;
+    color: #FFF;
     background: #569cd6;
 }
 
@@ -147,19 +160,19 @@ QPushButton::hover {
 }
 
 QPushButton#HydrusAccept {
-	color: #50fa7b;
+    color: #50fa7b;
 }
 
 QPushButton#HydrusCancel {
-	color: #ff5555;
+    color: #ff5555;
 }
 
 QPushButton#HydrusOnOffButton[hydrus_on=true] {
-	color: #50fa7b;
+    color: #50fa7b;
 }
 
 QPushButton#HydrusOnOffButton[hydrus_on=false] {
-	color: #ff5555;
+    color: #ff5555;
 }
 
 /*
@@ -190,8 +203,8 @@ QTabBar::tab:selected {
 }
 
 QTabBar::tab:hover:!selected {
-	color: #FFF;
-	background-color: #007ACC;
+    color: #FFF;
+    background-color: #007ACC;
 }
 
 /*
@@ -211,7 +224,7 @@ QLineEdit {
 } 
 
 QLineEdit:focus{
-	color: #FFF;
+    color: #FFF;
     border: 1px solid #CCC;
 }
 
@@ -226,7 +239,7 @@ QLineEdit:focus{
 */
 
 QProgressBar {
-	color: #FFF;
+    color: #FFF;
     border: 1px solid #569cd6;
     text-align: center;
     padding: 1px;
@@ -282,7 +295,7 @@ QScrollBar:hover {
 }
 
 QScrollBar:vertical {
-    width: 8px;
+    width: 15px;
 }
 
 QScrollBar:horizontal {
@@ -293,7 +306,7 @@ QScrollBar::handle {
     padding: 0;
     margin: 2px;
     border-radius: 2px;
-    border: 2px solid #569cd6;
+    border: 2px solid #569CD6;
     background: #1E1E1E;
 }
 
@@ -313,7 +326,7 @@ QScrollBar::handle:hover {
 }
 
 QScrollBar::handle:pressed {
-    background: #1E1E1E;
+    background: #569CD6;
     border-color: #007ACC;
 }
 
@@ -342,18 +355,22 @@ QScrollBar::add-page, QScrollBar::sub-page {
 */
 
 QTextEdit {
+    color: #a19cdf;
     background-color: #383B3D;
 }
 
 QTextEdit#HydrusValid {
+    color: #0d035f;
     background-color: #80ff80;
 }
 
 QTextEdit#HydrusIndeterminate {
+    color: #0d035f;
     background-color: #8080ff;
 }
 
 QTextEdit#HydrusInvalid {
+    color: #0d035f;
     background-color: #ff8080;
 }
 
@@ -384,7 +401,7 @@ QLabel#HydrusValid {
 }
 
 QLabel#HydrusIndeterminate {
-	color: #8080ff;
+    color: #8080ff;
 }
 
 QLabel#HydrusInvalid {
@@ -405,14 +422,17 @@ QLabel#HydrusWarning {
 */
 
 QLineEdit#HydrusValid {
+    color: #0d035f;
     background-color: #80ff80;
 }
 
 QLineEdit#HydrusIndeterminateValid {
+    color: #0d035f;
     background-color: #8080ff;
 }
 
 QLineEdit#HydrusInvalid {
+    color: #0d035f;
     background-color: #ff8080;
 }
 
@@ -426,7 +446,7 @@ QLineEdit#HydrusInvalid {
 */
 
 QCheckBox#HydrusWarning {
-	color: #ff5555;
+    color: #ff5555;
 }
 
 /*
@@ -437,7 +457,7 @@ Extra, hydev added this
 
 QLabel#HydrusHyperlink
 {
-	qproperty-link_color: #8be9fd;
+    qproperty-link_color: #8be9fd;
 }
 
 

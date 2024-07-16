@@ -14,6 +14,7 @@ from hydrus.core import HydrusDB
 from hydrus.core import HydrusExceptions
 from hydrus.core import HydrusGlobals as HG
 from hydrus.core import HydrusLists
+from hydrus.core import HydrusNumbers
 from hydrus.core import HydrusPaths
 from hydrus.core import HydrusSerialisable
 from hydrus.core import HydrusTags
@@ -2128,7 +2129,7 @@ class DB( HydrusDB.HydrusDB ):
                 
             
         
-        HydrusData.Print( 'Update OK. ' + HydrusData.ToHumanInt( total_definition_rows ) + ' definition rows and ' + HydrusData.ToHumanInt( total_content_rows ) + ' content rows in ' + HydrusData.ToHumanInt( len( updates ) ) + ' update files.' )
+        HydrusData.Print( 'Update OK. ' + HydrusNumbers.ToHumanInt( total_definition_rows ) + ' definition rows and ' + HydrusNumbers.ToHumanInt( total_content_rows ) + ' content rows in ' + HydrusNumbers.ToHumanInt( len( updates ) ) + ' update files.' )
         
         return update_hashes
         
@@ -3013,7 +3014,7 @@ class DB( HydrusDB.HydrusDB ):
         
         reason = self._GetReason( reason_id )
         
-        tag_ids_to_hash_ids = HydrusData.BuildKeyToListDict( self._Execute( f'SELECT service_tag_id, service_hash_id FROM {petitioned_mappings_table_name} WHERE account_id = ? AND reason_id = ? LIMIT;', ( petitioner_account_id, reason_id, MAX_MAPPINGS_PER_PETITION ) ) )
+        tag_ids_to_hash_ids = HydrusData.BuildKeyToListDict( self._Execute( f'SELECT service_tag_id, service_hash_id FROM {petitioned_mappings_table_name} WHERE account_id = ? AND reason_id = ? LIMIT ?;', ( petitioner_account_id, reason_id, MAX_MAPPINGS_PER_PETITION ) ) )
         
         if len( tag_ids_to_hash_ids ) == 0:
             
@@ -4709,7 +4710,7 @@ class DB( HydrusDB.HydrusDB ):
                 raise Exception( 'Was asked to generate service info for an unknown type: {}'.format( info_type ) )
                 
             
-            HydrusData.Print( 'Regenerated a service info number: {} - {} - {}'.format( service_name, HC.service_info_enum_str_lookup[ info_type ], HydrusData.ToHumanInt( info ) ) )
+            HydrusData.Print( 'Regenerated a service info number: {} - {} - {}'.format( service_name, HC.service_info_enum_str_lookup[ info_type ], HydrusNumbers.ToHumanInt( info ) ) )
             
             self._Execute( 'INSERT OR IGNORE INTO service_info ( service_id, info_type, info ) VALUES ( ?, ?, ? )', ( service_id, info_type, info ) )
             
