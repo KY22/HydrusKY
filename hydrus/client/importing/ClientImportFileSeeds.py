@@ -81,8 +81,9 @@ def FileURLMappingHasUntrustworthyNeighbours( hash: bytes, lookup_urls: typing.C
     
     if len( lookup_urls ) == 0:
         
-        # what is going on, yes, whatever garbage you just threw at me is not to be trusted to produce a dispositive result
-        return True
+        # ok, this method was likely called with only File/Unknown URLs, probably, or at least those are the only things that could be providing trustworthy results
+        # we cannot adjudicate File/Unknown URL trustworthiness here, so we return False
+        return False
         
     
     lookup_url_domains = { ClientNetworkingFunctions.ConvertURLIntoDomain( lookup_url ) for lookup_url in lookup_urls } 
@@ -1323,9 +1324,6 @@ class FileSeed( HydrusSerialisable.SerialisableBase ):
             note += '\n'
             note += traceback.format_exc()
             
-            HydrusData.Print( 'Error when processing {}!'.format( self.file_seed_data ) )
-            HydrusData.Print( traceback.format_exc() )
-            
         
         self.status = status
         self.note = note
@@ -1607,11 +1605,11 @@ class FileSeed( HydrusSerialisable.SerialisableBase ):
                                 
                                 if can_parse:
                                     
-                                    raise HydrusExceptions.VetoException( 'Found a URL--{}--but could not understand it!'.format( desired_url ) )
+                                    raise HydrusExceptions.VetoException( 'Found a URL--{}--but it was not a file/post URL!'.format( desired_url ) )
                                     
                                 else:
                                     
-                                    raise HydrusExceptions.VetoException( 'Found a URL--{}--but could not parse it: {}'.format( desired_url, cannot_parse_reason ) )
+                                    raise HydrusExceptions.VetoException( 'Found a URL--{}--but it was not a file/post URL! Also, even then, it seems I cannot parse it anyway: {}'.format( desired_url, cannot_parse_reason ) )
                                     
                                 
                             
@@ -1971,7 +1969,7 @@ class FileSeedCacheStatus( HydrusSerialisable.SerialisableBase ):
                 
                 if num_unknown > 0:
                     
-                    status_text += HydrusData.ConvertValueRangeToPrettyString( total_processed, total )
+                    status_text += HydrusNumbers.ValueRangeToPrettyString( total_processed, total )
                     
                 else:
                     

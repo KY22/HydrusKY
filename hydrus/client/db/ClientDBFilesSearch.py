@@ -1119,6 +1119,77 @@ class ClientDBFilesQuery( ClientDBModule.ClientDBModule ):
         return query_hash_ids
         
     
+    def _DoSpecificKnownURLPreds( self, file_search_context: ClientSearch.FileSearchContext, query_hash_ids: typing.Optional[ typing.Set[ int ] ], allowed_rule_types: typing.Collection[ str ] ) -> typing.Optional[ typing.Set[ int ] ]:
+        
+        system_predicates = file_search_context.GetSystemPredicates()
+        
+        is_inbox = system_predicates.MustBeInbox()
+        
+        simple_preds = system_predicates.GetSimpleInfo()
+        
+        if 'known_url_rules' in simple_preds:
+            
+            known_url_rules = list( simple_preds[ 'known_url_rules' ] )
+            
+            magic_sort_list = [
+                'exact_match',
+                'domain',
+                'url_class',
+                'url_match',
+                'regex'
+            ]
+            
+            def url_rules_key( row ):
+                
+                rule_type = row[1]
+                
+                if rule_type in magic_sort_list:
+                    
+                    return magic_sort_list.index( rule_type )
+                    
+                else:
+                    
+                    return 10
+                    
+                
+            
+            known_url_rules.sort( key = url_rules_key )
+            
+            for ( operator, rule_type, rule ) in known_url_rules:
+                
+                if rule_type not in allowed_rule_types:
+                    
+                    continue
+                    
+                
+                if rule_type == 'exact_match' or ( is_inbox and len( query_hash_ids ) == len( self.modules_files_inbox.inbox_hash_ids ) ):
+                    
+                    url_hash_ids = self.modules_url_map.GetHashIdsFromURLRule( rule_type, rule )
+                    
+                else:
+                    
+                    with self._MakeTemporaryIntegerTable( query_hash_ids, 'hash_id' ) as temp_table_name:
+                        
+                        self._AnalyzeTempTable( temp_table_name )
+                        
+                        url_hash_ids = self.modules_url_map.GetHashIdsFromURLRule( rule_type, rule, hash_ids = query_hash_ids, hash_ids_table_name = temp_table_name )
+                        
+                    
+                
+                if operator: # inclusive
+                    
+                    query_hash_ids = intersection_update_qhi( query_hash_ids, url_hash_ids )
+                    
+                else:
+                    
+                    query_hash_ids.difference_update( url_hash_ids )
+                    
+                
+            
+        
+        return query_hash_ids
+        
+    
     def _DoTimestampPreds( self, file_search_context: ClientSearch.FileSearchContext, query_hash_ids: typing.Optional[ typing.Set[ int ] ], have_cross_referenced_file_locations: bool, job_status: typing.Optional[ ClientThreading.JobStatus ] = None ) -> typing.Tuple[ typing.Optional[ typing.Set[ int ] ], bool ]:
         
         system_predicates = file_search_context.GetSystemPredicates()
@@ -2149,60 +2220,14 @@ class ClientDBFilesQuery( ClientDBModule.ClientDBModule ):
             query_hash_ids = intersection_update_qhi( query_hash_ids, url_hash_ids )
             
         
-        if 'known_url_rules' in simple_preds:
-            
-            known_url_rules = list( simple_preds[ 'known_url_rules' ] )
-            
-            magic_sort_list = [
-                'exact_match',
-                'domain',
-                'url_class',
-                'url_match',
-                'regex'
-            ]
-            
-            def url_rules_key( row ):
-                
-                rule_type = row[1]
-                
-                if rule_type in magic_sort_list:
-                    
-                    return magic_sort_list.index( rule_type )
-                    
-                else:
-                    
-                    return 10
-                    
-                
-            
-            known_url_rules.sort( key = url_rules_key )
-            
-            for ( operator, rule_type, rule ) in known_url_rules:
-                
-                if rule_type == 'exact_match' or ( is_inbox and len( query_hash_ids ) == len( self.modules_files_inbox.inbox_hash_ids ) ):
-                    
-                    url_hash_ids = self.modules_url_map.GetHashIdsFromURLRule( rule_type, rule )
-                    
-                else:
-                    
-                    with self._MakeTemporaryIntegerTable( query_hash_ids, 'hash_id' ) as temp_table_name:
-                        
-                        self._AnalyzeTempTable( temp_table_name )
-                        
-                        url_hash_ids = self.modules_url_map.GetHashIdsFromURLRule( rule_type, rule, hash_ids = query_hash_ids, hash_ids_table_name = temp_table_name )
-                        
-                    
-                
-                if operator: # inclusive
-                    
-                    query_hash_ids = intersection_update_qhi( query_hash_ids, url_hash_ids )
-                    
-                else:
-                    
-                    query_hash_ids.difference_update( url_hash_ids )
-                    
-                
-            
+        allowed_job_types = [
+            'exact_match',
+            'domain',
+            'url_class',
+            'url_match'
+        ]
+        
+        query_hash_ids = self._DoSpecificKnownURLPreds( file_search_context, query_hash_ids, allowed_job_types )
         
         #
         
@@ -2298,6 +2323,17 @@ class ClientDBFilesQuery( ClientDBModule.ClientDBModule ):
             
             query_hash_ids = intersection_update_qhi( query_hash_ids, good_hash_ids )
             
+        
+        if job_status.IsCancelled():
+            
+            return []
+            
+        
+        #
+        
+        allowed_job_types = [ 'regex' ]
+        
+        query_hash_ids = self._DoSpecificKnownURLPreds( file_search_context, query_hash_ids, allowed_job_types )
         
         if job_status.IsCancelled():
             
@@ -2436,7 +2472,7 @@ class ClientDBFilesQuery( ClientDBModule.ClientDBModule ):
                 elif sort_data == CC.SORT_FILES_BY_RATIO:
                     
                     query = 'SELECT hash_id, width, height FROM {temp_table} CROSS JOIN files_info USING ( hash_id );'
-                    
+                        
                 elif sort_data == CC.SORT_FILES_BY_NUM_PIXELS:
                     
                     query = 'SELECT hash_id, width, height FROM {temp_table} CROSS JOIN files_info USING ( hash_id );'
@@ -2622,11 +2658,47 @@ class ClientDBFilesQuery( ClientDBModule.ClientDBModule ):
                 
                 hash_ids_to_hashes = self.modules_hashes_local_cache.GetHashIdsToHashes( hash_ids = hash_ids )
                 
-                hash_ids_to_hex_hashes = { hash_id : hash.hex() for ( hash_id, hash ) in hash_ids_to_hashes.items() }
+                reverse = sort_order == CC.SORT_DESC
+                
+                hash_ids = sorted( hash_ids, key = lambda hash_id: hash_ids_to_hashes[ hash_id ], reverse = reverse )
+                
+                did_sort = True
+                
+            elif sort_data == CC.SORT_FILES_BY_PIXEL_HASH:
+                
+                with self._MakeTemporaryIntegerTable( hash_ids, 'hash_id' ) as temp_hash_ids_table_name:
+                    
+                    hash_ids_to_pixel_hashes = self.modules_similar_files.GetHashIdsToPixelHashes( temp_hash_ids_table_name )
+                    
+                
+                hash_ids_to_pixel_hashes = { hash_id : pixel_hash for ( hash_id, pixel_hash ) in hash_ids_to_pixel_hashes.items() if pixel_hash is not None }
+                
+                missed_hash_ids = [ hash_id for hash_id in hash_ids if hash_id not in hash_ids_to_pixel_hashes ]
                 
                 reverse = sort_order == CC.SORT_DESC
                 
-                hash_ids = sorted( hash_ids, key = lambda hash_id: hash_ids_to_hex_hashes[ hash_id ], reverse = reverse )
+                hash_ids = sorted( list( hash_ids_to_pixel_hashes.keys() ), key = lambda hash_id: hash_ids_to_pixel_hashes[ hash_id ], reverse = reverse )
+                
+                hash_ids.extend( missed_hash_ids )
+                
+                did_sort = True
+                
+            elif sort_data == CC.SORT_FILES_BY_BLURHASH:
+                
+                with self._MakeTemporaryIntegerTable( hash_ids, 'hash_id' ) as temp_hash_ids_table_name:
+                    
+                    hash_ids_to_blurhashes = self.modules_files_metadata_basic.GetHashIdsToBlurhashes( temp_hash_ids_table_name )
+                    
+                
+                hash_ids_to_blurhashes = { hash_id : blurhash for ( hash_id, blurhash ) in hash_ids_to_blurhashes.items() if blurhash is not None }
+                
+                missed_hash_ids = [ hash_id for hash_id in hash_ids if hash_id not in hash_ids_to_blurhashes ]
+                
+                reverse = sort_order == CC.SORT_DESC
+                
+                hash_ids = sorted( list( hash_ids_to_blurhashes.keys() ), key = lambda hash_id: hash_ids_to_blurhashes[ hash_id ], reverse = reverse )
+                
+                hash_ids.extend( missed_hash_ids )
                 
                 did_sort = True
                 

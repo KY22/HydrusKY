@@ -276,7 +276,7 @@ def THREADUploadPending( service_key ):
             
             num_done = num_to_do - remaining_num_pending
             
-            job_status.SetStatusText( 'uploading to ' + service_name + ': ' + HydrusData.ConvertValueRangeToPrettyString( num_done, num_to_do ) )
+            job_status.SetStatusText( 'uploading to ' + service_name + ': ' + HydrusNumbers.ValueRangeToPrettyString( num_done, num_to_do ) )
             job_status.SetVariable( 'popup_gauge_1', ( num_done, num_to_do ) )
             
             while job_status.IsPaused() or job_status.IsCancelled():
@@ -1762,20 +1762,6 @@ class FrameGUI( CAC.ApplicationCommandProcessorMixin, ClientGUITopLevelWindows.M
             
         
     
-    def _DeletePending( self, service_key ):
-        
-        service_name = self._controller.services_manager.GetName( service_key )
-        
-        message = 'Are you sure you want to delete the pending data for {}?'.format( service_name )
-        
-        result = ClientGUIDialogsQuick.GetYesNo( self, message )
-        
-        if result == QW.QDialog.Accepted:
-            
-            self._controller.Write( 'delete_pending', service_key )
-            
-        
-    
     def _DeleteServiceInfo( self, only_pending = False ):
         
         if only_pending:
@@ -1847,6 +1833,31 @@ class FrameGUI( CAC.ApplicationCommandProcessorMixin, ClientGUITopLevelWindows.M
             self._animation_update_timer.stop()
             
             self._animation_update_timer = None
+            
+        
+    
+    def _DoMenuBarStyleHack( self ):
+        
+        # yo just as a fun side thing, if you try to set your style to windowsvista after windows11 on 6.7.2, all your menubar menus go transparent
+        
+        try:
+            
+            if ClientGUIStyle.CURRENT_STYLE_NAME == 'windows11':
+                
+                stylesheet = '''QMenuBar { padding: 2px; margin: 0px }
+QMenuBar::item { padding: 2px 8px; margin: 0px; }'''
+                
+            else:
+                
+                stylesheet = ''
+                
+            
+            self._menubar.setStyleSheet( stylesheet )
+            
+        except Exception as e:
+            
+            HydrusData.Print( 'I tried to do the menubar style hack, but got this exception (please let hydev know):' )
+            HydrusData.PrintException( e, do_wait = False)
             
         
     
@@ -2159,7 +2170,7 @@ class FrameGUI( CAC.ApplicationCommandProcessorMixin, ClientGUITopLevelWindows.M
                         
                     finally:
                         
-                        job_status.SetStatusText( HydrusData.ConvertValueRangeToPrettyString( i + 1, num_to_do ) )
+                        job_status.SetStatusText( HydrusNumbers.ValueRangeToPrettyString( i + 1, num_to_do ) )
                         job_status.SetVariable( 'popup_gauge_1', ( i, num_to_do ) )
                         
                     
@@ -2206,7 +2217,8 @@ class FrameGUI( CAC.ApplicationCommandProcessorMixin, ClientGUITopLevelWindows.M
         show_destination_page = True,
         allow_watchers = True,
         allow_other_recognised_urls = True,
-        allow_unrecognised_urls = True
+        allow_unrecognised_urls = True,
+        destination_location_context = None
         ):
         
         if filterable_tags is None:
@@ -2240,7 +2252,7 @@ class FrameGUI( CAC.ApplicationCommandProcessorMixin, ClientGUITopLevelWindows.M
             
             url_caught = True
             
-            page = self._notebook.GetOrMakeURLImportPage( desired_page_name = destination_page_name, desired_page_key = destination_page_key, select_page = show_destination_page )
+            page = self._notebook.GetOrMakeURLImportPage( desired_page_name = destination_page_name, desired_page_key = destination_page_key, select_page = show_destination_page, destination_location_context = destination_location_context )
             
             if page is not None:
                 
@@ -2303,6 +2315,8 @@ class FrameGUI( CAC.ApplicationCommandProcessorMixin, ClientGUITopLevelWindows.M
             self._menubar = QW.QMenuBar( self )
             
             self._menubar.setNativeMenuBar( False )
+            
+            self._DoMenuBarStyleHack()
             
         
         self._menu_updater_file = self._InitialiseMenubarGetMenuUpdaterFile()
@@ -2804,8 +2818,8 @@ class FrameGUI( CAC.ApplicationCommandProcessorMixin, ClientGUITopLevelWindows.M
                     
                     submenu = ClientGUIMenus.GenerateMenu( self._menubar_pending_submenu )
                     
-                    ClientGUIMenus.AppendMenuItem( submenu, 'commit', 'Upload {}\'s pending content.'.format( name ), self._UploadPending, service_key )
-                    ClientGUIMenus.AppendMenuItem( submenu, 'forget', 'Clear {}\'s pending content.'.format( name ), self._DeletePending, service_key )
+                    ClientGUIMenus.AppendMenuItem( submenu, 'commit', 'Upload {}\'s pending content.'.format( name ), self.UploadPending, service_key )
+                    ClientGUIMenus.AppendMenuItem( submenu, 'forget', 'Clear {}\'s pending content.'.format( name ), self.ForgetPending, service_key )
                     
                     ClientGUIMenus.SetMenuTitle( submenu, name )
                     
@@ -3424,7 +3438,7 @@ class FrameGUI( CAC.ApplicationCommandProcessorMixin, ClientGUITopLevelWindows.M
         profile_mode_message += '\n' * 2
         profile_mode_message += 'A new Query Planner mode also makes very detailed database analysis. This is an alternate profiling mode hydev is testing.'
         profile_mode_message += '\n' * 2
-        profile_mode_message += 'More information is available in the help, under \'reducing program lag\'.'
+        profile_mode_message += 'More information is available in the help, under \'reducing lag\'.'
         
         ClientGUIMenus.AppendMenuItem( profiling, 'what is this?', 'Show profile info.', ClientGUIDialogsMessage.ShowInformation, self, profile_mode_message )
         ClientGUIMenus.AppendMenuCheckItem( profiling, 'profile mode', 'Run detailed \'profiles\'.', HG.profile_mode, CG.client_controller.FlipProfileMode )
@@ -4426,6 +4440,8 @@ class FrameGUI( CAC.ApplicationCommandProcessorMixin, ClientGUITopLevelWindows.M
                 
                 HydrusData.ShowException( e )
                 
+            
+            self._DoMenuBarStyleHack()
             
         
         if qt_stylesheet_name != ClientGUIStyle.CURRENT_STYLESHEET_FILENAME:
@@ -6900,43 +6916,6 @@ The password is cleartext here but obscured in the entry dialog. Enter a blank p
         self._controller.pub( 'notify_new_pages' )
         
     
-    def _UploadPending( self, service_key ):
-        
-        service = self._controller.services_manager.GetService( service_key )
-        
-        try:
-            
-            if isinstance( service, ClientServices.ServiceRestricted ):
-                
-                service.CheckFunctional( including_bandwidth = False )
-                
-            else:
-                
-                service.CheckFunctional()
-                
-            
-            if isinstance( service, ClientServices.ServiceRepository ):
-                
-                if not service.IsMostlyCaughtUp():
-                    
-                    raise Exception( 'Repository processing is not caught up--please process more before you upload new content.' )
-                    
-                
-            
-        except Exception as e:
-            
-            ClientGUIDialogsMessage.ShowCritical( self, 'Error', 'Unfortunately, there is a problem with starting the upload: ' + str( e ) )
-            
-            return
-            
-        
-        self._currently_uploading_pending.add( service_key )
-        
-        self._menu_updater_pending.update()
-        
-        self._controller.CallToThread( THREADUploadPending, service_key )
-        
-    
     def _UpdateMenuPagesCount( self ):
         
         (
@@ -7441,6 +7420,20 @@ The password is cleartext here but obscured in the entry dialog. Enter a blank p
         self._menu_updater_network.update()
         
     
+    def ForgetPending( self, service_key ):
+        
+        service_name = self._controller.services_manager.GetName( service_key )
+        
+        message = 'Are you sure you want to delete the pending data for {}?'.format( service_name )
+        
+        result = ClientGUIDialogsQuick.GetYesNo( self, message )
+        
+        if result == QW.QDialog.Accepted:
+            
+            self._controller.Write( 'delete_pending', service_key )
+            
+        
+    
     def GetCurrentPage( self ):
         
         return self._notebook.GetCurrentMediaPage()
@@ -7563,11 +7556,11 @@ The password is cleartext here but obscured in the entry dialog. Enter a blank p
         self._ImportFiles( paths )
         
     
-    def ImportURLFromAPI( self, url, filterable_tags, additional_service_keys_to_tags, destination_page_name, destination_page_key, show_destination_page ):
+    def ImportURLFromAPI( self, url, filterable_tags, additional_service_keys_to_tags, destination_page_name, destination_page_key, show_destination_page, destination_location_context ):
         
         try:
             
-            ( normalised_url, result_text ) = self._ImportURL( url, filterable_tags = filterable_tags, additional_service_keys_to_tags = additional_service_keys_to_tags, destination_page_name = destination_page_name, destination_page_key = destination_page_key, show_destination_page = show_destination_page )
+            ( normalised_url, result_text ) = self._ImportURL( url, filterable_tags = filterable_tags, additional_service_keys_to_tags = additional_service_keys_to_tags, destination_page_name = destination_page_name, destination_page_key = destination_page_key, show_destination_page = show_destination_page, destination_location_context = destination_location_context )
             
             return ( normalised_url, result_text )
             
@@ -7623,6 +7616,11 @@ The password is cleartext here but obscured in the entry dialog. Enter a blank p
             
             return page_key == result.GetPageKey()
             
+        
+    
+    def IsCurrentlyUploadingPending( self, service_key ):
+        
+        return service_key in self._currently_uploading_pending
         
     
     def MaintainCanvasFrameReferences( self ):
@@ -8649,5 +8647,49 @@ The password is cleartext here but obscured in the entry dialog. Enter a blank p
     def UnregisterUIUpdateWindow( self, window ):
         
         self._ui_update_windows.discard( window )
+        
+    
+    def UploadPending( self, service_key ):
+        
+        if service_key in self._currently_uploading_pending:
+            
+            return False
+            
+        
+        service = self._controller.services_manager.GetService( service_key )
+        
+        try:
+            
+            if isinstance( service, ClientServices.ServiceRestricted ):
+                
+                service.CheckFunctional( including_bandwidth = False )
+                
+            else:
+                
+                service.CheckFunctional()
+                
+            
+            if isinstance( service, ClientServices.ServiceRepository ):
+                
+                if not service.IsMostlyCaughtUp():
+                    
+                    raise Exception( 'Repository processing is not caught up--please process more before you upload new content.' )
+                    
+                
+            
+        except Exception as e:
+            
+            ClientGUIDialogsMessage.ShowCritical( self, 'Error', 'Unfortunately, there is a problem with starting the upload: ' + str( e ) )
+            
+            return False
+            
+        
+        self._currently_uploading_pending.add( service_key )
+        
+        self._menu_updater_pending.update()
+        
+        self._controller.CallToThread( THREADUploadPending, service_key )
+        
+        return True
         
     

@@ -42,6 +42,7 @@ class HydrusServiceClientAPI( HydrusClientService ):
         add_files.putChild( b'clear_file_deletion_record', ClientLocalServerResources.HydrusResourceClientAPIRestrictedAddFilesClearDeletedFileRecord( self._service, self._client_requests_domain ) )
         add_files.putChild( b'delete_files', ClientLocalServerResources.HydrusResourceClientAPIRestrictedAddFilesDeleteFiles( self._service, self._client_requests_domain ) )
         add_files.putChild( b'undelete_files', ClientLocalServerResources.HydrusResourceClientAPIRestrictedAddFilesUndeleteFiles( self._service, self._client_requests_domain ) )
+        add_files.putChild( b'migrate_files', ClientLocalServerResources.HydrusResourceClientAPIRestrictedAddFilesMigrateFiles( self._service, self._client_requests_domain ) )
         add_files.putChild( b'archive_files', ClientLocalServerResources.HydrusResourceClientAPIRestrictedAddFilesArchiveFiles( self._service, self._client_requests_domain ) )
         add_files.putChild( b'unarchive_files', ClientLocalServerResources.HydrusResourceClientAPIRestrictedAddFilesUnarchiveFiles( self._service, self._client_requests_domain ) )
         add_files.putChild( b'generate_hashes', ClientLocalServerResources.HydrusResourceClientAPIRestrictedAddFilesGenerateHashes( self._service, self._client_requests_domain ) )
@@ -110,6 +111,14 @@ class HydrusServiceClientAPI( HydrusClientService ):
         manage_database.putChild( b'lock_off', ClientLocalServerResources.HydrusResourceClientAPIRestrictedManageDatabaseLockOff( self._service, self._client_requests_domain ) )
         manage_database.putChild( b'get_client_options', ClientLocalServerResources.HydrusResourceClientAPIRestrictedManageDatabaseGetClientOptions( self._service, self._client_requests_domain ) )
         
+        manage_services = NoResource()
+        
+        root.putChild( b'manage_services', manage_services )
+        
+        manage_services.putChild( b'get_pending_counts', ClientLocalServerResources.HydrusResourceClientAPIRestrictedManageServicesPendingCounts( self._service, self._client_requests_domain ) )
+        manage_services.putChild( b'commit_pending', ClientLocalServerResources.HydrusResourceClientAPIRestrictedManageServicesCommitPending( self._service, self._client_requests_domain ) )
+        manage_services.putChild( b'forget_pending', ClientLocalServerResources.HydrusResourceClientAPIRestrictedManageServicesForgetPending( self._service, self._client_requests_domain ) )
+        
         manage_file_relationships = NoResource()
         
         root.putChild( b'manage_file_relationships', manage_file_relationships )
@@ -118,6 +127,7 @@ class HydrusServiceClientAPI( HydrusClientService ):
         manage_file_relationships.putChild( b'get_potentials_count', ClientLocalServerResources.HydrusResourceClientAPIRestrictedManageFileRelationshipsGetPotentialsCount( self._service, self._client_requests_domain ) )
         manage_file_relationships.putChild( b'get_potential_pairs', ClientLocalServerResources.HydrusResourceClientAPIRestrictedManageFileRelationshipsGetPotentialPairs( self._service, self._client_requests_domain ) )
         manage_file_relationships.putChild( b'get_random_potentials', ClientLocalServerResources.HydrusResourceClientAPIRestrictedManageFileRelationshipsGetRandomPotentials( self._service, self._client_requests_domain ) )
+        manage_file_relationships.putChild( b'remove_potentials', ClientLocalServerResources.HydrusResourceClientAPIRestrictedManageFileRelationshipsRemovePotentials( self._service, self._client_requests_domain ) )
         manage_file_relationships.putChild( b'set_file_relationships', ClientLocalServerResources.HydrusResourceClientAPIRestrictedManageFileRelationshipsSetRelationships( self._service, self._client_requests_domain ) )
         manage_file_relationships.putChild( b'set_kings', ClientLocalServerResources.HydrusResourceClientAPIRestrictedManageFileRelationshipsSetKings( self._service, self._client_requests_domain ) )
         

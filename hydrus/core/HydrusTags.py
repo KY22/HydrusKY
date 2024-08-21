@@ -248,6 +248,27 @@ def ConvertTagSliceToPrettyString( tag_slice ):
         
     
 
+def ConvertUglyNamespaceToPrettyString( namespace ):
+    
+    if namespace is None or namespace == '':
+        
+        return 'no namespace'
+        
+    else:
+        
+        return namespace
+        
+    
+
+def ConvertUglyNamespacesToPrettyStrings( namespaces ):
+    
+    namespaces = sorted( namespaces )
+    
+    result = [ ConvertUglyNamespaceToPrettyString( namespace ) for namespace in namespaces ]
+    
+    return result
+    
+
 ALL_UNNAMESPACED_TAG_SLICE = ''
 ALL_NAMESPACED_TAG_SLICE = ':'
 
@@ -281,6 +302,9 @@ HANGUL_FILLER_CHARACTER = '\u3164'
 
 def StripTextOfGumpf( t ):
     
+    # TODO: intro this sometime with a full db update
+    # t = t.replace( HC.UNICODE_ZERO_WIDTH_SPACE, '' )
+    
     t = HydrusText.re_one_or_more_whitespace.sub( ' ', t )
     
     t = t.strip()
@@ -301,6 +325,7 @@ def StripTextOfGumpf( t ):
     
     return t
     
+
 def TagOK( t ):
     
     try:

@@ -6,6 +6,7 @@ import typing
 from hydrus.core import HydrusConstants as HC
 from hydrus.core import HydrusData
 from hydrus.core import HydrusExceptions
+from hydrus.core import HydrusNumbers
 from hydrus.core import HydrusPaths
 from hydrus.core import HydrusSerialisable
 from hydrus.core import HydrusTemp
@@ -351,7 +352,7 @@ def GenerateThumbnailNumPy( path, target_resolution, mime, duration, num_frames,
             
         except Exception as e:
             
-            message = 'Problem generating thumbnail for "{}" at frame {} ({})--FFMPEG could not render it.'.format( path, desired_thumb_frame_index, HydrusData.ConvertFloatToPercentage( percentage_in / 100.0 ) )
+            message = 'Problem generating thumbnail for "{}" at frame {} ({})--FFMPEG could not render it.'.format( path, desired_thumb_frame_index, HydrusNumbers.FloatToPercentage( percentage_in / 100.0 ) )
             
             PrintMoreThumbErrorInfo( e, message, extra_description = extra_description )
             
@@ -614,6 +615,11 @@ def GetFileInfo( path, mime = None, ok_to_look_for_hydrus_updates = False ):
         ffmpeg_lines = HydrusVideoHandling.GetFFMPEGInfoLines( path )
         
         ( file_duration_in_s, stream_duration_in_s ) = HydrusVideoHandling.ParseFFMPEGDuration( ffmpeg_lines )
+        
+        if file_duration_in_s is None:
+            
+            raise HydrusExceptions.DamagedOrUnusualFileException( 'Could not determine the duration of this file!' )
+            
         
         duration = int( file_duration_in_s * 1000 )
         

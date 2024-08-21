@@ -15,6 +15,7 @@ from qtpy import QtWidgets as QW
 from hydrus.core import HydrusConstants as HC
 from hydrus.core import HydrusData
 from hydrus.core import HydrusDB
+from hydrus.core import HydrusDBBase
 from hydrus.core import HydrusExceptions
 from hydrus.core import HydrusGlobals as HG
 from hydrus.core import HydrusLists
@@ -179,7 +180,7 @@ def report_content_speed_to_job_status( job_status, rows_done, total_rows, preci
     
     rows_s = HydrusNumbers.ToHumanInt( int( num_rows / it_took ) )
     
-    popup_message = 'content row ' + HydrusData.ConvertValueRangeToPrettyString( rows_done, total_rows ) + ': processing ' + row_name + ' at ' + rows_s + ' rows/s'
+    popup_message = 'content row ' + HydrusNumbers.ValueRangeToPrettyString( rows_done, total_rows ) + ': processing ' + row_name + ' at ' + rows_s + ' rows/s'
     
     CG.client_controller.frame_splash_status.SetText( popup_message, print_to_log = False )
     job_status.SetStatusText( popup_message, 2 )
@@ -195,6 +196,7 @@ def report_speed_to_job_status( job_status, precise_timestamp, num_rows, row_nam
     CG.client_controller.frame_splash_status.SetText( popup_message, print_to_log = False )
     job_status.SetStatusText( popup_message, 2 )
     
+
 def report_speed_to_log( precise_timestamp, num_rows, row_name ):
     
     if num_rows == 0:
@@ -210,7 +212,8 @@ def report_speed_to_log( precise_timestamp, num_rows, row_name ):
     
     HydrusData.Print( summary )
     
-class JobDatabaseClient( HydrusData.JobDatabase ):
+
+class JobDatabaseClient( HydrusDBBase.JobDatabase ):
     
     def _DoDelayedResultRelief( self ):
         
@@ -225,6 +228,7 @@ class JobDatabaseClient( HydrusData.JobDatabase ):
             
         
     
+
 class DB( HydrusDB.HydrusDB ):
     
     READ_WRITE_ACTIONS = [ 'service_info', 'system_predicates', 'missing_thumbnail_hashes' ]
@@ -983,7 +987,7 @@ class DB( HydrusDB.HydrusDB ):
             
             self.modules_tag_search.AddTags( file_service_id, tag_service_id, group_of_tag_ids )
             
-            message = HydrusData.ConvertValueRangeToPrettyString( num_done, num_to_do )
+            message = HydrusNumbers.ValueRangeToPrettyString( num_done, num_to_do )
             
             self._controller.frame_splash_status.SetSubtext( message )
             
@@ -1596,8 +1600,8 @@ class DB( HydrusDB.HydrusDB ):
             
             self._UpdateMappings( service_id, pending_rescinded_mappings_ids = pending_rescinded_mappings_ids, petitioned_rescinded_mappings_ids = petitioned_rescinded_mappings_ids )
             
-            self._Execute( 'DELETE FROM tag_sibling_petitions WHERE service_id = ?;', ( service_id, ) )
-            self._Execute( 'DELETE FROM tag_parent_petitions WHERE service_id = ?;', ( service_id, ) )
+            self.modules_tag_siblings.DeletePending( service_id )
+            self.modules_tag_parents.DeletePending( service_id )
             
         elif service.GetServiceType() in ( HC.FILE_REPOSITORY, HC.IPFS ):
             
@@ -1608,7 +1612,7 @@ class DB( HydrusDB.HydrusDB ):
         self._cursor_transaction_wrapper.pub_after_job( 'notify_new_tag_display_application' )
         self._cursor_transaction_wrapper.pub_after_job( 'notify_new_force_refresh_tags_data' )
         
-        self.pub_service_updates_after_commit( { service_key : [ HydrusData.ServiceUpdate( HC.SERVICE_UPDATE_DELETE_PENDING ) ] } )
+        self.pub_service_updates_after_commit( { service_key : [ ClientServices.ServiceUpdate( HC.SERVICE_UPDATE_DELETE_PENDING ) ] } )
         
     
     def _DeleteService( self, service_id ):
@@ -1640,7 +1644,7 @@ class DB( HydrusDB.HydrusDB ):
         
         self.modules_services.DeleteService( service_id )
         
-        service_update = HydrusData.ServiceUpdate( HC.SERVICE_UPDATE_RESET )
+        service_update = ClientServices.ServiceUpdate( HC.SERVICE_UPDATE_RESET )
         
         service_keys_to_service_updates = { service_key : [ service_update ] }
         
@@ -3991,7 +3995,9 @@ class DB( HydrusDB.HydrusDB ):
                     
                     if account.HasPermission( HC.CONTENT_TYPE_TAG_PARENTS, HC.PERMISSION_ACTION_PETITION ):
                         
-                        pending = self._Execute( 'SELECT child_tag_id, parent_tag_id, reason_id FROM tag_parent_petitions WHERE service_id = ? AND status = ? ORDER BY reason_id LIMIT 1;', ( service_id, HC.CONTENT_STATUS_PENDING ) ).fetchall()
+                        statuses_to_storage_table_names = ClientDBTagParents.GenerateTagParentsStorageTableNames( service_id )
+                        
+                        pending = self._Execute( f'SELECT child_tag_id, parent_tag_id, reason_id FROM {statuses_to_storage_table_names[ HC.CONTENT_STATUS_PENDING ]} ORDER BY reason_id LIMIT ?;', ( ideal_weight, ) ).fetchall()
                         
                         for ( child_tag_id, parent_tag_id, reason_id ) in pending:
                             
@@ -4005,7 +4011,7 @@ class DB( HydrusDB.HydrusDB ):
                             client_to_server_update.AddContent( HC.CONTENT_UPDATE_PEND, content, reason )
                             
                         
-                        petitioned = self._Execute( 'SELECT child_tag_id, parent_tag_id, reason_id FROM tag_parent_petitions WHERE service_id = ? AND status = ? ORDER BY reason_id LIMIT ?;', ( service_id, HC.CONTENT_STATUS_PETITIONED, ideal_weight ) ).fetchall()
+                        petitioned = self._Execute( f'SELECT child_tag_id, parent_tag_id, reason_id FROM {statuses_to_storage_table_names[ HC.CONTENT_STATUS_PETITIONED ]} ORDER BY reason_id LIMIT ?;', ( ideal_weight, ) ).fetchall()
                         
                         for ( child_tag_id, parent_tag_id, reason_id ) in petitioned:
                             
@@ -4025,7 +4031,9 @@ class DB( HydrusDB.HydrusDB ):
                     
                     if account.HasPermission( HC.CONTENT_TYPE_TAG_SIBLINGS, HC.PERMISSION_ACTION_PETITION ):
                         
-                        pending = self._Execute( 'SELECT bad_tag_id, good_tag_id, reason_id FROM tag_sibling_petitions WHERE service_id = ? AND status = ? ORDER BY reason_id LIMIT ?;', ( service_id, HC.CONTENT_STATUS_PENDING, ideal_weight ) ).fetchall()
+                        statuses_to_storage_table_names = ClientDBTagSiblings.GenerateTagSiblingsStorageTableNames( service_id )
+                        
+                        pending = self._Execute( f'SELECT bad_tag_id, good_tag_id, reason_id FROM {statuses_to_storage_table_names[ HC.CONTENT_STATUS_PENDING ]} ORDER BY reason_id LIMIT ?;', ( ideal_weight, ) ).fetchall()
                         
                         for ( bad_tag_id, good_tag_id, reason_id ) in pending:
                             
@@ -4039,7 +4047,7 @@ class DB( HydrusDB.HydrusDB ):
                             client_to_server_update.AddContent( HC.CONTENT_UPDATE_PEND, content, reason )
                             
                         
-                        petitioned = self._Execute( 'SELECT bad_tag_id, good_tag_id, reason_id FROM tag_sibling_petitions WHERE service_id = ? AND status = ? ORDER BY reason_id LIMIT ?;', ( service_id, HC.CONTENT_STATUS_PETITIONED, ideal_weight ) ).fetchall()
+                        petitioned = self._Execute( f'SELECT bad_tag_id, good_tag_id, reason_id FROM {statuses_to_storage_table_names[ HC.CONTENT_STATUS_PETITIONED ]} ORDER BY reason_id LIMIT ?;', ( ideal_weight, ) ).fetchall()
                         
                         for ( bad_tag_id, good_tag_id, reason_id ) in petitioned:
                             
@@ -5666,20 +5674,28 @@ class DB( HydrusDB.HydrusDB ):
         
         if content_type == HC.CONTENT_TYPE_TAG_PARENTS:
             
-            source_table_names = [ 'tag_parents', 'tag_parent_petitions' ]
+            statuses_to_storage_table_names = ClientDBTagParents.GenerateTagParentsStorageTableNames( tag_service_id )
+            
+            source_table_names = [ table_name for ( status, table_name ) in statuses_to_storage_table_names.items() if status in content_statuses ]
             left_column_name = 'child_tag_id'
             right_column_name = 'parent_tag_id'
             
         elif content_type == HC.CONTENT_TYPE_TAG_SIBLINGS:
             
-            source_table_names = [ 'tag_siblings', 'tag_sibling_petitions' ]
+            statuses_to_storage_table_names = ClientDBTagSiblings.GenerateTagSiblingsStorageTableNames( tag_service_id )
+            
+            source_table_names = [ table_name for ( status, table_name ) in statuses_to_storage_table_names.items() if status in content_statuses ]
             left_column_name = 'bad_tag_id'
             right_column_name = 'good_tag_id'
+            
+        else:
+            
+            raise NotImplementedError()
             
         
         for source_table_name in source_table_names:
             
-            self._Execute( 'INSERT OR IGNORE INTO {} ( left_tag_id, right_tag_id ) SELECT {}, {} FROM {} WHERE service_id = ? AND status IN {};'.format( database_temp_job_name, left_column_name, right_column_name, source_table_name, HydrusData.SplayListForDB( content_statuses ) ), ( tag_service_id, ) )
+            self._Execute( f'INSERT OR IGNORE INTO {database_temp_job_name} ( left_tag_id, right_tag_id ) SELECT {left_column_name}, {right_column_name} FROM {source_table_name};' )
             
         
     
@@ -7528,7 +7544,7 @@ class DB( HydrusDB.HydrusDB ):
                 
                 # yes we do want 'actual' here I think. we are regenning the actual current computation
                 # maybe we'll ultimately expand this to the ideal also, we'll see how it goes
-                affected_tag_ids = HydrusData.MassUnion( ( self.modules_tag_display.GetChainsMembers( ClientTags.TAG_DISPLAY_DISPLAY_ACTUAL, tag_service_id, ( tag_id, ) ) for tag_id in tag_ids ) )
+                affected_tag_ids = HydrusLists.MassUnion( ( self.modules_tag_display.GetChainsMembers( ClientTags.TAG_DISPLAY_DISPLAY_ACTUAL, tag_service_id, ( tag_id, ) ) for tag_id in tag_ids ) )
                 
                 tag_service_ids_to_affected_tag_ids[ tag_service_id ] = affected_tag_ids
                 
@@ -7543,7 +7559,7 @@ class DB( HydrusDB.HydrusDB ):
                 job_status.SetStatusText( message )
                 self._controller.frame_splash_status.SetSubtext( message )
                 
-                all_affected_tag_ids = HydrusData.MassUnion( tag_service_ids_to_affected_tag_ids.values() )
+                all_affected_tag_ids = HydrusLists.MassUnion( tag_service_ids_to_affected_tag_ids.values() )
                 
                 self.modules_tags_local_cache.DropTagIdsFromCache( all_affected_tag_ids )
                 # I think the clever add is done by later regen gubbins here
@@ -7922,7 +7938,7 @@ class DB( HydrusDB.HydrusDB ):
                     break
                     
                 
-                message = 'Scanning tags: {} - Bad Found: {}'.format( HydrusData.ConvertValueRangeToPrettyString( num_done, num_to_do ), HydrusNumbers.ToHumanInt( bad_tag_count ) )
+                message = 'Scanning tags: {} - Bad Found: {}'.format( HydrusNumbers.ValueRangeToPrettyString( num_done, num_to_do ), HydrusNumbers.ToHumanInt( bad_tag_count ) )
                 
                 job_status.SetStatusText( message )
                 
@@ -7965,7 +7981,7 @@ class DB( HydrusDB.HydrusDB ):
                     break
                     
                 
-                message = 'Fixing bad tags: {}'.format( HydrusData.ConvertValueRangeToPrettyString( i + 1, bad_tag_count ) )
+                message = 'Fixing bad tags: {}'.format( HydrusNumbers.ValueRangeToPrettyString( i + 1, bad_tag_count ) )
                 
                 job_status.SetStatusText( message )
                 
@@ -8069,7 +8085,7 @@ class DB( HydrusDB.HydrusDB ):
                 
                 if job_status is not None:
                     
-                    message = 'Doing "{}": {}'.format( name, HydrusData.ConvertValueRangeToPrettyString( num_done, num_to_do ) )
+                    message = 'Doing "{}": {}'.format( name, HydrusNumbers.ValueRangeToPrettyString( num_done, num_to_do ) )
                     message += '\n' * 2
                     message += 'Total rows recovered: {}'.format( HydrusNumbers.ToHumanInt( num_rows_recovered ) )
                     
@@ -8211,7 +8227,7 @@ class DB( HydrusDB.HydrusDB ):
                 
                 for ( group_of_ids, num_done, num_to_do ) in HydrusDB.ReadLargeIdQueryInSeparateChunks( self._c, 'SELECT hash_id FROM {};'.format( table_name ), 1024 ):
                     
-                    message = 'repopulating {} {}'.format( HydrusData.ConvertValueRangeToPrettyString( i + 1, len( file_service_ids ) ), HydrusData.ConvertValueRangeToPrettyString( num_done, num_to_do ) )
+                    message = 'repopulating {} {}'.format( HydrusNumbers.ValueRangeToPrettyString( i + 1, len( file_service_ids ) ), HydrusNumbers.ValueRangeToPrettyString( num_done, num_to_do ) )
                     
                     job_status.SetStatusText( message )
                     self._controller.frame_splash_status.SetSubtext( message )
@@ -8275,6 +8291,11 @@ class DB( HydrusDB.HydrusDB ):
             job_status.SetStatusText( prefix + ': recreating service' )
             
             self._AddService( service_key, service_type, name, dictionary )
+            
+            if service_type == HC.TAG_REPOSITORY:
+                    
+                CG.client_controller.pub( 'notify_new_force_refresh_tags_data' )
+                
             
             self._cursor_transaction_wrapper.pub_after_job( 'notify_account_sync_due' )
             self._cursor_transaction_wrapper.pub_after_job( 'notify_new_pending' )
@@ -8375,8 +8396,17 @@ class DB( HydrusDB.HydrusDB ):
             
             if HC.CONTENT_TYPE_TAG_PARENTS in content_types:
                 
-                self._Execute( 'DELETE FROM tag_parents WHERE service_id = ?;', ( service_id, ) )
-                self._Execute( 'DELETE FROM tag_parent_petitions WHERE service_id = ? AND status = ?;', ( service_id, HC.CONTENT_STATUS_PETITIONED ) )
+                statuses_to_storage_table_names = ClientDBTagParents.GenerateTagParentsStorageTableNames( service_id )
+                
+                for ( status, table_name ) in statuses_to_storage_table_names.items():
+                    
+                    if status ==  HC.CONTENT_STATUS_PENDING:
+                        
+                        continue
+                        
+                    
+                    self._Execute( f'DELETE FROM {table_name};' )
+                    
                 
                 ( cache_ideal_tag_parents_lookup_table_name, cache_actual_tag_parents_lookup_table_name ) = ClientDBTagParents.GenerateTagParentsLookupCacheTableNames( service_id )
                 
@@ -8386,8 +8416,17 @@ class DB( HydrusDB.HydrusDB ):
             
             if HC.CONTENT_TYPE_TAG_SIBLINGS in content_types:
                 
-                self._Execute( 'DELETE FROM tag_siblings WHERE service_id = ?;', ( service_id, ) )
-                self._Execute( 'DELETE FROM tag_sibling_petitions WHERE service_id = ? AND status = ?;', ( service_id, HC.CONTENT_STATUS_PETITIONED ) )
+                statuses_to_storage_table_names = ClientDBTagSiblings.GenerateTagSiblingsStorageTableNames( service_id )
+                
+                for ( status, table_name ) in statuses_to_storage_table_names.items():
+                    
+                    if status ==  HC.CONTENT_STATUS_PENDING:
+                        
+                        continue
+                        
+                    
+                    self._Execute( f'DELETE FROM {table_name};' )
+                    
                 
                 ( cache_ideal_tag_siblings_lookup_table_name, cache_actual_tag_siblings_lookup_table_name ) = ClientDBTagSiblings.GenerateTagSiblingsLookupCacheTableNames( service_id )
                 
@@ -8414,6 +8453,11 @@ class DB( HydrusDB.HydrusDB ):
             
             self._cursor_transaction_wrapper.pub_after_job( 'notify_new_services_data' )
             self._cursor_transaction_wrapper.pub_after_job( 'notify_new_services_gui' )
+            
+            if service_type == HC.TAG_REPOSITORY:
+                    
+                CG.client_controller.pub( 'notify_new_force_refresh_tags_data' )
+                
             
             job_status.SetStatusText( prefix + ': done!' )
             
@@ -8868,7 +8912,7 @@ class DB( HydrusDB.HydrusDB ):
                     
                     for ( chunk_of_tag_ids, num_done, num_to_do ) in HydrusDB.ReadLargeIdQueryInSeparateChunks( self._c, f'SELECT tag_id FROM {tags_table_name};', CHUNK_SIZE ):
                         
-                        num_string = HydrusData.ConvertValueRangeToPrettyString( num_done, num_to_do )
+                        num_string = HydrusNumbers.ValueRangeToPrettyString( num_done, num_to_do )
                         
                         self._controller.frame_splash_status.SetSubtext( f'{message} - {num_string}' )
                         
@@ -9892,7 +9936,7 @@ class DB( HydrusDB.HydrusDB ):
                     
                     for ( chunk_of_url_ids, num_done, num_to_do ) in HydrusDB.ReadLargeIdQueryInSeparateChunks( self._c, f'SELECT url_id FROM urls;', CHUNK_SIZE ):
                         
-                        num_string = HydrusData.ConvertValueRangeToPrettyString( num_done, num_to_do )
+                        num_string = HydrusNumbers.ValueRangeToPrettyString( num_done, num_to_do )
                         
                         self._controller.frame_splash_status.SetSubtext( f'bad url scan - {num_string} - bad urls: {HydrusNumbers.ToHumanInt(len( bad_url_ids))}' )
                         
@@ -10450,6 +10494,153 @@ class DB( HydrusDB.HydrusDB ):
                 
             
         
+        if version == 583:
+            
+            try:
+                
+                domain_manager: ClientNetworkingDomain.NetworkDomainManager = self.modules_serialisable.GetJSONDump( HydrusSerialisable.SERIALISABLE_TYPE_NETWORK_DOMAIN_MANAGER )
+                
+                domain_manager.Initialise()
+                
+                domain_manager.OverwriteDefaultParsers( [
+                    'shimmie file page parser'
+                ] )
+                
+                #
+                
+                domain_manager.TryToLinkURLClassesAndParsers()
+                
+                #
+                
+                self.modules_serialisable.SetJSONDump( domain_manager )
+                
+            except Exception as e:
+                
+                HydrusData.PrintException( e )
+                
+                message = 'Trying to update some downloaders failed! Please let hydrus dev know!'
+                
+                self.pub_initial_message( message )
+                
+            
+        
+        if version == 584:
+            
+            try:
+                
+                from hydrus.client.networking import ClientNetworkingContexts
+                
+                domain_manager: ClientNetworkingDomain.NetworkDomainManager = self.modules_serialisable.GetJSONDump( HydrusSerialisable.SERIALISABLE_TYPE_NETWORK_DOMAIN_MANAGER )
+                
+                domain_manager.Initialise()
+                
+                #
+                
+                network_contexts_to_custom_header_dicts = domain_manager.GetNetworkContextsToCustomHeaderDicts()
+                
+                pixiv_network_context = ClientNetworkingContexts.NetworkContext.STATICGenerateForDomain( 'pixiv.net' )
+                
+                if pixiv_network_context not in network_contexts_to_custom_header_dicts:
+                    
+                    network_contexts_to_custom_header_dicts[ pixiv_network_context ] = {}
+                    
+                
+                custom_header_dict = network_contexts_to_custom_header_dicts[ pixiv_network_context ]
+                
+                if 'Accept-Language' not in custom_header_dict:
+                    
+                    custom_header_dict[ 'Accept-Language' ] = ( 'en-US,en;q=0.5', ClientNetworkingDomain.VALID_APPROVED, 'Tells Pixiv to give English tag translations.' )
+                    
+                
+                domain_manager.SetNetworkContextsToCustomHeaderDicts( network_contexts_to_custom_header_dicts )
+                
+                #
+                
+                self.modules_serialisable.SetJSONDump( domain_manager )
+                
+            except Exception as e:
+                
+                HydrusData.PrintException( e )
+                
+                message = 'Trying to update some downloaders failed! Please let hydrus dev know!'
+                
+                self.pub_initial_message( message )
+                
+            
+        
+        if version == 585:
+            
+            if self._TableExists( 'tag_siblings' ):
+                
+                for service_id in self.modules_services.GetServiceIds( HC.REAL_TAG_SERVICES ):
+                    
+                    self._controller.frame_splash_status.SetSubtext( f'moving parents/siblings: {service_id}' )
+                    
+                    statuses_to_storage_table_names = ClientDBTagParents.GenerateTagParentsStorageTableNames( service_id )
+                    
+                    table_name = statuses_to_storage_table_names[ HC.CONTENT_STATUS_CURRENT ]
+                    self._Execute( f'CREATE TABLE IF NOT EXISTS {table_name} ( child_tag_id INTEGER, parent_tag_id INTEGER, PRIMARY KEY ( child_tag_id, parent_tag_id ) );' )
+                    self._Execute( f'INSERT OR IGNORE INTO {table_name} ( child_tag_id, parent_tag_id ) SELECT child_tag_id, parent_tag_id FROM tag_parents WHERE service_id = ? AND status = ?;', ( service_id, HC.CONTENT_STATUS_CURRENT ) )
+                    self._CreateIndex( table_name, [ 'parent_tag_id' ] )
+                    
+                    table_name = statuses_to_storage_table_names[ HC.CONTENT_STATUS_DELETED ]
+                    self._Execute( f'CREATE TABLE IF NOT EXISTS {table_name} ( child_tag_id INTEGER, parent_tag_id INTEGER, PRIMARY KEY ( child_tag_id, parent_tag_id ) );' )
+                    self._Execute( f'INSERT OR IGNORE INTO {table_name} ( child_tag_id, parent_tag_id ) SELECT child_tag_id, parent_tag_id FROM tag_parents WHERE service_id = ? AND status = ?;', ( service_id, HC.CONTENT_STATUS_DELETED ) )
+                    self._CreateIndex( table_name, [ 'parent_tag_id' ] )
+                    
+                    table_name = statuses_to_storage_table_names[ HC.CONTENT_STATUS_PENDING ]
+                    self._Execute( f'CREATE TABLE IF NOT EXISTS {table_name} ( child_tag_id INTEGER, parent_tag_id INTEGER, reason_id INTEGER, PRIMARY KEY ( child_tag_id, parent_tag_id ) );' )
+                    self._Execute( f'INSERT OR IGNORE INTO {table_name} ( child_tag_id, parent_tag_id, reason_id ) SELECT child_tag_id, parent_tag_id, reason_id FROM tag_parent_petitions WHERE service_id = ? AND status = ?;', ( service_id, HC.CONTENT_STATUS_PENDING ) )
+                    self._CreateIndex( table_name, [ 'parent_tag_id' ] )
+                    
+                    table_name = statuses_to_storage_table_names[ HC.CONTENT_STATUS_PETITIONED ]
+                    self._Execute( f'CREATE TABLE IF NOT EXISTS {table_name} ( child_tag_id INTEGER, parent_tag_id INTEGER, reason_id INTEGER, PRIMARY KEY ( child_tag_id, parent_tag_id ) );' )
+                    self._Execute( f'INSERT OR IGNORE INTO {table_name} ( child_tag_id, parent_tag_id, reason_id ) SELECT child_tag_id, parent_tag_id, reason_id FROM tag_parent_petitions WHERE service_id = ? AND status = ?;', ( service_id, HC.CONTENT_STATUS_PETITIONED ) )
+                    self._CreateIndex( table_name, [ 'parent_tag_id' ] )
+                    
+                    for table_name in statuses_to_storage_table_names.values():
+                        
+                        self.modules_db_maintenance.AnalyzeTable( table_name )
+                        
+                    
+                    #
+                    
+                    statuses_to_storage_table_names = ClientDBTagSiblings.GenerateTagSiblingsStorageTableNames( service_id )
+                    
+                    table_name = statuses_to_storage_table_names[ HC.CONTENT_STATUS_CURRENT ]
+                    self._Execute( f'CREATE TABLE IF NOT EXISTS {table_name} ( bad_tag_id INTEGER, good_tag_id INTEGER, PRIMARY KEY ( bad_tag_id, good_tag_id ) );' )
+                    self._Execute( f'INSERT OR IGNORE INTO {table_name} ( bad_tag_id, good_tag_id ) SELECT bad_tag_id, good_tag_id FROM tag_siblings WHERE service_id = ? AND status = ?;', ( service_id, HC.CONTENT_STATUS_CURRENT ) )
+                    self._CreateIndex( table_name, [ 'good_tag_id' ] )
+                    
+                    table_name = statuses_to_storage_table_names[ HC.CONTENT_STATUS_DELETED ]
+                    self._Execute( f'CREATE TABLE IF NOT EXISTS {table_name} ( bad_tag_id INTEGER, good_tag_id INTEGER, PRIMARY KEY ( bad_tag_id, good_tag_id ) );' )
+                    self._Execute( f'INSERT OR IGNORE INTO {table_name} ( bad_tag_id, good_tag_id ) SELECT bad_tag_id, good_tag_id FROM tag_siblings WHERE service_id = ? AND status = ?;', ( service_id, HC.CONTENT_STATUS_DELETED ) )
+                    self._CreateIndex( table_name, [ 'good_tag_id' ] )
+                    
+                    table_name = statuses_to_storage_table_names[ HC.CONTENT_STATUS_PENDING ]
+                    self._Execute( f'CREATE TABLE IF NOT EXISTS {table_name} ( bad_tag_id INTEGER, good_tag_id INTEGER, reason_id INTEGER, PRIMARY KEY ( bad_tag_id, good_tag_id ) );' )
+                    self._Execute( f'INSERT OR IGNORE INTO {table_name} ( bad_tag_id, good_tag_id, reason_id ) SELECT bad_tag_id, good_tag_id, reason_id FROM tag_sibling_petitions WHERE service_id = ? AND status = ?;', ( service_id, HC.CONTENT_STATUS_PENDING ) )
+                    self._CreateIndex( table_name, [ 'good_tag_id' ] )
+                    
+                    table_name = statuses_to_storage_table_names[ HC.CONTENT_STATUS_PETITIONED ]
+                    self._Execute( f'CREATE TABLE IF NOT EXISTS {table_name} ( bad_tag_id INTEGER, good_tag_id INTEGER, reason_id INTEGER, PRIMARY KEY ( bad_tag_id, good_tag_id ) );' )
+                    self._Execute( f'INSERT OR IGNORE INTO {table_name} ( bad_tag_id, good_tag_id, reason_id ) SELECT bad_tag_id, good_tag_id, reason_id FROM tag_sibling_petitions WHERE service_id = ? AND status = ?;', ( service_id, HC.CONTENT_STATUS_PETITIONED ) )
+                    self._CreateIndex( table_name, [ 'good_tag_id' ] )
+                    
+                    for table_name in statuses_to_storage_table_names.values():
+                        
+                        self.modules_db_maintenance.AnalyzeTable( table_name )
+                        
+                    
+                
+                self._Execute( 'DROP TABLE tag_parents;' )
+                self._Execute( 'DROP TABLE tag_parent_petitions;' )
+                
+                self._Execute( 'DROP TABLE tag_siblings;' )
+                self._Execute( 'DROP TABLE tag_sibling_petitions;' )
+                
+            
+        
         self._controller.frame_splash_status.SetTitleText( 'updated db to v{}'.format( HydrusNumbers.ToHumanInt( version + 1 ) ) )
         
         self._Execute( 'UPDATE version SET version = ?;', ( version + 1, ) )
@@ -10779,11 +10970,18 @@ class DB( HydrusDB.HydrusDB ):
         
         future_service_keys = { service.GetServiceKey() for service in services }
         
+        we_deleted_tag_service = False
+        
         for service_key in current_service_keys:
             
             if service_key not in future_service_keys:
                 
                 service_id = self.modules_services.GetServiceId( service_key )
+                
+                if self.modules_services.GetServiceType( service_id ) in HC.ALL_TAG_SERVICES:
+                    
+                    we_deleted_tag_service = True
+                    
                 
                 self._DeleteService( service_id )
                 
@@ -10809,6 +11007,11 @@ class DB( HydrusDB.HydrusDB ):
         self._cursor_transaction_wrapper.pub_after_job( 'notify_new_services_data' )
         self._cursor_transaction_wrapper.pub_after_job( 'notify_new_services_gui' )
         self._cursor_transaction_wrapper.pub_after_job( 'notify_new_pending' )
+        
+        if we_deleted_tag_service:
+            
+            CG.client_controller.pub( 'notify_new_force_refresh_tags_data' )
+            
         
     
     def _Vacuum( self, names: typing.Collection[ str ], maintenance_mode = HC.MAINTENANCE_FORCED, stop_time = None, force_vacuum = False ):

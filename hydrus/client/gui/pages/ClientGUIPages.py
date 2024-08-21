@@ -674,6 +674,7 @@ class Page( QW.QWidget ):
         d[ 'page_key' ] = self._page_key.hex()
         d[ 'page_state' ] = self.GetPageState()
         d[ 'page_type' ] = self._management_controller.GetType()
+        d[ 'is_media_page' ] = True
         
         management_info = self._management_controller.GetAPIInfoDict( simple )
         
@@ -747,7 +748,7 @@ class Page( QW.QWidget ):
         
         if num_value != num_range:
             
-            name_for_menu = '{} - {}'.format( name_for_menu, HydrusData.ConvertValueRangeToPrettyString( num_value, num_range ) )
+            name_for_menu = '{} - {}'.format( name_for_menu, HydrusNumbers.ValueRangeToPrettyString( num_value, num_range ) )
             
         
         return HydrusText.ElideText( name_for_menu, 32, elide_center = True )
@@ -847,6 +848,7 @@ class Page( QW.QWidget ):
         root[ 'page_key' ] = self._page_key.hex()
         root[ 'page_state' ] = self.GetPageState()
         root[ 'page_type' ] = self._management_controller.GetType()
+        root[ 'is_media_page' ] = True
         root[ 'selected' ] = is_selected
         
         return root
@@ -1078,7 +1080,7 @@ class Page( QW.QWidget ):
                 
                 initial_media_results.extend( more_media_results )
                 
-                status = f'Loading initial files{HC.UNICODE_ELLIPSIS} {HydrusData.ConvertValueRangeToPrettyString( len( initial_media_results ), len( initial_hashes ) )}'
+                status = f'Loading initial files{HC.UNICODE_ELLIPSIS} {HydrusNumbers.ValueRangeToPrettyString( len( initial_media_results ), len( initial_hashes ) )}'
                 
                 controller.CallAfterQtSafe( self, 'setting status bar loading string', qt_code_status, status )
                 
@@ -1454,7 +1456,7 @@ class PagesNotebook( QP.TabWidgetWithDnD ):
         return insertion_index
         
     
-    def _GetMediaPages( self, only_my_level ):
+    def _GetMediaPages( self, only_my_level ) -> typing.List[ Page ]:
         
         results = []
         
@@ -1645,7 +1647,7 @@ class PagesNotebook( QP.TabWidgetWithDnD ):
                     num_string += ', '
                     
                 
-                num_string += HydrusData.ConvertValueRangeToPrettyString( num_value, num_range )
+                num_string += HydrusNumbers.ValueRangeToPrettyString( num_value, num_range )
                 
             
         
@@ -2338,7 +2340,8 @@ class PagesNotebook( QP.TabWidgetWithDnD ):
             'name' : self.GetName(),
             'page_key' : self._page_key.hex(),
             'page_state' : self.GetPageState(),
-            'page_type' : ClientGUIManagementController.MANAGEMENT_TYPE_PAGE_OF_PAGES
+            'page_type' : ClientGUIManagementController.MANAGEMENT_TYPE_PAGE_OF_PAGES,
+            'is_media_page' : False
         }
         
     
@@ -2388,7 +2391,7 @@ class PagesNotebook( QP.TabWidgetWithDnD ):
         
         if num_value != num_range:
             
-            name_for_menu = '{} - {}'.format( name_for_menu, HydrusData.ConvertValueRangeToPrettyString( num_value, num_range ) )
+            name_for_menu = '{} - {}'.format( name_for_menu, HydrusNumbers.ValueRangeToPrettyString( num_value, num_range ) )
             
         
         return HydrusText.ElideText( name_for_menu, 32, elide_center = True )
@@ -2506,7 +2509,7 @@ class PagesNotebook( QP.TabWidgetWithDnD ):
             
         
     
-    def GetOrMakeURLImportPage( self, desired_page_name = None, desired_page_key = None, select_page =  True ):
+    def GetOrMakeURLImportPage( self, desired_page_name = None, desired_page_key = None, select_page = True, destination_location_context = None ):
         
         potential_url_import_pages = [ page for page in self._GetMediaPages( False ) if page.IsURLImportPage() ]
         
@@ -2517,6 +2520,25 @@ class PagesNotebook( QP.TabWidgetWithDnD ):
         elif desired_page_name is not None:
             
             potential_url_import_pages = [ page for page in potential_url_import_pages if page.GetName() == desired_page_name ]
+            
+        
+        if destination_location_context is not None:
+            
+            good_url_import_pages = []
+            
+            for url_import_page in potential_url_import_pages:
+                
+                urls_import = url_import_page.GetManagementController().GetVariable( 'urls_import' )
+                
+                file_import_options = urls_import.GetFileImportOptions()
+                
+                if not file_import_options.IsDefault() and file_import_options.GetDestinationLocationContext() == destination_location_context:
+                    
+                    good_url_import_pages.append( url_import_page )
+                    
+                
+            
+            potential_url_import_pages = good_url_import_pages
             
         
         if len( potential_url_import_pages ) > 0:
@@ -2536,7 +2558,7 @@ class PagesNotebook( QP.TabWidgetWithDnD ):
             
         else:
             
-            return self.NewPageImportURLs( page_name = desired_page_name, on_deepest_notebook = True, select_page = select_page )
+            return self.NewPageImportURLs( page_name = desired_page_name, on_deepest_notebook = True, select_page = select_page, destination_location_context = destination_location_context )
             
         
     
@@ -2606,7 +2628,7 @@ class PagesNotebook( QP.TabWidgetWithDnD ):
         
         if num_range > 0 and num_value != num_range:
             
-            num_string += ', ' + HydrusData.ConvertValueRangeToPrettyString( num_value, num_range )
+            num_string += ', ' + HydrusNumbers.ValueRangeToPrettyString( num_value, num_range )
             
         
         return HydrusNumbers.ToHumanInt( self.count() ) + ' pages, ' + num_string + ' files'
@@ -2656,6 +2678,7 @@ class PagesNotebook( QP.TabWidgetWithDnD ):
         root[ 'page_key' ] = self._page_key.hex()
         root[ 'page_state' ] = self.GetPageState()
         root[ 'page_type' ] = ClientGUIManagementController.MANAGEMENT_TYPE_PAGE_OF_PAGES
+        root[ 'is_media_page' ] = False
         root[ 'selected' ] = is_selected
         root[ 'pages' ] = my_pages_list
         
@@ -3235,9 +3258,9 @@ class PagesNotebook( QP.TabWidgetWithDnD ):
         return self.NewPage( management_controller, on_deepest_notebook = on_deepest_notebook, select_page = select_page )
         
     
-    def NewPageImportURLs( self, page_name = None, on_deepest_notebook = False, select_page = True ):
+    def NewPageImportURLs( self, page_name = None, on_deepest_notebook = False, select_page = True, destination_location_context = None ):
         
-        management_controller = ClientGUIManagementController.CreateManagementControllerImportURLs( page_name = page_name )
+        management_controller = ClientGUIManagementController.CreateManagementControllerImportURLs( page_name = page_name, destination_location_context = destination_location_context )
         
         return self.NewPage( management_controller, on_deepest_notebook = on_deepest_notebook, select_page = select_page )
         

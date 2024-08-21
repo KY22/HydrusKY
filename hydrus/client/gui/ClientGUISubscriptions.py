@@ -1,6 +1,4 @@
 import collections
-import itertools
-import os
 import threading
 import time
 import typing
@@ -10,6 +8,7 @@ from qtpy import QtWidgets as QW
 from hydrus.core import HydrusConstants as HC
 from hydrus.core import HydrusData
 from hydrus.core import HydrusExceptions
+from hydrus.core import HydrusLists
 from hydrus.core import HydrusNumbers
 from hydrus.core import HydrusSerialisable
 from hydrus.core import HydrusText
@@ -23,10 +22,10 @@ from hydrus.client.gui import ClientGUIDialogs
 from hydrus.client.gui import ClientGUIDialogsMessage
 from hydrus.client.gui import ClientGUIDialogsQuick
 from hydrus.client.gui import ClientGUIFunctions
-from hydrus.client.gui import ClientGUIFileSeedCache
-from hydrus.client.gui import ClientGUIGallerySeedLog
 from hydrus.client.gui import ClientGUITopLevelWindowsPanels
 from hydrus.client.gui import QtPorting as QP
+from hydrus.client.gui.importing import ClientGUIFileSeedCache
+from hydrus.client.gui.importing import ClientGUIGallerySeedLog
 from hydrus.client.gui.importing import ClientGUIImport
 from hydrus.client.gui.importing import ClientGUIImportOptions
 from hydrus.client.gui.lists import ClientGUIListConstants as CGLC
@@ -247,7 +246,7 @@ class EditSubscriptionPanel( ClientGUIScrolledPanels.EditPanel ):
         
         self._publish_files_to_popup_button = QW.QCheckBox( self._file_presentation_panel )
         self._publish_files_to_page = QW.QCheckBox( self._file_presentation_panel )
-        self._publish_label_override = ClientGUICommon.NoneableTextCtrl( self._file_presentation_panel, none_phrase = 'no, use subscription name' )
+        self._publish_label_override = ClientGUICommon.NoneableTextCtrl( self._file_presentation_panel, 'subscription files', none_phrase = 'no, use subscription name' )
         self._merge_query_publish_events = QW.QCheckBox( self._file_presentation_panel )
         
         tt = 'This is great to merge multiple subs to a combined location!'
@@ -728,7 +727,7 @@ class EditSubscriptionPanel( ClientGUIScrolledPanels.EditPanel ):
             
             if num_archived + num_deleted > 0:
                 
-                percent = HydrusData.ConvertFloatToPercentage( num_archived / ( num_archived + num_deleted ) )
+                percent = HydrusNumbers.FloatToPercentage( num_archived / ( num_archived + num_deleted ) )
                 
             else:
                 
@@ -780,7 +779,7 @@ class EditSubscriptionPanel( ClientGUIScrolledPanels.EditPanel ):
             
             if num_archived + num_deleted > 0:
                 
-                data_string += ' | good {}'.format( HydrusData.ConvertFloatToPercentage( num_archived / ( num_archived + num_deleted ) ) )
+                data_string += ' | good {}'.format( HydrusNumbers.FloatToPercentage( num_archived / ( num_archived + num_deleted ) ) )
                 
             
             data_strings.append( data_string )
@@ -1169,7 +1168,7 @@ class EditSubscriptionQueryPanel( ClientGUIScrolledPanels.EditPanel ):
         
         self._status_st.setMinimumWidth( st_width )
         
-        self._display_name = ClientGUICommon.NoneableTextCtrl( self, none_phrase = 'show query text' )
+        self._display_name = ClientGUICommon.NoneableTextCtrl( self, 'my subscription', none_phrase = 'use query text' )
         self._query_text = QW.QLineEdit( self )
         self._check_now = QW.QCheckBox( self )
         self._paused = QW.QCheckBox( self )
@@ -2043,7 +2042,7 @@ class EditSubscriptionsPanel( ClientGUIScrolledPanels.EditPanel ):
         
         subscriptions = self._subscriptions.GetData( only_selected = True )
         
-        query_headers = HydrusData.MassExtend( ( subscription.GetQueryHeaders() for subscription in subscriptions ) )
+        query_headers = HydrusLists.MassExtend( ( subscription.GetQueryHeaders() for subscription in subscriptions ) )
         
         try:
             
@@ -2312,7 +2311,7 @@ class EditSubscriptionsPanel( ClientGUIScrolledPanels.EditPanel ):
                         
                     else:
                         
-                        label = '{} (has {} duplicate queries)'.format( subscription.GetName(), HydrusData.ConvertValueRangeToPrettyString( len( dupe_query_texts_it_can_do ), len( query_texts_we_want_to_dedupe_now ) ) )
+                        label = '{} (has {} duplicate queries)'.format( subscription.GetName(), HydrusNumbers.ValueRangeToPrettyString( len( dupe_query_texts_it_can_do ), len( query_texts_we_want_to_dedupe_now ) ) )
                         
                     
                     choice_tuples.append( ( label, subscription, ', '.join( sorted( dupe_query_texts_it_can_do ) ) ) )

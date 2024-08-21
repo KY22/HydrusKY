@@ -673,6 +673,11 @@ class Canvas( CAC.ApplicationCommandProcessorMixin, QW.QWidget ):
     
     def BeginDrag( self ):
         
+        if self._current_media is not None and self._current_media.HasDuration() and CG.client_controller.new_options.GetBoolean( 'disallow_media_drags_on_duration_media' ):
+            
+            return
+            
+        
         point = self.mapFromGlobal( QG.QCursor.pos() )
         
         self._last_drag_pos = point
@@ -2099,7 +2104,7 @@ class CanvasWithHovers( CanvasWithDetails ):
         
         self._my_shortcuts_handler.AddWindowToFilter( top_hover )
         
-        tags_hover = ClientGUICanvasHoverFrames.CanvasHoverFrameTags( self, self, top_hover, self._canvas_key )
+        tags_hover = ClientGUICanvasHoverFrames.CanvasHoverFrameTags( self, self, top_hover, self._canvas_key, self._location_context )
         
         tags_hover.sendApplicationCommand.connect( self.ProcessApplicationCommand )
         
@@ -2374,6 +2379,8 @@ class CanvasWithHovers( CanvasWithDetails ):
             hover.DoRegularHideShow()
             
         
+    
+
 class CanvasFilterDuplicates( CanvasWithHovers ):
     
     CANVAS_TYPE = CC.CANVAS_MEDIA_VIEWER_DUPLICATES
@@ -2685,7 +2692,7 @@ class CanvasFilterDuplicates( CanvasWithHovers ):
             progress = self._current_pair_index + 1
             total = len( self._batch_of_pairs_to_process )
             
-            index_string = HydrusData.ConvertValueRangeToPrettyString( progress, total )
+            index_string = HydrusNumbers.ValueRangeToPrettyString( progress, total )
             
             num_committable = self._GetNumCommittableDecisions()
             num_deletable = self._GetNumCommittableDeletes()
@@ -3484,7 +3491,7 @@ class CanvasMediaList( ClientMedia.ListeningMediaList, CanvasWithHovers ):
             
         else:
             
-            index_string = HydrusData.ConvertValueRangeToPrettyString( self._sorted_media.index( self._current_media ) + 1, len( self._sorted_media ) )
+            index_string = HydrusNumbers.ValueRangeToPrettyString( self._sorted_media.index( self._current_media ) + 1, len( self._sorted_media ) )
             
         
         return index_string
@@ -3834,7 +3841,7 @@ class CanvasMediaListFilterArchiveDelete( CanvasMediaList ):
                     location_contexts_to_present_options_for.append( self._location_context )
                     
                 
-                current_local_service_keys = HydrusData.MassUnion( [ m.GetLocationsManager().GetCurrent() for m in deleted ] )
+                current_local_service_keys = HydrusLists.MassUnion( [ m.GetLocationsManager().GetCurrent() for m in deleted ] )
                 
                 local_file_domain_service_keys = [ service_key for service_key in current_local_service_keys if CG.client_controller.services_manager.GetServiceType( service_key ) == HC.LOCAL_FILE_DOMAIN ]
                 

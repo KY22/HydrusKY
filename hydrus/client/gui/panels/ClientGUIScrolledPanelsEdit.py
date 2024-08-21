@@ -2027,7 +2027,7 @@ class EditFileNotesPanel( CAC.ApplicationCommandProcessorMixin, ClientGUIScrolle
             
             for item in names_and_notes:
                 
-                if not HydrusData.IsAListLikeCollection( item ):
+                if not HydrusLists.IsAListLikeCollection( item ):
                     
                     continue
                     
@@ -2234,8 +2234,8 @@ class EditFrameLocationPanel( ClientGUIScrolledPanels.EditPanel ):
         self._remember_size = QW.QCheckBox( 'remember size', self )
         self._remember_position = QW.QCheckBox( 'remember position', self )
         
-        self._last_size = ClientGUICommon.NoneableSpinCtrl( self, 'last size', none_phrase = 'none set', min = 100, max = 1000000, unit = None, num_dimensions = 2 )
-        self._last_position = ClientGUICommon.NoneableSpinCtrl( self, 'last position', none_phrase = 'none set', min = -1000000, max = 1000000, unit = None, num_dimensions = 2 )
+        self._last_size = ClientGUICommon.NoneableDoubleSpinCtrl( self, ( 640, 480 ),'last size', none_phrase = 'none set', min = 100, max = 1000000, unit = None )
+        self._last_position = ClientGUICommon.NoneableDoubleSpinCtrl( self, ( 20, 20 ),'last position', none_phrase = 'none set', min = -1000000, max = 1000000, unit = None )
         
         self._default_gravity_x = ClientGUICommon.BetterChoice( self )
         
@@ -2783,8 +2783,11 @@ class EditURLsPanel( CAC.ApplicationCommandProcessorMixin, ClientGUIScrolledPane
         self._url_input = QW.QLineEdit( self )
         self._url_input.installEventFilter( ClientGUICommon.TextCatchEnterEventFilter( self._url_input, self.AddURL ) )
         
-        self._copy_button = ClientGUICommon.BetterButton( self, 'copy all', self._Copy )
-        self._paste_button = ClientGUICommon.BetterButton( self, 'paste', self._Paste )
+        self._copy_button = ClientGUICommon.BetterBitmapButton( self, CC.global_pixmaps().copy, self._Copy )
+        self._copy_button.setToolTip( ClientGUIFunctions.WrapToolTip( 'Copy selected URLs to the clipboard, or all URLs if none are selected.' ) )
+        
+        self._paste_button = ClientGUICommon.BetterBitmapButton( self, CC.global_pixmaps().paste, self._Paste )
+        self._paste_button.setToolTip( ClientGUIFunctions.WrapToolTip( 'Paste URLs from the clipboard.' ) )
         
         self._urls_to_add = set()
         self._urls_to_remove = set()
@@ -2820,7 +2823,12 @@ class EditURLsPanel( CAC.ApplicationCommandProcessorMixin, ClientGUIScrolledPane
     
     def _Copy( self ):
         
-        urls = sorted( self._current_urls_count.keys() )
+        urls = self._urls_listbox.GetData( only_selected = True )
+        
+        if len( urls ) == 0:
+            
+            urls = self._urls_listbox.GetData()
+            
         
         text = '\n'.join( urls )
         
@@ -2999,8 +3007,8 @@ class EditURLsPanel( CAC.ApplicationCommandProcessorMixin, ClientGUIScrolledPane
         
     
     def EventListDoubleClick( self, item ):
-    
-        urls = [ QP.GetClientData( self._urls_listbox, selection.row() ) for selection in list( self._urls_listbox.selectedIndexes() ) ]
+        
+        urls = self._urls_listbox.GetData( only_selected = True )
         
         for url in urls:
             
@@ -3021,7 +3029,7 @@ class EditURLsPanel( CAC.ApplicationCommandProcessorMixin, ClientGUIScrolledPane
         
         if key in ClientGUIShortcuts.DELETE_KEYS_QT:
             
-            urls = [ QP.GetClientData( self._urls_listbox, selection.row() ) for selection in list( self._urls_listbox.selectedIndexes() ) ]
+            urls = self._urls_listbox.GetData( only_selected = True )
             
             for url in urls:
                 

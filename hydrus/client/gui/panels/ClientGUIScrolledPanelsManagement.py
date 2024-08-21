@@ -409,9 +409,18 @@ class ManageOptionsPanel( ClientGUIScrolledPanels.ManagePanel ):
             
             proxy_panel = ClientGUICommon.StaticBox( self, 'proxy settings' )
             
-            self._http_proxy = ClientGUICommon.NoneableTextCtrl( proxy_panel )
-            self._https_proxy = ClientGUICommon.NoneableTextCtrl( proxy_panel )
-            self._no_proxy = ClientGUICommon.NoneableTextCtrl( proxy_panel )
+            if ClientNetworkingSessions.SOCKS_PROXY_OK:
+                
+                default_text = 'socks5://ip:port'
+                
+            else:
+                
+                default_text = 'http://ip:port'
+                
+            
+            self._http_proxy = ClientGUICommon.NoneableTextCtrl( proxy_panel, default_text )
+            self._https_proxy = ClientGUICommon.NoneableTextCtrl( proxy_panel, default_text )
+            self._no_proxy = ClientGUICommon.NoneableTextCtrl( proxy_panel, '' )
             
             #
             
@@ -551,7 +560,7 @@ class ManageOptionsPanel( ClientGUIScrolledPanels.ManagePanel ):
             self._default_gug = ClientGUIImport.GUGKeyAndNameSelector( gallery_downloader, gug_key_and_name )
             
             self._gallery_page_wait_period_pages = ClientGUICommon.BetterSpinBox( gallery_downloader, min=1, max=3600 )
-            self._gallery_file_limit = ClientGUICommon.NoneableSpinCtrl( gallery_downloader, none_phrase = 'no limit', min = 1, max = 1000000 )
+            self._gallery_file_limit = ClientGUICommon.NoneableSpinCtrl( gallery_downloader, 2000, none_phrase = 'no limit', min = 1, max = 1000000 )
             
             self._highlight_new_query = QW.QCheckBox( gallery_downloader )
             
@@ -562,7 +571,7 @@ class ManageOptionsPanel( ClientGUIScrolledPanels.ManagePanel ):
             self._gallery_page_wait_period_subscriptions = ClientGUICommon.BetterSpinBox( subscriptions, min=1, max=3600 )
             self._max_simultaneous_subscriptions = ClientGUICommon.BetterSpinBox( subscriptions, min=1, max=100 )
             
-            self._subscription_file_error_cancel_threshold = ClientGUICommon.NoneableSpinCtrl( subscriptions, min = 1, max = 1000000, unit = 'errors' )
+            self._subscription_file_error_cancel_threshold = ClientGUICommon.NoneableSpinCtrl( subscriptions, 5, min = 1, max = 1000000, unit = 'errors' )
             self._subscription_file_error_cancel_threshold.setToolTip( ClientGUIFunctions.WrapToolTip( 'This is a simple patch and will be replaced with a better "retry network errors later" system at some point, but is useful to increase if you have subs to unreliable websites.' ) )
             
             self._process_subs_in_random_order = QW.QCheckBox( subscriptions )
@@ -775,10 +784,10 @@ class ManageOptionsPanel( ClientGUIScrolledPanels.ManagePanel ):
             
             colours_panel = ClientGUICommon.StaticBox( self, 'colours' )
             
-            self._duplicate_background_switch_intensity_a = ClientGUICommon.NoneableSpinCtrl( colours_panel, none_phrase = 'do not change', min = 1, max = 9 )
+            self._duplicate_background_switch_intensity_a = ClientGUICommon.NoneableSpinCtrl( colours_panel, 3, none_phrase = 'do not change', min = 1, max = 9 )
             self._duplicate_background_switch_intensity_a.setToolTip( ClientGUIFunctions.WrapToolTip( 'This changes the background colour when you are looking at A. If you have a pure white/black background and do not have transparent images to show with checkerboard, it helps to highlight transparency vs opaque white/black image background.' ) )
             
-            self._duplicate_background_switch_intensity_b = ClientGUICommon.NoneableSpinCtrl( colours_panel, none_phrase = 'do not change', min = 1, max = 9 )
+            self._duplicate_background_switch_intensity_b = ClientGUICommon.NoneableSpinCtrl( colours_panel, 3, none_phrase = 'do not change', min = 1, max = 9 )
             self._duplicate_background_switch_intensity_b.setToolTip( ClientGUIFunctions.WrapToolTip( 'This changes the background colour when you are looking at B. Making it different to the A value helps to highlight switches between the two.' ) )
             
             self._draw_transparency_checkerboard_media_canvas_duplicates = QW.QCheckBox( colours_panel )
@@ -933,7 +942,19 @@ class ManageOptionsPanel( ClientGUIScrolledPanels.ManagePanel ):
             text += '\n' * 2
             text += 'The command here must include a "%path%" component, normally ideally within those quote marks, which is where hydrus will place the URL when it executes the command. A good example would be:'
             text += '\n' * 2
-            text += 'C:\\program files\\firefox\\firefox.exe "%path%"'
+            
+            if HC.PLATFORM_WINDOWS:
+                
+                text += 'C:\\program files\\firefox\\firefox.exe "%path%"'
+                
+            elif HC.PLATFORM_MACOS:
+                
+                text += 'open -a /Applications/Firefox.app -g "%path%"'
+                
+            else:
+                
+                text += 'firefox "%path%"'
+                
             
             st = ClientGUICommon.BetterStaticText( browser_panel, text )
             st.setWordWrap( True )
@@ -1105,8 +1126,9 @@ class ManageOptionsPanel( ClientGUIScrolledPanels.ManagePanel ):
             self._remove_trashed_files = QW.QCheckBox( self )
             self._remove_local_domain_moved_files = QW.QCheckBox( self )
             
-            self._trash_max_age = ClientGUICommon.NoneableSpinCtrl( self, '', none_phrase = 'no age limit', min = 0, max = 8640 )
-            self._trash_max_size = ClientGUICommon.NoneableSpinCtrl( self, '', none_phrase = 'no size limit', min = 0, max = 20480 )
+            # TODO: replace these with a new(?) noneabletimedelta and noneablebytesguy
+            self._trash_max_age = ClientGUICommon.NoneableSpinCtrl( self, 72, none_phrase = 'no age limit', min = 0, max = 8640 )
+            self._trash_max_size = ClientGUICommon.NoneableSpinCtrl( self, 2048, none_phrase = 'no size limit', min = 0, max = 20480 )
             
             delete_lock_panel = ClientGUICommon.StaticBox( self, 'delete lock' )
             
@@ -1323,13 +1345,13 @@ class ManageOptionsPanel( ClientGUIScrolledPanels.ManagePanel ):
             self._file_viewing_statistics_active = QW.QCheckBox( self )
             self._file_viewing_statistics_active_on_archive_delete_filter = QW.QCheckBox( self )
             self._file_viewing_statistics_active_on_dupe_filter = QW.QCheckBox( self )
-            self._file_viewing_statistics_media_min_time = ClientGUICommon.NoneableSpinCtrl( self )
-            self._file_viewing_statistics_media_max_time = ClientGUICommon.NoneableSpinCtrl( self )
+            self._file_viewing_statistics_media_min_time = ClientGUICommon.NoneableSpinCtrl( self, 2 )
+            self._file_viewing_statistics_media_max_time = ClientGUICommon.NoneableSpinCtrl( self, 600 )
             max_tt = 'If you view a file for a very long time, the amount of viewtime recorded is clipped to this. This stops an outrageous viewtime being saved because you left something open in the background. If the media you view has duration, like a video, the max viewtime is five times its length or this, whichever is larger.'
             self._file_viewing_statistics_media_max_time.setToolTip( ClientGUIFunctions.WrapToolTip( max_tt ) )
             
-            self._file_viewing_statistics_preview_min_time = ClientGUICommon.NoneableSpinCtrl( self )
-            self._file_viewing_statistics_preview_max_time = ClientGUICommon.NoneableSpinCtrl( self )
+            self._file_viewing_statistics_preview_min_time = ClientGUICommon.NoneableSpinCtrl( self, 5 )
+            self._file_viewing_statistics_preview_max_time = ClientGUICommon.NoneableSpinCtrl( self, 60 )
             self._file_viewing_statistics_preview_max_time.setToolTip( ClientGUIFunctions.WrapToolTip( max_tt ) )
             
             self._file_viewing_stats_menu_display = ClientGUICommon.BetterChoice( self )
@@ -1968,13 +1990,13 @@ class ManageOptionsPanel( ClientGUIScrolledPanels.ManagePanel ):
             self._command_palette_panel = ClientGUICommon.StaticBox( self, 'command palette' )
             
             self._command_palette_show_page_of_pages = QW.QCheckBox( self._command_palette_panel )
-            self._command_palette_show_page_of_pages.setToolTip( 'Show "page of pages" as selectable page results. This will focus the page, and whatever sub-page it previously focused (including none, if it has no child pages).' )
+            self._command_palette_show_page_of_pages.setToolTip( ClientGUIFunctions.WrapToolTip( 'Show "page of pages" as selectable page results. This will focus the page, and whatever sub-page it previously focused (including none, if it has no child pages).' ) )
             
             self._command_palette_show_main_menu = QW.QCheckBox( self._command_palette_panel )
-            self._command_palette_show_main_menu.setToolTip( 'Show the main gui window\'s menubar actions.' )
+            self._command_palette_show_main_menu.setToolTip( ClientGUIFunctions.WrapToolTip(  'Show the main gui window\'s menubar actions.' ) )
             
             self._command_palette_show_media_menu = QW.QCheckBox( self._command_palette_panel )
-            self._command_palette_show_media_menu.setToolTip( 'Show the menu actions for the current media view. Be careful with this, it basically just shows everything with slightly ugly labels..' )
+            self._command_palette_show_media_menu.setToolTip( ClientGUIFunctions.WrapToolTip( 'Show the actions for the thumbnail menu on the current media page. Be careful with this, it basically just shows everything with slightly ugly labels..' ) )
             
             #
             
@@ -2034,11 +2056,11 @@ class ManageOptionsPanel( ClientGUIScrolledPanels.ManagePanel ):
             self._idle_normal = QW.QCheckBox( self._idle_panel )
             self._idle_normal.clicked.connect( self._EnableDisableIdleNormal )
             
-            self._idle_period = ClientGUICommon.NoneableSpinCtrl( self._idle_panel, '', min = 1, max = 1000, multiplier = 60, unit = 'minutes', none_phrase = 'ignore normal browsing' )
-            self._idle_mouse_period = ClientGUICommon.NoneableSpinCtrl( self._idle_panel, '', min = 1, max = 1000, multiplier = 60, unit = 'minutes', none_phrase = 'ignore mouse movements' )
-            self._idle_mode_client_api_timeout = ClientGUICommon.NoneableSpinCtrl( self._idle_panel, '', min = 1, max = 1000, multiplier = 60, unit = 'minutes', none_phrase = 'ignore client api' )
+            self._idle_period = ClientGUICommon.NoneableSpinCtrl( self._idle_panel, 30, min = 1, max = 1000, multiplier = 60, unit = 'minutes', none_phrase = 'ignore normal browsing' )
+            self._idle_mouse_period = ClientGUICommon.NoneableSpinCtrl( self._idle_panel, 10, min = 1, max = 1000, multiplier = 60, unit = 'minutes', none_phrase = 'ignore mouse movements' )
+            self._idle_mode_client_api_timeout = ClientGUICommon.NoneableSpinCtrl( self._idle_panel, 5, min = 1, max = 1000, multiplier = 60, unit = 'minutes', none_phrase = 'ignore client api' )
             self._system_busy_cpu_percent = ClientGUICommon.BetterSpinBox( self._idle_panel, min = 5, max = 99 )
-            self._system_busy_cpu_count = ClientGUICommon.NoneableSpinCtrl( self._idle_panel, min = 1, max = 64, unit = 'cores', none_phrase = 'ignore cpu usage' )
+            self._system_busy_cpu_count = ClientGUICommon.NoneableSpinCtrl( self._idle_panel, 1, min = 1, max = 64, unit = 'cores', none_phrase = 'ignore cpu usage' )
             
             #
             
@@ -2538,10 +2560,12 @@ class ManageOptionsPanel( ClientGUIScrolledPanels.ManagePanel ):
             media_viewer_panel = ClientGUICommon.StaticBox( self, 'mouse and animations' )
             
             self._animated_scanbar_height = ClientGUICommon.BetterSpinBox( media_viewer_panel, min=1, max=255 )
-            self._animated_scanbar_hide_height = ClientGUICommon.NoneableSpinCtrl( media_viewer_panel, none_phrase = 'no, hide it', min = 1, max = 255, unit = 'px' )
+            self._animated_scanbar_hide_height = ClientGUICommon.NoneableSpinCtrl( media_viewer_panel, 5, none_phrase = 'no, hide it', min = 1, max = 255, unit = 'px' )
             self._animated_scanbar_nub_width = ClientGUICommon.BetterSpinBox( media_viewer_panel, min=1, max=63 )
             
-            self._media_viewer_cursor_autohide_time_ms = ClientGUICommon.NoneableSpinCtrl( media_viewer_panel, none_phrase = 'do not autohide', min = 100, max = 100000, unit = 'ms' )
+            self._media_viewer_cursor_autohide_time_ms = ClientGUICommon.NoneableSpinCtrl( media_viewer_panel, 700, none_phrase = 'do not autohide', min = 100, max = 100000, unit = 'ms' )
+            
+            self._disallow_media_drags_on_duration_media = QW.QCheckBox( media_viewer_panel )
             
             self._anchor_and_hide_canvas_drags = QW.QCheckBox( media_viewer_panel )
             self._touchscreen_canvas_drags_unanchor = QW.QCheckBox( media_viewer_panel )
@@ -2561,9 +2585,6 @@ class ManageOptionsPanel( ClientGUIScrolledPanels.ManagePanel ):
             self._draw_bottom_right_index_in_media_viewer_background = QW.QCheckBox( media_canvas_panel )
             self._draw_bottom_right_index_in_media_viewer_background.setToolTip( ClientGUIFunctions.WrapToolTip( 'Draw the bottom-right index string in the background of the media viewer.' ) )
             
-            self._hide_uninteresting_local_import_time = QW.QCheckBox( media_canvas_panel )
-            self._hide_uninteresting_local_import_time.setToolTip( ClientGUIFunctions.WrapToolTip( 'If the file was imported at a similar time to when it was added to its current services (i.e. the number of seconds since both events differs by less than 10%), hide the import time in the top of the media viewer.' ) )
-            
             self._hide_uninteresting_modified_time = QW.QCheckBox( media_canvas_panel )
             self._hide_uninteresting_modified_time.setToolTip( ClientGUIFunctions.WrapToolTip( 'If the file has a modified time similar to its import time (i.e. the number of seconds since both events differs by less than 10%), hide the modified time in the top of the media viewer.' ) )
             
@@ -2579,19 +2600,19 @@ class ManageOptionsPanel( ClientGUIScrolledPanels.ManagePanel ):
             self._slideshow_always_play_duration_media_once_through.setToolTip( ClientGUIFunctions.WrapToolTip( 'If this is on, then a slideshow will not move on until the current duration-having media has played once through.' ) )
             self._slideshow_always_play_duration_media_once_through.clicked.connect( self.EventSlideshowChanged )
             
-            self._slideshow_short_duration_loop_seconds = ClientGUICommon.NoneableSpinCtrl( slideshow_panel, none_phrase = 'do not use', min = 1, max = 86400, unit = 's' )
+            self._slideshow_short_duration_loop_seconds = ClientGUICommon.NoneableSpinCtrl( slideshow_panel, 10, none_phrase = 'do not use', min = 1, max = 86400, unit = 's' )
             tt = '(Ensures very short loops play for a bit, but not five minutes) A slideshow will move on early if the current duration-having media has a duration less than this many seconds (and this is less than the overall slideshow period).'
             self._slideshow_short_duration_loop_seconds.setToolTip( ClientGUIFunctions.WrapToolTip( tt ) )
             
-            self._slideshow_short_duration_loop_percentage = ClientGUICommon.NoneableSpinCtrl( slideshow_panel, none_phrase = 'do not use', min = 1, max = 99, unit = '%' )
+            self._slideshow_short_duration_loop_percentage = ClientGUICommon.NoneableSpinCtrl( slideshow_panel, 20, none_phrase = 'do not use', min = 1, max = 99, unit = '%' )
             tt = '(Ensures short videos play for a bit, but not twenty minutes) A slideshow will move on early if the current duration-having media has a duration less than this percentage of the overall slideshow period.'
             self._slideshow_short_duration_loop_percentage.setToolTip( ClientGUIFunctions.WrapToolTip( tt ) )
             
-            self._slideshow_short_duration_cutoff_percentage = ClientGUICommon.NoneableSpinCtrl( slideshow_panel, none_phrase = 'do not use', min = 1, max = 99, unit = '%' )
+            self._slideshow_short_duration_cutoff_percentage = ClientGUICommon.NoneableSpinCtrl( slideshow_panel, 75, none_phrase = 'do not use', min = 1, max = 99, unit = '%' )
             tt = '(Ensures that slightly shorter videos move the slideshow cleanly along as soon as they are done) A slideshow will move on early if the current duration-having media will have played exactly once through between this many percent and 100% of the slideshow period.'
             self._slideshow_short_duration_cutoff_percentage.setToolTip( ClientGUIFunctions.WrapToolTip( tt ) )
             
-            self._slideshow_long_duration_overspill_percentage = ClientGUICommon.NoneableSpinCtrl( slideshow_panel, none_phrase = 'do not use', min = 1, max = 500, unit = '%' )
+            self._slideshow_long_duration_overspill_percentage = ClientGUICommon.NoneableSpinCtrl( slideshow_panel, 50, none_phrase = 'do not use', min = 1, max = 500, unit = '%' )
             tt = '(Ensures slightly longer videos will not get cut off right at the end) A slideshow will delay moving on if playing the current duration-having media would stretch the overall slideshow period less than this amount.'
             self._slideshow_long_duration_overspill_percentage.setToolTip( ClientGUIFunctions.WrapToolTip( tt ) )
             
@@ -2608,10 +2629,10 @@ class ManageOptionsPanel( ClientGUIScrolledPanels.ManagePanel ):
             self._draw_top_right_hover_in_media_viewer_background.setChecked( self._new_options.GetBoolean( 'draw_top_right_hover_in_media_viewer_background' ) )
             self._draw_notes_hover_in_media_viewer_background.setChecked( self._new_options.GetBoolean( 'draw_notes_hover_in_media_viewer_background' ) )
             self._draw_bottom_right_index_in_media_viewer_background.setChecked( self._new_options.GetBoolean( 'draw_bottom_right_index_in_media_viewer_background' ) )
-            self._hide_uninteresting_local_import_time.setChecked( self._new_options.GetBoolean( 'hide_uninteresting_local_import_time' ) )
             self._hide_uninteresting_modified_time.setChecked( self._new_options.GetBoolean( 'hide_uninteresting_modified_time' ) )
             
             self._media_viewer_cursor_autohide_time_ms.SetValue( self._new_options.GetNoneableInteger( 'media_viewer_cursor_autohide_time_ms' ) )
+            self._disallow_media_drags_on_duration_media.setChecked( self._new_options.GetBoolean( 'disallow_media_drags_on_duration_media' ) )
             self._anchor_and_hide_canvas_drags.setChecked( self._new_options.GetBoolean( 'anchor_and_hide_canvas_drags' ) )
             self._touchscreen_canvas_drags_unanchor.setChecked( self._new_options.GetBoolean( 'touchscreen_canvas_drags_unanchor' ) )
             
@@ -2633,6 +2654,7 @@ class ManageOptionsPanel( ClientGUIScrolledPanels.ManagePanel ):
             rows.append( ( 'Animation scanbar height:', self._animated_scanbar_height ) )
             rows.append( ( 'Animation scanbar height when mouse away:', self._animated_scanbar_hide_height ) )
             rows.append( ( 'Animation scanbar nub width:', self._animated_scanbar_nub_width ) )
+            rows.append( ( 'Do not allow mouse media drag-panning when the media has duration:', self._disallow_media_drags_on_duration_media ) )
             rows.append( ( 'RECOMMEND WINDOWS ONLY: Hide and anchor mouse cursor on media viewer drags:', self._anchor_and_hide_canvas_drags ) )
             rows.append( ( 'RECOMMEND WINDOWS ONLY: If set to hide and anchor, undo on apparent touchscreen drag:', self._touchscreen_canvas_drags_unanchor ) )
             
@@ -2647,7 +2669,6 @@ class ManageOptionsPanel( ClientGUIScrolledPanels.ManagePanel ):
             rows.append( ( 'Duplicate top-right hover-window information in the background of the viewer:', self._draw_top_right_hover_in_media_viewer_background ) )
             rows.append( ( 'Duplicate notes hover-window information in the background of the viewer:', self._draw_notes_hover_in_media_viewer_background ) )
             rows.append( ( 'Draw bottom-right index text in the background of the viewer:', self._draw_bottom_right_index_in_media_viewer_background ) )
-            rows.append( ( 'Hide uninteresting import times:', self._hide_uninteresting_local_import_time ) )
             rows.append( ( 'Hide uninteresting modified times:', self._hide_uninteresting_modified_time ) )
             
             media_canvas_gridbox = ClientGUICommon.WrapInGrid( media_canvas_panel, rows )
@@ -2709,9 +2730,9 @@ class ManageOptionsPanel( ClientGUIScrolledPanels.ManagePanel ):
             self._new_options.SetBoolean( 'draw_top_right_hover_in_media_viewer_background', self._draw_top_right_hover_in_media_viewer_background.isChecked() )
             self._new_options.SetBoolean( 'draw_notes_hover_in_media_viewer_background', self._draw_notes_hover_in_media_viewer_background.isChecked() )
             self._new_options.SetBoolean( 'draw_bottom_right_index_in_media_viewer_background', self._draw_bottom_right_index_in_media_viewer_background.isChecked() )
-            self._new_options.SetBoolean( 'hide_uninteresting_local_import_time', self._hide_uninteresting_local_import_time.isChecked() )
             self._new_options.SetBoolean( 'hide_uninteresting_modified_time', self._hide_uninteresting_modified_time.isChecked() )
             
+            self._new_options.SetBoolean( 'disallow_media_drags_on_duration_media', self._disallow_media_drags_on_duration_media.isChecked() )
             self._new_options.SetBoolean( 'anchor_and_hide_canvas_drags', self._anchor_and_hide_canvas_drags.isChecked() )
             self._new_options.SetBoolean( 'touchscreen_canvas_drags_unanchor', self._touchscreen_canvas_drags_unanchor.isChecked() )
             
@@ -3333,7 +3354,7 @@ class ManageOptionsPanel( ClientGUIScrolledPanels.ManagePanel ):
             
             misc_panel = ClientGUICommon.StaticBox( self, 'file search' )
             
-            self._forced_search_limit = ClientGUICommon.NoneableSpinCtrl( misc_panel, '', min = 1, max = 100000 )
+            self._forced_search_limit = ClientGUICommon.NoneableSpinCtrl( misc_panel, 10000, min = 1, max = 100000 )
             self._forced_search_limit.setToolTip( ClientGUIFunctions.WrapToolTip( 'This is overruled if you set an explicit system:limit larger than it.' ) )
             
             #
@@ -3412,7 +3433,7 @@ class ManageOptionsPanel( ClientGUIScrolledPanels.ManagePanel ):
             
             rows = []
             
-            rows.append( ( 'Forced system:limit for all searches: ', self._forced_search_limit ) )
+            rows.append( ( 'Implicit system:limit for all searches: ', self._forced_search_limit ) )
             
             gridbox = ClientGUICommon.WrapInGrid( misc_panel, rows )
             
@@ -3920,7 +3941,7 @@ class ManageOptionsPanel( ClientGUIScrolledPanels.ManagePanel ):
             
             resolution = ( int( 16 * unit_length ), int( 9 * unit_length ) )
             
-            self._image_cache_storage_limit_percentage_st.setText( '% - {} pixels, or about a {} image'.format( HydrusNumbers.ToHumanInt( num_pixels ), HydrusData.ConvertResolutionToPrettyString( resolution ) ) )
+            self._image_cache_storage_limit_percentage_st.setText( '% - {} pixels, or about a {} image'.format( HydrusNumbers.ToHumanInt( num_pixels ), HydrusNumbers.ResolutionToPrettyString( resolution ) ) )
             
             num_pixels = cache_size * ( self._image_cache_prefetch_limit_percentage.value() / 100 ) / 3
             
@@ -3930,7 +3951,7 @@ class ManageOptionsPanel( ClientGUIScrolledPanels.ManagePanel ):
             
             resolution = ( int( 16 * unit_length ), int( 9 * unit_length ) )
             
-            self._image_cache_prefetch_limit_percentage_st.setText( '% - {} pixels, or about a {} image'.format( HydrusNumbers.ToHumanInt( num_pixels ), HydrusData.ConvertResolutionToPrettyString( resolution ) ) )
+            self._image_cache_prefetch_limit_percentage_st.setText( '% - {} pixels, or about a {} image'.format( HydrusNumbers.ToHumanInt( num_pixels ), HydrusNumbers.ResolutionToPrettyString( resolution ) ) )
             
             #
             
@@ -3976,7 +3997,7 @@ class ManageOptionsPanel( ClientGUIScrolledPanels.ManagePanel ):
             
             ( thumbnail_width, thumbnail_height ) = HC.options[ 'thumbnail_dimensions' ]
             
-            res_string = HydrusData.ConvertResolutionToPrettyString( ( thumbnail_width, thumbnail_height ) )
+            res_string = HydrusNumbers.ResolutionToPrettyString( ( thumbnail_width, thumbnail_height ) )
             
             estimated_bytes_per_thumb = 3 * thumbnail_width * thumbnail_height
             
@@ -4124,6 +4145,8 @@ class ManageOptionsPanel( ClientGUIScrolledPanels.ManagePanel ):
                 
                 ClientGUIDialogsMessage.ShowCritical( self, 'Critical', f'Could not apply style: {e}' )
                 
+            
+            CG.client_controller.gui._DoMenuBarStyleHack()
             
             try:
                 
@@ -4337,7 +4360,7 @@ class ManageOptionsPanel( ClientGUIScrolledPanels.ManagePanel ):
             
             children_panel = ClientGUICommon.StaticBox( self, 'children tags' )
             
-            self._num_to_show_in_ac_dropdown_children_tab = ClientGUICommon.NoneableSpinCtrl( children_panel, none_phrase = 'show all', min = 1 )
+            self._num_to_show_in_ac_dropdown_children_tab = ClientGUICommon.NoneableSpinCtrl( children_panel, 40, none_phrase = 'show all', min = 1 )
             tt = 'The "children" tab will show children of the current tag context (usually the list of tags above the autocomplete), ordered by file count. This can quickly get spammy, so I recommend you cull it to a reasonable size.'
             self._num_to_show_in_ac_dropdown_children_tab.setToolTip( ClientGUIFunctions.WrapToolTip( tt ) )
             self._num_to_show_in_ac_dropdown_children_tab.SetValue( 40 ) # init default
@@ -4497,7 +4520,7 @@ class ManageOptionsPanel( ClientGUIScrolledPanels.ManagePanel ):
             tt = 'If set, then if the sibling goes from one namespace to another, that colour will fade across the distance of the sibling connector. Just a bit of fun.'
             self._fade_sibling_connector.setToolTip( ClientGUIFunctions.WrapToolTip( tt ) )
             
-            self._sibling_connector_custom_namespace_colour = ClientGUICommon.NoneableTextCtrl( render_panel, none_phrase = 'use ideal tag colour' )
+            self._sibling_connector_custom_namespace_colour = ClientGUICommon.NoneableTextCtrl( render_panel, 'system', none_phrase = 'use ideal tag colour' )
             tt = 'The sibling connector can use a particular namespace\'s colour.'
             self._sibling_connector_custom_namespace_colour.setToolTip( ClientGUIFunctions.WrapToolTip( tt ) )
             
@@ -4821,7 +4844,7 @@ class ManageOptionsPanel( ClientGUIScrolledPanels.ManagePanel ):
             
             suggested_tags_recent_panel = QW.QWidget( suggest_tags_panel_notebook )
             
-            self._num_recent_tags = ClientGUICommon.NoneableSpinCtrl( suggested_tags_recent_panel, 'number of recent tags to show', min = 1, none_phrase = 'do not show' )
+            self._num_recent_tags = ClientGUICommon.NoneableSpinCtrl( suggested_tags_recent_panel, 20, message = 'number of recent tags to show', min = 1, none_phrase = 'do not show' )
             
             #
             
@@ -5220,7 +5243,7 @@ class ManageOptionsPanel( ClientGUIScrolledPanels.ManagePanel ):
             self._thumbnail_dpr_percentage = ClientGUICommon.BetterSpinBox( self, min = 100, max = 800 )
             tt = 'If your OS runs at an UI scale greater than 100%, mirror it here and your thumbnails will look crisp. If you have multiple monitors at different UI scales, or you change UI scale regularly, set it to the largest one you use.'
             tt += '\n' * 2
-            tt += 'I believe the UI scale on the monitor this dialog opened on was {}'.format( HydrusData.ConvertFloatToPercentage( self.devicePixelRatio() ) )
+            tt += 'I believe the UI scale on the monitor this dialog opened on was {}'.format( HydrusNumbers.FloatToPercentage( self.devicePixelRatio() ) )
             self._thumbnail_dpr_percentage.setToolTip( ClientGUIFunctions.WrapToolTip( tt ) )
             
             self._video_thumbnail_percentage_in = ClientGUICommon.BetterSpinBox( self, min=0, max=100 )
@@ -5416,7 +5439,7 @@ class RepairFileSystemPanel( ClientGUIScrolledPanels.ManagePanel ):
         # TODO: This needs another pass as we move to multiple locations and other tech
         # if someone has f10 and we are expecting 16 lots of f10x, or vice versa, (e.g. on an out of sync db recovery, not uncommon) we'll need to handle that
         
-        self._only_thumbs = True
+        self._only_thumbs = True not in ( subfolder.IsForFiles() for subfolder in missing_subfolders )
         
         self._missing_subfolders_to_new_subfolders = {}
         
@@ -5472,17 +5495,26 @@ class RepairFileSystemPanel( ClientGUIScrolledPanels.ManagePanel ):
                 
                 path = dlg.GetPath()
                 
-                base_location = ClientFilesPhysical.FilesStorageBaseLocation( path, 0 )
+                potential_base_locations = [
+                    ClientFilesPhysical.FilesStorageBaseLocation( path, 0 ),
+                    ClientFilesPhysical.FilesStorageBaseLocation( os.path.join( path, 'client_files' ), 0 ),
+                    ClientFilesPhysical.FilesStorageBaseLocation( os.path.join( path, 'thumbnails' ), 0 )
+                ]
                 
                 for subfolder in self._locations.GetData():
                     
-                    new_subfolder = ClientFilesPhysical.FilesStorageSubfolder( subfolder.prefix, base_location )
-                    
-                    ok = new_subfolder.PathExists()
-                    
-                    if ok:
+                    for potential_base_location in potential_base_locations:
                         
-                        self._missing_subfolders_to_new_subfolders[ subfolder ] = ( new_subfolder, ok )
+                        new_subfolder = ClientFilesPhysical.FilesStorageSubfolder( subfolder.prefix, potential_base_location )
+                        
+                        ok = new_subfolder.PathExists()
+                        
+                        if ok:
+                            
+                            self._missing_subfolders_to_new_subfolders[ subfolder ] = ( new_subfolder, ok )
+                            
+                            break
+                            
                         
                     
                 

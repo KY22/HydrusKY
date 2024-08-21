@@ -6,7 +6,6 @@ from hydrus.core import HydrusConstants as HC
 from hydrus.core import HydrusData
 from hydrus.core import HydrusExceptions
 from hydrus.core import HydrusNumbers
-from hydrus.core import HydrusPaths
 from hydrus.core import HydrusText
 
 from hydrus.client import ClientConstants as CC
@@ -355,6 +354,7 @@ class EditFileSeedCachePanel( ClientGUIScrolledPanels.EditPanel ):
         self.widget().setLayout( vbox )
         
         self._list_ctrl.AddRowsMenuCallable( self._GetListCtrlMenu )
+        self._list_ctrl.SetCopyRowsCallable( self._GetCopyableRows )
         
         self._controller.sub( self, 'NotifyFileSeedsUpdated', 'file_seed_cache_file_seeds_updated' )
         
@@ -441,15 +441,11 @@ class EditFileSeedCachePanel( ClientGUIScrolledPanels.EditPanel ):
     
     def _CopySelectedFileSeedData( self ):
         
-        file_seeds = self._list_ctrl.GetData( only_selected = True )
+        texts = self._GetCopyableRows()
         
-        if len( file_seeds ) > 0:
+        if len( texts ) > 0:
             
-            separator = '\n' * 2
-            
-            text = separator.join( ( file_seed.file_seed_data for file_seed in file_seeds ) )
-            
-            CG.client_controller.pub( 'clipboard', 'text', text )
+            CG.client_controller.pub( 'clipboard', 'text', '\n'.join( texts ) )
             
         
     
@@ -468,6 +464,13 @@ class EditFileSeedCachePanel( ClientGUIScrolledPanels.EditPanel ):
                 self._file_seed_cache.RemoveFileSeeds( file_seeds_to_delete )
                 
             
+        
+    
+    def _GetCopyableRows( self ):
+        
+        texts = [ file_seed.file_seed_data for file_seed in self._list_ctrl.GetData( only_selected = True ) ]
+        
+        return texts
         
     
     def _GetListCtrlMenu( self ):
@@ -1003,7 +1006,7 @@ class FileSeedCacheStatusControl( QW.QFrame ):
                 
             else:
                 
-                self._progress_st.setText( HydrusData.ConvertValueRangeToPrettyString(num_done,num_to_do) )
+                self._progress_st.setText( HydrusNumbers.ValueRangeToPrettyString(num_done,num_to_do) )
                 
             
             self._progress_gauge.SetRange( num_to_do )

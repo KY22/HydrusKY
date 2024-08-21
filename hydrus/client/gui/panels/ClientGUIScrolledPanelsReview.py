@@ -19,8 +19,6 @@ from hydrus.core import HydrusGlobals as HG
 from hydrus.core import HydrusNumbers
 from hydrus.core import HydrusPaths
 from hydrus.core import HydrusSerialisable
-from hydrus.core import HydrusTags
-from hydrus.core import HydrusTagArchive
 from hydrus.core import HydrusText
 from hydrus.core import HydrusThreading
 from hydrus.core import HydrusTime
@@ -475,7 +473,7 @@ class MoveMediaFilesPanel( ClientGUIScrolledPanels.ReviewPanel ):
         fp = locations_to_file_weights[ base_location ]
         tp = locations_to_thumb_weights[ base_location ]
         
-        p = HydrusData.ConvertFloatToPercentage
+        p = HydrusNumbers.FloatToPercentage
         
         current_bytes = fp * f_space + tp * t_space_max
         
@@ -833,7 +831,7 @@ class MoveMediaFilesPanel( ClientGUIScrolledPanels.ReviewPanel ):
                     
                     panel = ClientGUIScrolledPanels.EditSingleCtrlPanel( dlg, message = message )
                     
-                    control = ClientGUIBytes.NoneableBytesControl( panel, initial_value = 100 * ( 1024 ** 3 ) )
+                    control = ClientGUIBytes.NoneableBytesControl( panel, 100 * ( 1024 ** 3 ) )
                     
                     control.SetValue( max_num_bytes )
                     
@@ -3137,7 +3135,7 @@ class ReviewLocalFileImports( ClientGUIScrolledPanels.ReviewPanel ):
                 
             else:
                 
-                message = HydrusData.ConvertValueRangeToPrettyString( num_good_files, total_paths ) + ' files parsed successfully'
+                message = HydrusNumbers.ValueRangeToPrettyString( num_good_files, total_paths ) + ' files parsed successfully'
                 
             
             if num_empty_files + num_missing_files + num_unimportable_mime_files + num_occupied_files + num_sidecars > 0:
@@ -3713,11 +3711,11 @@ class ReviewVacuumData( ClientGUIScrolledPanels.ReviewPanel ):
         
         #
         
-        info_message = '''Vacuuming is essentially an aggressive defrag of a database file. The entire database is copied contiguously to a new file, which then has tightly packed pages and no empty 'free' pages.
+        info_message = '''Vacuuming is essentially an aggressive defrag of a database file. The entire database is copied contiguously to a new file, which then has tightly packed pages and no empty 'free' pages. Note that even a database currently has no free pages can still _sometimes_ be packed more efficiently, saving up to 40% of space, but there is no easy way to determine this ahead of time (in general, if it has been five years, you might save some space), and the database will bloat back up in time as more work happens.
 
 Because the new database is tightly packed, it will generally be smaller than the original file. This is currently the only way to truncate a hydrus database file.
 
-Vacuuming is an expensive operation. It requires lots of free space on your drive(s) (including a full copy in your temp directory!), hydrus cannot operate while it is going on, and it tends to run quite slow, about 1-40MB/s. The main benefit is in truncating the database files after you delete a lot of data, so I recommend you only do it on files with a lot of free space.'''
+Vacuuming is an expensive operation. It requires lots of free space on your drive(s) as it creates one (temporary) copy of the database file in your temp directory and another copy in your db dir. Hydrus cannot operate while it is going on, and it tends to run quite slow, about 1-40MB/s. The main benefit is in truncating the database files after you delete a lot of data, so I recommend you only do it after you delete the PTR or similar. If the db file is more than 2GB and has less than 5% free pages, it probably is not worth doing.'''
         
         st = ClientGUICommon.BetterStaticText( self, label = info_message )
         
@@ -3809,7 +3807,7 @@ Vacuuming is an expensive operation. It requires lots of free space on your driv
         
         if sort_total_size > 0:
             
-            pretty_free_size = '{} ({})'.format( pretty_free_size, HydrusData.ConvertFloatToPercentage( sort_free_size / sort_total_size ) )
+            pretty_free_size = '{} ({})'.format( pretty_free_size, HydrusNumbers.FloatToPercentage( sort_free_size / sort_total_size ) )
             
         
         sort_last_vacuumed_ms = vacuum_dict[ 'last_vacuumed_ms' ]

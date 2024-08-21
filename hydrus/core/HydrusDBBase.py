@@ -1,9 +1,12 @@
 import collections
+import threading
+import time
 import typing
 
 import sqlite3
 
 from hydrus.core import HydrusData
+from hydrus.core import HydrusExceptions
 from hydrus.core import HydrusPaths
 from hydrus.core import HydrusPSUtil
 from hydrus.core import HydrusGlobals as HG
@@ -12,7 +15,8 @@ from hydrus.core import HydrusTime
 
 def CheckHasSpaceForDBTransaction( db_dir, num_bytes ):
     
-    space_needed = int( num_bytes * 1.1 )
+    temp_space_needed = int( num_bytes * 1.1 )
+    destination_space_needed = temp_space_needed * 2 # not only do we need the space on disk, we'll have a very brief WAL or (for vacuum) complete file copy!
     
     if HG.no_db_temp_files:
         
@@ -22,15 +26,15 @@ def CheckHasSpaceForDBTransaction( db_dir, num_bytes ):
             
             if approx_available_memory < num_bytes:
                 
-                raise Exception( 'I believe you need about {} available memory, since you are running in no_db_temp_files mode, but you only seem to have {}.'.format( HydrusData.ToHumanBytes( space_needed ), HydrusData.ToHumanBytes( approx_available_memory ) ) )
+                raise Exception( f'I believe you need about {HydrusData.ToHumanBytes(temp_space_needed)} available memory, since you are running in no_db_temp_files mode, but you only seem to have {HydrusData.ToHumanBytes( approx_available_memory )}.' )
                 
             
         
         db_disk_free_space = HydrusPaths.GetFreeSpace( db_dir )
         
-        if db_disk_free_space is not None and db_disk_free_space < space_needed:
+        if db_disk_free_space is not None and db_disk_free_space < destination_space_needed:
             
-            raise Exception( 'I believe you need about {} on your db\'s disk partition, but you only seem to have {}.'.format( HydrusData.ToHumanBytes( space_needed ), HydrusData.ToHumanBytes( db_disk_free_space ) ) )
+            raise Exception( f'I believe you need about {HydrusData.ToHumanBytes( destination_space_needed )} on your db\'s disk partition (perhaps only temporarily), but you only seem to have {HydrusData.ToHumanBytes( db_disk_free_space )}.' )
             
         
     else:
@@ -43,18 +47,18 @@ def CheckHasSpaceForDBTransaction( db_dir, num_bytes ):
         
         if temp_and_db_on_same_device:
             
-            space_needed *= 2
+            space_needed = temp_space_needed + destination_space_needed
             
             if temp_disk_free_space is not None and temp_disk_free_space < space_needed:
                 
-                raise Exception( 'I believe you need about {} on your db\'s disk partition, which I think also holds your temporary path, but you only seem to have {}.'.format( HydrusData.ToHumanBytes( space_needed ), HydrusData.ToHumanBytes( temp_disk_free_space ) ) )
+                raise Exception( f'I believe you need about {HydrusData.ToHumanBytes( space_needed )} on your db\'s disk partition (perhaps only temporarily), which I think also holds your temporary path ({temp_dir}), but you only seem to have {HydrusData.ToHumanBytes( temp_disk_free_space )}.' )
                 
             
         else:
             
-            if temp_disk_free_space is not None and temp_disk_free_space < space_needed:
+            if temp_disk_free_space is not None and temp_disk_free_space < temp_space_needed:
                 
-                message = 'I believe you need about {} on your temporary path\'s disk partition, which I think is {}, but you only seem to have {}.'.format( HydrusData.ToHumanBytes( space_needed ), temp_dir, HydrusData.ToHumanBytes( temp_disk_free_space ) )
+                message = f'I believe you need about {HydrusData.ToHumanBytes( temp_space_needed )} on your temporary path\'s disk partition, which I think is "{temp_dir}", but you only seem to have {HydrusData.ToHumanBytes( temp_disk_free_space )}.'
                 
                 temp_total_space = HydrusPaths.GetTotalSpace( temp_dir )
                 
@@ -72,9 +76,9 @@ def CheckHasSpaceForDBTransaction( db_dir, num_bytes ):
             
             db_disk_free_space = HydrusPaths.GetFreeSpace( db_dir )
             
-            if db_disk_free_space is not None and db_disk_free_space < space_needed:
+            if db_disk_free_space is not None and db_disk_free_space < destination_space_needed:
                 
-                raise Exception( 'I believe you need about {} on your db\'s disk partition, but you only seem to have {}.'.format( HydrusData.ToHumanBytes( space_needed ), HydrusData.ToHumanBytes( db_disk_free_space ) ) )
+                raise Exception( f'I believe you need about {HydrusData.ToHumanBytes( destination_space_needed )} on your db\'s disk partition (perhaps only temporarily), but you only seem to have {HydrusData.ToHumanBytes( db_disk_free_space )}.' )
                 
             
         
@@ -178,6 +182,7 @@ class TemporaryIntegerTableNameCache( object ):
         self._column_names_to_table_names[ column_name ].append( table_name )
         
     
+
 class TemporaryIntegerTable( object ):
     
     def __init__( self, cursor: sqlite3.Cursor, integer_iterable, column_name ):
@@ -215,6 +220,91 @@ class TemporaryIntegerTable( object ):
         return False
         
     
+
+class JobDatabase( object ):
+    
+    def __init__( self, job_type, synchronous, action, *args, **kwargs ):
+        
+        self._type = job_type
+        self._synchronous = synchronous
+        self._action = action
+        self._args = args
+        self._kwargs = kwargs
+        
+        self._result_ready = threading.Event()
+        
+    
+    def __str__( self ):
+        
+        return 'DB Job: {}'.format( self.ToString() )
+        
+    
+    def _DoDelayedResultRelief( self ):
+        
+        pass
+        
+    
+    def GetCallableTuple( self ):
+        
+        return ( self._action, self._args, self._kwargs )
+        
+    
+    def GetResult( self ):
+        
+        time.sleep( 0.00001 ) # this one neat trick can save hassle on superquick jobs as event.wait can be laggy
+        
+        while True:
+            
+            result_was_ready = self._result_ready.wait( 2 )
+            
+            if result_was_ready:
+                
+                break
+                
+            
+            if HG.model_shutdown:
+                
+                raise HydrusExceptions.ShutdownException( 'Application quit before db could serve result!' )
+                
+            
+            self._DoDelayedResultRelief()
+            
+        
+        if isinstance( self._result, Exception ):
+            
+            e = self._result
+            
+            raise e
+            
+        else:
+            
+            return self._result
+            
+        
+    
+    def GetType( self ):
+        
+        return self._type
+        
+    
+    def IsSynchronous( self ):
+        
+        return self._synchronous
+        
+    
+    def PutResult( self, result ):
+        
+        self._result = result
+        
+        self._result_ready.set()
+        
+    
+    def ToString( self ):
+        
+        return '{} {}'.format( self._type, self._action )
+        
+    
+
 class DBBase( object ):
     
     def __init__( self ):

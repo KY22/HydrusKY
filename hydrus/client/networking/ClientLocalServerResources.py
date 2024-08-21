@@ -25,6 +25,7 @@ from hydrus.core import HydrusConstants as HC
 from hydrus.core import HydrusData
 from hydrus.core import HydrusExceptions
 from hydrus.core import HydrusGlobals as HG
+from hydrus.core import HydrusLists
 from hydrus.core import HydrusPaths
 from hydrus.core import HydrusTags
 from hydrus.core import HydrusTemp
@@ -52,6 +53,7 @@ from hydrus.client.importing.options import FileImportOptions
 from hydrus.client.media import ClientMedia
 from hydrus.client.media import ClientMediaFileFilter
 from hydrus.client.metadata import ClientContentUpdates
+from hydrus.client.metadata import ClientFileMigration
 from hydrus.client.metadata import ClientRatings
 from hydrus.client.metadata import ClientTags
 from hydrus.client.networking import ClientNetworkingContexts
@@ -64,7 +66,7 @@ from hydrus.client.search import ClientSearchParseSystemPredicates
 from hydrus.client.gui import ClientGUIPopupMessages
 
 # if a variable name isn't defined here, a GET with it won't work
-CLIENT_API_INT_PARAMS = { 'file_id', 'file_sort_type', 'potentials_search_type', 'pixel_duplicates', 'max_hamming_distance', 'max_num_pairs' }
+CLIENT_API_INT_PARAMS = { 'file_id', 'file_sort_type', 'potentials_search_type', 'pixel_duplicates', 'max_hamming_distance', 'max_num_pairs', 'width', 'height', 'render_format', 'render_quality' }
 CLIENT_API_BYTE_PARAMS = { 'hash', 'destination_page_key', 'page_key', 'service_key', 'Hydrus-Client-API-Access-Key', 'Hydrus-Client-API-Session-Key', 'file_service_key', 'deleted_file_service_key', 'tag_service_key', 'tag_service_key_1', 'tag_service_key_2', 'rating_service_key', 'job_status_key' }
 CLIENT_API_STRING_PARAMS = { 'name', 'url', 'domain', 'search', 'service_name', 'reason', 'tag_display_type', 'source_hash_type', 'desired_hash_type' }
 CLIENT_API_JSON_PARAMS = { 'basic_permissions', 'tags', 'tags_1', 'tags_2', 'file_ids', 'download', 'only_return_identifiers', 'only_return_basic_information', 'include_blurhash', 'create_new_file_ids', 'detailed_url_information', 'hide_service_keys_tags', 'simple', 'file_sort_asc', 'return_hashes', 'return_file_ids', 'include_notes', 'include_milliseconds', 'include_services_object', 'notes', 'note_names', 'doublecheck_file_system', 'only_in_view' }
@@ -199,6 +201,23 @@ def CheckTags( tags: typing.Collection[ str ] ):
             
             raise HydrusExceptions.BadRequestException( 'Tag "{}" was empty!'.format( tag ) )
             
+        
+    
+
+def CheckUploadableService( service_key: bytes ):
+    
+    try:
+        
+        service = CG.client_controller.services_manager.GetService( service_key )
+        
+    except:
+        
+        raise HydrusExceptions.BadRequestException( 'Could not find the service "{}"!'.format( service_key.hex() ) )
+        
+    
+    if service.GetServiceType() not in ( HC.IPFS, HC.FILE_REPOSITORY, HC.TAG_REPOSITORY ):
+        
+        raise HydrusExceptions.BadRequestException( f'Sorry, the service key "{service_key.hex()}" was not for an uploadable service!' )
         
     
 
@@ -696,6 +715,28 @@ def ParseLocationContext( request: HydrusServerRequest.HydrusRequest, default: C
         
     
 
+def ParseLocalFileDomainLocationContext( request: HydrusServerRequest.HydrusRequest ) -> typing.Optional[ ClientLocation.LocationContext ]:
+    
+    custom_location_context = ParseLocationContext( request, ClientLocation.LocationContext(), deleted_allowed = False )
+    
+    if not custom_location_context.IsEmpty():
+        
+        for service_key in custom_location_context.current_service_keys:
+            
+            service = CG.client_controller.services_manager.GetService( service_key )
+            
+            if service.GetServiceType() not in ( HC.LOCAL_FILE_DOMAIN, ):
+                
+                raise HydrusExceptions.BadRequestException( 'Sorry, any custom file domain here must only declare local file domains.' )
+                
+            
+        
+        return custom_location_context
+        
+    
+    return None
+    
+
 def ParseHashes( request: HydrusServerRequest.HydrusRequest, optional = False ):
     
     something_was_set = False
@@ -750,15 +791,17 @@ def ParseHashes( request: HydrusServerRequest.HydrusRequest, optional = False ):
         if optional:
             
             return None
+            
         
         raise HydrusExceptions.BadRequestException( 'Please include some files in your request--file_id or hash based!' )
         
     
     hashes = HydrusData.DedupeList( hashes )
     
-    if not optional or len(hashes) > 0:
+    if not optional or len( hashes ) > 0:
         
         CheckHashLength( hashes )
+        
     
     return hashes
     
@@ -1434,7 +1477,14 @@ class HydrusResourceClientAPIRestrictedAddFilesAddFile( HydrusResourceClientAPIR
         
         ( os_file_handle, temp_path ) = request.temp_file_info
         
-        file_import_options = CG.client_controller.new_options.GetDefaultFileImportOptions( FileImportOptions.IMPORT_TYPE_QUIET )
+        file_import_options = CG.client_controller.new_options.GetDefaultFileImportOptions( FileImportOptions.IMPORT_TYPE_QUIET ).Duplicate()
+        
+        custom_location_context = ParseLocalFileDomainLocationContext( request )
+        
+        if custom_location_context is not None:
+            
+            file_import_options.SetDestinationLocationContext( custom_location_context )
+            
         
         file_import_job = ClientImportFiles.FileImportJob( temp_path, file_import_options, human_file_description = f'API POSTed File' )
         
@@ -1557,6 +1607,40 @@ class HydrusResourceClientAPIRestrictedAddFilesDeleteFiles( HydrusResourceClient
             content_update_package = ClientContentUpdates.ContentUpdatePackage.STATICCreateFromContentUpdate( service_key, content_update )
             
             CG.client_controller.WriteSynchronous( 'content_updates', content_update_package )
+            
+        
+        response_context = HydrusServerResources.ResponseContext( 200 )
+        
+        return response_context
+        
+    
+
+class HydrusResourceClientAPIRestrictedAddFilesMigrateFiles( HydrusResourceClientAPIRestrictedAddFiles ):
+    
+    def _threadDoPOSTJob( self, request: HydrusServerRequest.HydrusRequest ):
+        
+        hashes = set( ParseHashes( request ) )
+        
+        location_context = ParseLocalFileDomainLocationContext( request )
+        
+        if location_context is None:
+            
+            raise HydrusExceptions.BadRequestException( 'Sorry, you need to set a destination for the migration!' )
+            
+        
+        media_results = CG.client_controller.Read( 'media_results', hashes )
+        
+        for media_result in media_results:
+            
+            if not CC.COMBINED_LOCAL_MEDIA_SERVICE_KEY in media_result.GetLocationsManager().GetCurrent():
+                
+                raise HydrusExceptions.BadRequestException( f'The file "{media_result.GetHash().hex()} is not in any local file domains, so I cannot copy!' )
+                
+            
+        
+        for service_key in location_context.current_service_keys:
+            
+            CG.client_controller.CallToThread( ClientFileMigration.MoveOrDuplicateLocalFiles, service_key, HC.CONTENT_UPDATE_ADD, media_results )
             
         
         response_context = HydrusServerResources.ResponseContext( 200 )
@@ -1937,7 +2021,7 @@ class HydrusResourceClientAPIRestrictedAddTagsAddTags( HydrusResourceClientAPIRe
                         
                         tag = tag_item
                         
-                    elif HydrusData.IsAListLikeCollection( tag_item ) and len( tag_item ) == 2:
+                    elif HydrusLists.IsAListLikeCollection( tag_item ) and len( tag_item ) == 2:
                         
                         ( tag, reason ) = tag_item
                         
@@ -2378,6 +2462,7 @@ class HydrusResourceClientAPIRestrictedAddURLsGetURLInfo( HydrusResourceClientAP
         return response_context
         
     
+
 class HydrusResourceClientAPIRestrictedAddURLsImportURL( HydrusResourceClientAPIRestrictedAddURLs ):
     
     def _threadDoPOSTJob( self, request: HydrusServerRequest.HydrusRequest ):
@@ -2439,9 +2524,11 @@ class HydrusResourceClientAPIRestrictedAddURLsImportURL( HydrusResourceClientAPI
         
         show_destination_page = request.parsed_request_args.GetValue( 'show_destination_page', bool, default_value = False )
         
+        destination_location_context = ParseLocalFileDomainLocationContext( request )
+        
         def do_it():
             
-            return CG.client_controller.gui.ImportURLFromAPI( url, filterable_tags, additional_service_keys_to_tags, destination_page_name, destination_page_key, show_destination_page )
+            return CG.client_controller.gui.ImportURLFromAPI( url, filterable_tags, additional_service_keys_to_tags, destination_page_name, destination_page_key, show_destination_page, destination_location_context )
             
         
         try:
@@ -2870,6 +2957,19 @@ class HydrusResourceClientAPIRestrictedGetFilesGetRenderedFile( HydrusResourceCl
     
     def _threadDoGETJob( self, request: HydrusServerRequest.HydrusRequest ):
         
+        if 'render_format' in request.parsed_request_args:
+            
+            format = request.parsed_request_args.GetValue( 'render_format', int )
+            
+            if not format in [ HC.IMAGE_PNG, HC.IMAGE_JPEG, HC.IMAGE_WEBP ]:
+                
+                raise HydrusExceptions.BadRequestException( 'Invalid render format!' )
+                
+            
+        else:
+            
+            format = HC.IMAGE_PNG
+        
         try:
             
             media_result: ClientMedia.MediaSingleton
@@ -2914,16 +3014,50 @@ class HydrusResourceClientAPIRestrictedGetFilesGetRenderedFile( HydrusResourceCl
                 return
                 
             
-            time.sleep( 0.1 )
+            time.sleep( 0.01 )
             
-
+        
         numpy_image = renderer.GetNumPyImage()
         
-        body = HydrusImageHandling.GeneratePNGBytesNumPy( numpy_image )
+        if 'width' in request.parsed_request_args and 'height' in request.parsed_request_args:
+            
+            width = request.parsed_request_args.GetValue( 'width', int )
+            height = request.parsed_request_args.GetValue( 'height', int )
+            
+            if width < 1:
+                
+                raise HydrusExceptions.BadRequestException( 'Width must be greater than 0!' )
+                
+            
+            if height < 1:
+                
+                raise HydrusExceptions.BadRequestException( 'Height must be greater than 0!' )
+                
+            
+            numpy_image = HydrusImageHandling.ResizeNumPyImage( numpy_image, ( width, height ) )
+            
+        
+        if 'render_quality' in request.parsed_request_args:
+            
+            quality = request.parsed_request_args.GetValue( 'render_quality', int )
+            
+        else:
+            
+            if format == HC.IMAGE_PNG:
+                
+                quality = 1  # fastest png compression
+                
+            else:
+                
+                quality = 80
+                
+            
+        
+        body = HydrusImageHandling.GenerateFileBytesForRenderAPI( numpy_image, format, quality )
         
         is_attachment = request.parsed_request_args.GetValue( 'download', bool, default_value = False )
 
-        response_context = HydrusServerResources.ResponseContext( 200, mime = HC.IMAGE_PNG, body = body, is_attachment = is_attachment, max_age = 86400 * 365 )
+        response_context = HydrusServerResources.ResponseContext( 200, mime = format, body = body, is_attachment = is_attachment, max_age = 86400 * 365 )
         
         return response_context
         
@@ -4075,6 +4209,20 @@ class HydrusResourceClientAPIRestrictedManageFileRelationshipsGetRandomPotential
         
     
 
+class HydrusResourceClientAPIRestrictedManageFileRelationshipsRemovePotentials( HydrusResourceClientAPIRestrictedManageFileRelationships ):
+    
+    def _threadDoPOSTJob( self, request: HydrusServerRequest.HydrusRequest ):
+        
+        hashes = ParseHashes( request )
+        
+        CG.client_controller.WriteSynchronous( 'remove_potential_pairs', hashes )
+        
+        response_context = HydrusServerResources.ResponseContext( 200 )
+        
+        return response_context
+        
+    
+
 class HydrusResourceClientAPIRestrictedManageFileRelationshipsSetKings( HydrusResourceClientAPIRestrictedManageFileRelationships ):
     
     def _threadDoPOSTJob( self, request: HydrusServerRequest.HydrusRequest ):
@@ -4748,3 +4896,100 @@ class HydrusResourceClientAPIRestrictedManagePopupsUpdatePopup( HydrusResourceCl
         
     
 
+class HydrusResourceClientAPIRestrictedManageServices( HydrusResourceClientAPIRestricted ):
+    
+    pass
+    
+
+class HydrusResourceClientAPIRestrictedManageServicesPendingContentJobs( HydrusResourceClientAPIRestrictedManageServices ):
+    
+    def _CheckAPIPermissions( self, request: HydrusServerRequest.HydrusRequest ):
+        
+        request.client_api_permissions.CheckPermission( ClientAPI.CLIENT_API_PERMISSION_COMMIT_PENDING )
+        
+    
+
+class HydrusResourceClientAPIRestrictedManageServicesPendingCounts( HydrusResourceClientAPIRestrictedManageServicesPendingContentJobs ):
+    
+    def _threadDoGETJob( self, request: HydrusServerRequest.HydrusRequest ):
+        
+        info_type_to_str_lookup = {
+            HC.SERVICE_INFO_NUM_PENDING_MAPPINGS : 'pending_tag_mappings',
+            HC.SERVICE_INFO_NUM_PETITIONED_MAPPINGS : 'petitioned_tag_mappings',
+            HC.SERVICE_INFO_NUM_PENDING_TAG_SIBLINGS : 'pending_tag_siblings',
+            HC.SERVICE_INFO_NUM_PETITIONED_TAG_SIBLINGS : 'petitioned_tag_siblings',
+            HC.SERVICE_INFO_NUM_PENDING_TAG_PARENTS : 'pending_tag_parents',
+            HC.SERVICE_INFO_NUM_PETITIONED_TAG_PARENTS : 'petitioned_tag_parents',
+            HC.SERVICE_INFO_NUM_PENDING_FILES : 'pending_files',
+            HC.SERVICE_INFO_NUM_PETITIONED_FILES : 'petitioned_files',
+        }
+        
+        service_keys_to_info_types_to_counts = CG.client_controller.Read( 'nums_pending' )
+        
+        body_dict = {
+            'pending_counts' : { service_key.hex() : { info_type_to_str_lookup[ info_type ] : count for ( info_type, count ) in info_types_to_counts.items() } for ( service_key, info_types_to_counts ) in service_keys_to_info_types_to_counts.items() },
+            'services' : GetServicesDict()
+        }
+        
+        body = Dumps( body_dict, request.preferred_mime )
+        
+        response_context = HydrusServerResources.ResponseContext( 200, mime = request.preferred_mime, body = body )
+        
+        return response_context
+        
+    
+
+class HydrusResourceClientAPIRestrictedManageServicesCommitPending( HydrusResourceClientAPIRestrictedManageServicesPendingContentJobs ):
+    
+    def _threadDoPOSTJob( self, request: HydrusServerRequest.HydrusRequest ):
+        
+        service_key = request.parsed_request_args.GetValue( 'service_key', bytes )
+        
+        CheckUploadableService( service_key )
+        
+        def do_it():
+            
+            if CG.client_controller.gui.IsCurrentlyUploadingPending( service_key ):
+                
+                raise HydrusExceptions.ConflictException( 'Upload is already running.' )
+                
+            
+            result = CG.client_controller.gui.UploadPending( service_key )
+            
+            if not result:
+                
+                raise HydrusExceptions.UnprocessableEntity( 'Sorry, could not start for some complex reason--check the client!' )
+                
+            
+        
+        CG.client_controller.CallBlockingToQt( CG.client_controller.gui, do_it )
+        
+        body_dict = {}
+        
+        body = Dumps( body_dict, request.preferred_mime )
+        
+        response_context = HydrusServerResources.ResponseContext( 200, mime = request.preferred_mime, body = body )
+        
+        return response_context
+        
+    
+
+class HydrusResourceClientAPIRestrictedManageServicesForgetPending( HydrusResourceClientAPIRestrictedManageServicesPendingContentJobs ):
+    
+    def _threadDoPOSTJob( self, request: HydrusServerRequest.HydrusRequest ):
+        
+        service_key = request.parsed_request_args.GetValue( 'service_key', bytes )
+        
+        CheckUploadableService( service_key )
+        
+        CG.client_controller.WriteSynchronous( 'delete_pending', service_key )
+        
+        body_dict = {}
+        
+        body = Dumps( body_dict, request.preferred_mime )
+        
+        response_context = HydrusServerResources.ResponseContext( 200, mime = request.preferred_mime, body = body )
+        
+        return response_context
+        
+    

@@ -13,7 +13,7 @@ hide: navigation
 
 ## API
 
-In general, the API deals with standard UTF-8 JSON. POST requests and 200 OK responses are generally going to be a JSON 'Object' with variable names as keys and values obviously as values. There are examples throughout this document. For GET requests, everything is in standard GET parameters, but some variables are complicated and will need to be JSON encoded and then URL encoded. An example would be the 'tags' parameter on [GET /get\_files/search\_files](#get_files_search_files), which is a list of strings. Since GET http URLs have limits on what characters are allowed, but hydrus tags can have all sorts of characters, you'll be doing this:
+In general, the API deals with standard UTF-8 JSON. POST requests and 200 OK responses are generally going to be a JSON 'Object' with variable names as keys and values obviously as values. There are examples throughout this document. For GET requests, everything is in standard GET parameters, but some variables are complicated and will need to be JSON-encoded and then URL-encoded. An example would be the 'tags' parameter on [GET /get\_files/search\_files](#get_files_search_files), which is a list of strings. Since GET http URLs have limits on what characters are allowed, but hydrus tags can have all sorts of characters, you'll be doing this:
 
 *   Your list of tags:
     
@@ -21,19 +21,19 @@ In general, the API deals with standard UTF-8 JSON. POST requests and 200 OK res
     [ 'character:samus aran', 'creator:青い桜', 'system:height > 2000' ]
     ```
     
-*   JSON encoded:
+*   JSON-encoded:
     
     ```json
     ["character:samus aran", "creator:\\u9752\\u3044\\u685c", "system:height > 2000"]
     ```
     
-*   Then URL encoded:
+*   Then URL-encoded:
     
     ```
     %5B%22character%3Asamus%20aran%22%2C%20%22creator%3A%5Cu9752%5Cu3044%5Cu685c%22%2C%20%22system%3Aheight%20%3E%202000%22%5D
     ```
     
-*   In python, converting your tag list to the URL encoded string would be:
+*   In python, converting your tag list to the URL-encoded string would be:
     
     ```
     urllib.parse.quote( json.dumps( tag_list ), safe = '' )
@@ -128,7 +128,7 @@ Arguments:
     *   `hash`: (selective, a hexadecimal SHA256 hash)
     *   `hashes`: (selective, a list of hexadecimal SHA256 hashes)
 
-In GET requests, make sure any list is percent-encoded.
+In GET requests, make sure any list is percent-encoded JSON. Your `[1,2,3]` becomes `urllib.parse.quote( json.dumps( [1,2,3] ), safe = '' )`, and thus `file_ids=%5B1%2C%202%2C%203%5D`.
 
 ### **file domain** { id="parameters_file_domain" }
 
@@ -358,6 +358,7 @@ Arguments:
         *   9 - Edit File Ratings
         *   10 - Manage Popups
         *   11 - Edit File Times
+        *   12 - Commit Pending
     
     ``` title="Example request"
     /request_new_permissions?name=my%20import%20script&basic_permissions=[0,1]
@@ -491,7 +492,9 @@ Required Headers:
 :   - Content-Type: `application/json` (if sending path), `application/octet-stream` (if sending file)
 
 Arguments (in JSON):
-:   - `path`: (the path you want to import)
+:   
+    * `path`: (the path you want to import)
+    * [file domain](#parameters_file_domain) (optional, defaults to your "quiet" file import options's destination)
 
 ```json title="Example request body"
 {
@@ -499,9 +502,12 @@ Arguments (in JSON):
 }
 ```
 
+If you include a [file domain](#parameters_file_domain), it can only include 'local' file domains (by default this would be "my files"), but you can send multiple to import to more than one location at once. Sending 'all local files', 'all my files', 'trash', 'repository updates', or a file repository/ipfs will give you 400.
+
 Arguments (as bytes): 
-:   You can alternately just send the file's bytes as the POST body.
-    
+:   
+    You can alternately just send the file's bytes as the POST body.
+
 Response: 
 :   Some JSON with the import result. Please note that file imports for large files may take several seconds, and longer if the client is busy doing other db work, so make sure your request is willing to wait that long for the response.
 ```json title="Example response"
@@ -608,6 +614,38 @@ Response:
 
 This is the same as the advanced deletion option of the same basic name. It will erase the record that a file has been physically deleted (i.e. it only applies to deletion records in the 'all local files' domain). A file that no longer has a 'all local files' deletion record will pass a 'exclude previously deleted files' check in a _file import options_.
 
+
+### **POST `/add_files/migrate_files`** { id="add_files_migrate_files" }
+
+_Copy files from one local file domain to another._
+
+Restricted access:
+:   YES. Import Files permission needed.
+
+Required Headers:
+:   
+*   `Content-Type`: `application/json`
+
+Arguments (in JSON):
+:   
+*   [files](#parameters_files)
+*   [file domain](#parameters_file_domain)
+
+```json title="Example request body"
+{
+  "hash" : "78f92ba4a786225ee2a1236efa6b7dc81dd729faf4af99f96f3e20bad6d8b538",
+  "file_service_key" : "572ff2bd34857c0b3210b967a5a40cb338ca4c5747f2218d4041ddf8b6d077f1"
+}
+```
+
+Response:
+:   200 and no content.
+
+This is only appropriate if the user has multiple local file services. It does the same as the media _files->add to->domain_ menu action. If the files are originally in local file domain A, and you say to add to B, then afterwards they will be in both A and B. You can say 'B and C' to add to multiple domains at once, if needed. The action is idempotent and will not overwrite 'already in' files with fresh timestamps or anything.
+
+If you need to do a 'move' migrate, then please follow this command with a delete from wherever you need to remove from.
+
+If you try to add non-local files (specifically, files that are not in 'all my files'), or migrate to a file domain that is not a local file domain, then this will 400!
 
 ### **POST `/add_files/archive_files`** { id="add_files_archive_files" }
 
@@ -816,6 +854,7 @@ Arguments (in JSON):
     *   `url`: (the url you want to add)
     *   `destination_page_key`: (optional page identifier for the page to receive the url)
     *   `destination_page_name`: (optional page name to receive the url)
+    *   [file domain](#parameters_file_domain) (optional, sets where to import the file)
     *   `show_destination_page`: (optional, defaulting to false, controls whether the UI will change pages on add)
     *   `service_keys_to_additional_tags`: (optional, selective, tags to give to any files imported from this url)
     *   `filterable_tags`: (optional tags to be filtered by any tag import options that applies to the URL)
@@ -823,6 +862,8 @@ Arguments (in JSON):
 If you specify a `destination_page_name` and an appropriate importer page already exists with that name, that page will be used. Otherwise, a new page with that name will be recreated (and used by subsequent calls with that name). Make sure it that page name is unique (e.g. '/b/ threads', not 'watcher') in your client, or it may not be found.
 
 Alternately, `destination_page_key` defines exactly which page should be used. Bear in mind this page key is only valid to the current session (they are regenerated on client reset or session reload), so you must figure out which one you want using the [/manage\_pages/get\_pages](#manage_pages_get_pages) call. If the correct page_key is not found, or the page it corresponds to is of the incorrect type, the standard page selection/creation rules will apply.
+
+You can set a destination [file domain](#parameters_file_domain), which will select (or, for probably most of your initial requests, create) a download page that has a non-default 'file import options' with the given destination. If you set both a file domain and also a `destination_page_key`, then the page key takes precedence. If you do not set a file domain, then the import uses whatever the page has, like normal; for url import pages, this is probably your "loud" file import options default. 
 
 `show_destination_page` defaults to False to reduce flicker when adding many URLs to different pages quickly. If you turn it on, the client will behave like a URL drag and drop and select the final page the URL ends up on.
 
@@ -1576,7 +1617,11 @@ file\_sort\_type is by default _import time_. It is an integer according to the 
 * 16 - number of frames (smallest first/largest first)
 * 18 - last viewed time (oldest first/newest first)
 * 19 - archive timestamp (oldest first/newest first)
-* 20 - hash hex (N/A)
+* 20 - hash hex (lexicographic/reverse lexicographic)
+* 21 - pixel hash hex (lexicographic/reverse lexicographic)
+* 22 - blurhash (lexicographic/reverse lexicographic)
+
+The pixel and blurhash sorts will put files without one of these (e.g. an mp3) at the end, regardless of asc/desc.
 
 Response:
 :   The full list of numerical file ids that match the search.
@@ -2068,8 +2113,17 @@ Arguments :
     *   `file_id`: (selective, numerical file id for the file)
     *   `hash`: (selective, a hexadecimal SHA256 hash for the file)
     *   `download`: (optional, boolean, default `false`)
+    *   `render_format`: (optional, integer, the filetype enum value to render the file to, default `2` for PNG)
+    *   `render_quality`: (optional, integer, the quality or PNG compression level to use for encoding the image, default `1` for PNG and `80` for JPEG and WEBP)
+    *   `width` and `height`: (optional but must provide both if used, integer, the width and height to scale the image to)
 
     Only use one of file_id or hash. As with metadata fetching, you may only use the hash argument if you have access to all files. If you are tag-restricted, you will have to use a file_id in the last search you ran.
+    
+    Currently the only accepted values for `render_format` are:
+    
+    *   `1` for JPEG (`quality` sets JPEG quality 0 to 100, always progressive 4:2:0 encoding)
+    *   `2` for PNG (`quality` sets the compression level from 0 to 9. A higher value means a smaller size and longer compression time)
+    *   `33` for WEBP (`quality` sets WEBP quality 1 to 100, for values over 100 lossless compression is used)
 
 The file you request must be a still image file that Hydrus can render (this includes PSD files). This request uses the client image cache.
 
@@ -2081,7 +2135,7 @@ The file you request must be a still image file that Hydrus can render (this inc
 ```
    
 Response:
-:   A PNG file of the image as would be rendered in the client. It will be converted to sRGB color if the file had a color profile but the rendered PNG will not have any color profile.
+:   A PNG, JPEG, or WEBP file of the image as would be rendered in the client, optionally resized as specified in the query parameters. It will be converted to sRGB color if the file had a color profile but the rendered file will not have any color profile.
 
 By default, this will set the `Content-Disposition` header to `inline`, which causes a web browser to show the file. If you set `download=true`, it will set it to `attachment`, which triggers the browser to automatically download it (or open the 'save as' dialog) instead.
 
@@ -2299,6 +2353,32 @@ Response:
 
 If there are no potential duplicate groups in the search, this returns an empty list.
 
+### **POST `/manage_file_relationships/remove_potentials`** { id="manage_file_relationships_remove_potentials" }
+
+Remove all potential pairs that any of the given files are a part of. If you hit [/manage\_file\_relationships/get\_file\_relationships](#get-manage_file_relationshipsget_file_relationships) after this on any of these files, they will have no potential relationships, and any hashes that were potential to them before will no longer, conversely, refer to these files as potentials.
+
+Restricted access: 
+:   YES. Manage File Relationships permission needed.
+
+Required Headers:
+:   
+    *   `Content-Type`: application/json
+
+Arguments (in JSON):
+:   
+    *   [files](#parameters_files)
+
+```json title="Example request body"
+{
+  "file_id" : 123
+}
+```
+
+Response:
+:   200 with no content.
+
+If the files are a part of any potential pairs (with any files, including those you did not specify), those pairs will be deleted. This deletes everything they are involved in, and the files will not be queued up for a re-scan, so I recommend you only do this if you know you added the potentials yourself (e.g. this is regarding video files) or you otherwise have a plan to replace the deleted potential pairs with something more useful.
+
 ### **POST `/manage_file_relationships/set_file_relationships`** { id="manage_file_relationships_set_file_relationships" }
 
 Set the relationships to the specified file pairs.
@@ -2440,6 +2520,109 @@ Response:
 :   200 with no content.
 
 The files will be promoted to be the kings of their respective duplicate groups. If the file is already the king (also true for any file with no duplicates), this is idempotent. It also processes the files in the given order, so if you specify two files in the same group, the latter will be the king at the end of the request.
+
+## Managing Services
+
+For now, this refers to just seeing and committing pending content (which you see in the main "pending" menubar if you have an IPFS, Tag Repository, or File Repository service).
+
+### **GET `/manage_services/get_pending_counts`** { id="manage_services_get_pending_counts" }
+
+_Get the counts of pending content for each upload-capable service. This basically lets you construct the "pending" menu in the main GUI menubar._
+
+Restricted access: 
+:   YES. Start Upload permission needed.
+
+Required Headers: n/a
+
+Arguments: n/a
+
+``` title="Example request"
+/manage_services/get_pending_counts
+```
+
+Response:
+:   A JSON Object of all the service keys capable of uploading and their current pending content counts. Also [The Services Object](#services_object).
+
+```json title="Example response"
+{
+  "services" : "The Services Object",
+  "pending_counts" : {
+    "ae91919b0ea95c9e636f877f57a69728403b65098238c1a121e5ebf85df3b87e" :  {
+      "pending_tag_mappings" : 11564,
+      "petitioned_tag_mappings" : 5,
+      "pending_tag_siblings" : 2,
+      "petitioned_tag_siblings" : 0,
+      "pending_tag_parents" : 0,
+      "petitioned_tag_parents" : 0
+    },
+    "3902aabc3c4c89d1b821eaa9c011be3047424fd2f0c086346e84794e08e136b0" :  {
+      "pending_tag_mappings" : 0,
+      "petitioned_tag_mappings" : 0,
+      "pending_tag_siblings" : 0,
+      "petitioned_tag_siblings" : 0,
+      "pending_tag_parents" : 0,
+      "petitioned_tag_parents" : 0
+    },
+    "e06e1ae35e692d9fe2b83cde1510a11ecf495f51910d580681cd60e6f21fde73" : {
+      "pending_files" : 2,
+      "petitioned_files" : 0
+    }
+  }
+}
+```
+
+The keys are as in [/get\_services](#get_services).
+
+Each count here represents one 'row' of content, so for "tag_mappings" that is one (tag, file) pair and for "tag_siblings" one (tag, tag) pair. You always get everything, even if the counts are all 0.
+
+### **POST `/manage_services/commit_pending`** { id="manage_services_commit_pending" }
+
+_Start the job to upload a service's pending content._
+
+Restricted access:
+:   YES. Start Upload permission needed.
+
+Required Headers: n/a
+
+Arguments (in JSON):
+:   
+*   `service_key`: (the service to commit)
+
+``` title="Example request body"
+{
+    "service_key" : "ae91919b0ea95c9e636f877f57a69728403b65098238c1a121e5ebf85df3b87e"
+}
+```
+
+This starts the upload popup, just like if you click 'commit' in the menu. This upload could ultimately take one second or several minutes to finish, but the response will come back immediately.
+
+If the job is already running, this will return 409. If it cannot start because of a difficult problem, like all repositories being paused or the service account object being unsynced or something, it gives 422; in this case, please direct the user to check their client manually, since there is probably an error popup on screen. 
+
+If tracking the upload job's progress is important, you could hit it again and see if it gives 409, or you could [/get\_pending\_counts](#manage_services_get_pending_counts) again--since the counts will update live as the upload happens--but note that the user may pend more just after the upload is complete, so do not wait forever for it to fall back down to 0.
+
+### **POST `/manage_services/forget_pending`** { id="manage_services_forget_pending" }
+
+_Forget all pending content for a service._
+
+Restricted access:
+:   YES. Start Upload permission needed.
+
+Required Headers: n/a
+
+Arguments (in JSON):
+:   
+*   `service_key`: (the service to forget for)
+
+``` title="Example request body"
+{
+    "service_key" : "ae91919b0ea95c9e636f877f57a69728403b65098238c1a121e5ebf85df3b87e"
+}
+```
+
+This clears all pending content for a service, just like if you click 'forget' in the menu.
+
+Response description:
+:  200 and no content.
 
 ## Managing Cookies
 
@@ -2663,6 +2846,7 @@ Response:
     "page_key" : "3b28d8a59ec61834325eb6275d9df012860a1ecfd9e1246423059bc47fb6d5bd",
     "page_state" : 0,
     "page_type" : 10,
+    "is_media_page" : false,
     "selected" : true,
     "pages" : [
       {
@@ -2670,6 +2854,7 @@ Response:
         "page_key" : "d436ff5109215199913705eb9a7669d8a6b67c52e41c3b42904db083255ca84d",
         "page_state" : 0,
         "page_type" : 6,
+        "is_media_page" : true,
         "selected" : false
       },
       {
@@ -2677,6 +2862,7 @@ Response:
         "page_key" : "40887fa327edca01e1d69b533dddba4681b2c43e0b4ebee0576177852e8c32e7",
         "page_state" : 0,
         "page_type" : 9,
+        "is_media_page" : true,
         "selected" : false
       },
       {
@@ -2684,6 +2870,7 @@ Response:
         "page_key" : "2ee7fa4058e1e23f2bd9e915cdf9347ae90902a8622d6559ba019a83a785c4dc",
         "page_state" : 0,
         "page_type" : 10,
+        "is_media_page" : false,
         "selected" : true,
         "pages" : [
           {
@@ -2691,6 +2878,7 @@ Response:
             "page_key" : "9fe22cb760d9ee6de32575ed9f27b76b4c215179cf843d3f9044efeeca98411f",
             "page_state" : 0,
             "page_type" : 7,
+            "is_media_page" : true,
             "selected" : true
           },
           {
@@ -2698,6 +2886,7 @@ Response:
             "page_key" : "2977d57fc9c588be783727bcd54225d577b44e8aa2f91e365a3eb3c3f580dc4e",
             "page_state" : 0,
             "page_type" : 6,
+            "is_media_page" : true,
             "selected" : false
           }
         ]
@@ -2707,35 +2896,37 @@ Response:
 }
 ```
 
-    `name` is the full text on the page tab. 
-    
-    `page_key` is a unique identifier for the page. It will stay the same for a particular page throughout the session, but new ones are generated on a session reload.
-    
-    `page_type` is as follows:
-    
-    *   1 - Gallery downloader
-    *   2 - Simple downloader
-    *   3 - Hard drive import
-    *   5 - Petitions (used by repository janitors)
-    *   6 - File search
-    *   7 - URL downloader
-    *   8 - Duplicates
-    *   9 - Thread watcher
-    *   10 - Page of pages
-    
-    `page_state` is as follows:
-    
-    * 0 - ready
-    * 1 - initialising
-    * 2 - searching/loading
-    * 3 - search cancelled
-    
-    Most pages will be 0, normal/ready, at all times. Large pages will start in an 'initialising' state for a few seconds, which means their session-saved thumbnails aren't loaded yet. Search pages will enter 'searching' after a refresh or search change and will either return to 'ready' when the search is complete, or fall to 'search cancelled' if the search was interrupted (usually this means the user clicked the 'stop' button that appears after some time). 
-    
-    `selected` means which page is currently in view. It will propagate down the page of pages until it terminates. It may terminate in an empty page of pages, so do not assume it will end on a media page.    
-    
-    The top page of pages will always be there, and always selected.
-    
+`name` is the full text on the page tab. 
+
+`page_key` is a unique identifier for the page. It will stay the same for a particular page throughout the session, but new ones are generated on a session reload.
+
+`page_type` is as follows:
+
+*   1 - Gallery downloader
+*   2 - Simple downloader
+*   3 - Hard drive import
+*   5 - Petitions (used by repository janitors)
+*   6 - File search
+*   7 - URL downloader
+*   8 - Duplicates
+*   9 - Thread watcher
+*   10 - Page of pages
+
+`page_state` is as follows:
+
+* 0 - ready
+* 1 - initialising
+* 2 - searching/loading
+* 3 - search cancelled
+
+Most pages will be 0, normal/ready, at all times. Large pages will start in an 'initialising' state for a few seconds, which means their session-saved thumbnails aren't loaded yet. Search pages will enter 'searching' after a refresh or search change and will either return to 'ready' when the search is complete, or fall to 'search cancelled' if the search was interrupted (usually this means the user clicked the 'stop' button that appears after some time). 
+
+`is_media_page` is simply a shorthand for whether the page is a normal page that holds thumbnails or a 'page of pages'. Only media pages can have files (and accept [/manage\_files/add\_files](#manage_pages_add_files) commands).
+
+`selected` means which page is currently in view. It will propagate down the page of pages until it terminates. It may terminate in an empty page of pages, so do not assume it will end on a media page.    
+
+The top page of pages will always be there, and always selected.
+
 
 ### **GET `/manage_pages/get_page_info`** { id="manage_pages_get_page_info" }
 
@@ -2767,6 +2958,7 @@ Response description
     "page_key" : "aebbf4b594e6986bddf1eeb0b5846a1e6bc4e07088e517aff166f1aeb1c3c9da",
     "page_state" : 0,
     "page_type" : 3,
+    "is_media_page" : true,
     "management" : {
       "multiple_watcher_import" : {
         "watcher_imports" : [
@@ -2827,12 +3019,11 @@ Response description
 }
 ```
 
-    `name`, `page_key`, `page_state`, and `page_type` are as in [/manage\_pages/get\_pages](#manage_pages_get_pages).
-    
-    As you can see, even the 'simple' mode can get very large. Imagine that response for a page watching 100 threads! Turning simple mode off will display every import item, gallery log entry, and all hashes in the media (thumbnail) panel.
-    
-    For this first version, the five importer pages--hdd import, simple downloader, url downloader, gallery page, and watcher page--all give rich info based on their specific variables. The first three only have one importer/gallery log combo, but the latter two of course can have multiple. The "imports" and "gallery_log" entries are all in the same data format.
-    
+`name`, `page_key`, `page_state`, and `page_type` are as in [/manage\_pages/get\_pages](#manage_pages_get_pages).
+
+As you can see, even the 'simple' mode can get very large. Imagine that response for a page watching 100 threads! Turning simple mode off will display every import item, gallery log entry, and all hashes in the media (thumbnail) panel.
+
+For this first version, the five importer pages--hdd import, simple downloader, url downloader, gallery page, and watcher page--all give rich info based on their specific variables. The first three only have one importer/gallery log combo, but the latter two of course can have multiple. The "imports" and "gallery_log" entries are all in the same data format.
 
 ### **POST `/manage_pages/add_files`** { id="manage_pages_add_files" }
 
@@ -2840,7 +3031,7 @@ _Add files to a page._
 
 Restricted access: 
 :   YES. Manage Pages permission needed.
-    
+
 Required Headers:
 :   
     *   `Content-Type`: application/json
@@ -2860,7 +3051,7 @@ The files you set will be appended to the given page, just like a thumbnail drag
 ```
 
 Response:
-:   200 with no content. If the page key is not found, this will 404.
+:   200 with no content. If the page key is not found, it will 404. If you try to add files to a 'page of pages' (i.e. `is_media_page=false` in the [/manage\_pages/get\_pages](#manage_pages_get_pages) call), you'll get 400.
 
 ### **POST `/manage_pages/focus_page`** { id="manage_pages_focus_page" }
 

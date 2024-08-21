@@ -1287,10 +1287,14 @@ class ListBox( QW.QScrollArea ):
         
         self._selected_terms.discard( term )
         
+        self.widget().update()
+        
     
     def _DeselectAll( self ):
         
         self._selected_terms = set()
+        
+        self.widget().update()
         
     
     def _GetBackgroundColour( self ):
@@ -2003,6 +2007,8 @@ class ListBox( QW.QScrollArea ):
         
         self._selected_terms = set( self._terms_to_logical_indices.keys() )
         
+        self.widget().update()
+        
     
     def _SelectionChanged( self ):
         
@@ -2073,9 +2079,22 @@ class ListBox( QW.QScrollArea ):
         
         key_code = event.key()
         
-        if self.hasFocus() and key_code in ClientGUIShortcuts.DELETE_KEYS_QT:
+        has_focus = self.hasFocus()
+        
+        if has_focus and key_code in ClientGUIShortcuts.DELETE_KEYS_QT:
             
             self._DeleteActivate()
+            
+        elif has_focus and key_code == QC.Qt.Key_Escape:
+            
+            if len( self._selected_terms ) > 0:
+                
+                self._DeselectAll()
+                
+            else:
+                
+                event.ignore()
+                
             
         elif key_code in ( QC.Qt.Key_Enter, QC.Qt.Key_Return ):
             
@@ -2087,8 +2106,6 @@ class ListBox( QW.QScrollArea ):
                 
                 self._SelectAll()
                 
-                self.widget().update()
-                
             elif ctrl and key_code in ( ord( 'C' ), ord( 'c' ), QC.Qt.Key_Insert ):
                 
                 self._CopySelectedTexts()
@@ -2099,9 +2116,6 @@ class ListBox( QW.QScrollArea ):
                 
                 if len( self._ordered_terms ) > 1:
                     
-                    roll_up = False
-                    roll_down = False
-                    
                     if key_code in ( QC.Qt.Key_Home, ):
                         
                         hit_logical_index = 0
@@ -2109,8 +2123,6 @@ class ListBox( QW.QScrollArea ):
                     elif key_code in ( QC.Qt.Key_End, ):
                         
                         hit_logical_index = len( self._ordered_terms ) - 1
-                        
-                        roll_up = True
                         
                     elif self._last_hit_logical_index is not None:
                         
@@ -2127,11 +2139,11 @@ class ListBox( QW.QScrollArea ):
                             ctrl = False
                             
                             hit_logical_index = ( self._last_hit_logical_index + 1 ) % len( self._ordered_terms )
-                        
+                            
                         elif key_code in ( QC.Qt.Key_Up, ):
                             
                             hit_logical_index = ( self._last_hit_logical_index - 1 ) % len( self._ordered_terms )
-                        
+                            
                         elif key_code in ( QC.Qt.Key_Down, ):
                             
                             hit_logical_index = ( self._last_hit_logical_index + 1 ) % len( self._ordered_terms )
@@ -2156,7 +2168,6 @@ class ListBox( QW.QScrollArea ):
                 
                 if hit_logical_index is None:
                     
-                    # don't send to parent, which will do silly scroll window business with arrow key presses
                     event.ignore()
                     
                 else:
@@ -2195,6 +2206,18 @@ class ListBox( QW.QScrollArea ):
                         
                         ctrl_down = event.modifiers() & QC.Qt.ControlModifier
                         shift_down = event.modifiers() & QC.Qt.ShiftModifier
+                        
+                        if ctrl_down:
+                            
+                            logical_index = self._GetLogicalIndexUnderMouse( event )
+                            
+                            if not self._LogicalIndexIsSelected( logical_index ):
+                                
+                                # ok we will assume that the user just deselected with the first ctrl-click, and to fudge the awkward moment, we will sneakily re-select it
+                                
+                                self._Hit( False, True, logical_index )
+                                
+                            
                         
                         action_occurred = self._Activate( ctrl_down, shift_down )
                         
@@ -3281,7 +3304,7 @@ class ListBoxTags( ListBox ):
                             ClientGUIMenus.AppendMenuItem( search_menu, 'add an OR of {} to current search'.format( predicates_selection_string ), 'Add the selected predicates as an OR predicate to the current search.', self._ProcessMenuPredicateEvent, 'add_or_predicate' )
                             
                         
-                        some_selected_in_current = HydrusData.SetsIntersect( predicates, current_predicates )
+                        some_selected_in_current = HydrusLists.SetsIntersect( predicates, current_predicates )
                         
                         if some_selected_in_current:
                             
@@ -4695,11 +4718,12 @@ class StaticBoxSorterForListBoxTags( ClientGUICommon.StaticBox ):
     
 class ListBoxTagsMediaHoverFrame( ListBoxTagsMedia ):
     
-    def __init__( self, parent, canvas_key ):
+    def __init__( self, parent, canvas_key, location_context: ClientLocation.LocationContext ):
         
         ListBoxTagsMedia.__init__( self, parent, ClientTags.TAG_DISPLAY_SINGLE_MEDIA, CC.TAG_PRESENTATION_MEDIA_VIEWER, include_counts = False )
         
         self._canvas_key = canvas_key
+        self._location_context = location_context
         
     
     def _Activate( self, ctrl_down, shift_down ) -> bool:
@@ -4709,6 +4733,12 @@ class ListBoxTagsMediaHoverFrame( ListBoxTagsMedia ):
         return True
         
     
+    def _GetCurrentLocationContext( self ):
+        
+        return self._location_context
+        
+    
+
 class ListBoxTagsMediaTagsDialog( ListBoxTagsMedia ):
     
     def __init__( self, parent, tag_presentation_location, enter_func, delete_func ):

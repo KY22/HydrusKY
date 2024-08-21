@@ -33,12 +33,12 @@ from hydrus.client.gui import ClientGUIDialogsMessage
 from hydrus.client.gui import ClientGUIDialogsQuick
 from hydrus.client.gui import ClientGUIFunctions
 from hydrus.client.gui import ClientGUIMenus
-from hydrus.client.gui import ClientGUIFileSeedCache
-from hydrus.client.gui import ClientGUIGallerySeedLog
 from hydrus.client.gui import ClientGUITopLevelWindowsPanels
 from hydrus.client.gui import QtPorting as QP
 from hydrus.client.gui.canvas import ClientGUICanvas
 from hydrus.client.gui.canvas import ClientGUICanvasFrame
+from hydrus.client.gui.importing import ClientGUIFileSeedCache
+from hydrus.client.gui.importing import ClientGUIGallerySeedLog
 from hydrus.client.gui.importing import ClientGUIImport
 from hydrus.client.gui.importing import ClientGUIImportOptions
 from hydrus.client.gui.lists import ClientGUIListBoxes
@@ -991,7 +991,7 @@ class ManagementPanelDuplicateFilter( ManagementPanel ):
                 
             else:
                 
-                self._num_searched.SetValue( 'Searched ' + HydrusData.ConvertValueRangeToPrettyString( num_searched, total_num_files ) + ' files at this distance.', num_searched, total_num_files )
+                self._num_searched.SetValue( 'Searched ' + HydrusNumbers.ValueRangeToPrettyString( num_searched, total_num_files ) + ' files at this distance.', num_searched, total_num_files )
                 
             
             page_name = 'preparation (needs work)'
@@ -1314,7 +1314,7 @@ class ManagementPanelImporterMultipleGallery( ManagementPanelImporter ):
         
         self._gug_key_and_name = ClientGUIImport.GUGKeyAndNameSelector( self._gallery_downloader_panel, self._multiple_gallery_import.GetGUGKeyAndName(), update_callable = self._SetGUGKeyAndName )
         
-        self._file_limit = ClientGUICommon.NoneableSpinCtrl( self._gallery_downloader_panel, 'stop after this many files', min = 1, none_phrase = 'no limit' )
+        self._file_limit = ClientGUICommon.NoneableSpinCtrl( self._gallery_downloader_panel, 2000, message = 'stop after this many files', min = 1, none_phrase = 'no limit' )
         self._file_limit.valueChanged.connect( self.EventFileLimit )
         self._file_limit.setToolTip( ClientGUIFunctions.WrapToolTip( 'per query, stop searching the gallery once this many files has been reached' ) )
         
@@ -1714,7 +1714,7 @@ class ManagementPanelImporterMultipleGallery( ManagementPanelImporter ):
                     
                     num_done = i * BLOCK_SIZE
                     
-                    job_status.SetStatusText( 'Loading files: {}'.format( HydrusData.ConvertValueRangeToPrettyString( num_done, num_to_do ) ) )
+                    job_status.SetStatusText( 'Loading files: {}'.format( HydrusNumbers.ValueRangeToPrettyString( num_done, num_to_do ) ) )
                     job_status.SetVariable( 'popup_gauge_1', ( num_done, num_to_do ) )
                     
                     if not have_published_job_status and HydrusTime.TimeHasPassedFloat( start_time + 3 ):
@@ -2226,7 +2226,7 @@ class ManagementPanelImporterMultipleGallery( ManagementPanelImporter ):
                 
                 ( num_done, num_total ) = file_seed_cache_status.GetValueRange()
                 
-                text_top = '{} queries - {}'.format( HydrusNumbers.ToHumanInt( num_gallery_imports ), HydrusData.ConvertValueRangeToPrettyString( num_done, num_total ) )
+                text_top = '{} queries - {}'.format( HydrusNumbers.ToHumanInt( num_gallery_imports ), HydrusNumbers.ValueRangeToPrettyString( num_done, num_total ) )
                 text_bottom = file_seed_cache_status.GetStatusText()
                 
             
@@ -2828,7 +2828,7 @@ class ManagementPanelImporterMultipleWatcher( ManagementPanelImporter ):
                     
                     num_done = i * BLOCK_SIZE
                     
-                    job_status.SetStatusText( 'Loading files: {}'.format( HydrusData.ConvertValueRangeToPrettyString( num_done, num_to_do ) ) )
+                    job_status.SetStatusText( 'Loading files: {}'.format( HydrusNumbers.ValueRangeToPrettyString( num_done, num_to_do ) ) )
                     job_status.SetVariable( 'popup_gauge_1', ( num_done, num_to_do ) )
                     
                     if not have_published_job_status and HydrusTime.TimeHasPassedFloat( start_time + 3 ):
@@ -3360,7 +3360,7 @@ class ManagementPanelImporterMultipleWatcher( ManagementPanelImporter ):
                 
                 ( num_done, num_total ) = file_seed_cache_status.GetValueRange()
                 
-                text_top = '{} watchers - {}'.format( HydrusNumbers.ToHumanInt( num_watchers ), HydrusData.ConvertValueRangeToPrettyString( num_done, num_total ) )
+                text_top = '{} watchers - {}'.format( HydrusNumbers.ToHumanInt( num_watchers ), HydrusNumbers.ValueRangeToPrettyString( num_done, num_total ) )
                 text_bottom = file_seed_cache_status.GetStatusText()
                 
             
@@ -4248,7 +4248,7 @@ class ManagementPanelPetitions( ManagementPanel ):
         
         self._petition_panel = ClientGUICommon.StaticBox( self, 'highlighted petition' )
         
-        self._num_files_to_show = ClientGUICommon.NoneableSpinCtrl( self._petition_panel, message = 'number of files to show', min = 1 )
+        self._num_files_to_show = ClientGUICommon.NoneableSpinCtrl( self._petition_panel, 256, message = 'number of files to show', min = 1 )
         
         self._num_files_to_show.SetValue( management_controller.GetVariable( 'num_files_to_show' ) )
         
@@ -5628,7 +5628,7 @@ class ManagementPanelPetitions( ManagementPanel ):
                                     CG.client_controller.WriteSynchronous( 'content_updates', ClientContentUpdates.ContentUpdatePackage.STATICCreateFromContentUpdates( service.GetServiceKey(), content_updates ) )
                                     
                                 
-                                job_status.SetStatusText( HydrusData.ConvertValueRangeToPrettyString( num_done, num_to_do ) )
+                                job_status.SetStatusText( HydrusNumbers.ValueRangeToPrettyString( num_done, num_to_do ) )
                                 job_status.SetVariable( 'popup_gauge_1', ( num_done, num_to_do ) )
                                 
                             

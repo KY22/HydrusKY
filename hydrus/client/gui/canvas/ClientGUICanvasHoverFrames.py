@@ -7,12 +7,14 @@ from qtpy import QtGui as QG
 from hydrus.core import HydrusConstants as HC
 from hydrus.core import HydrusData
 from hydrus.core import HydrusGlobals as HG
+from hydrus.core import HydrusLists
 from hydrus.core import HydrusSerialisable
 
 from hydrus.client import ClientApplicationCommand as CAC
 from hydrus.client import ClientConstants as CC
 from hydrus.client import ClientData
 from hydrus.client import ClientGlobals as CG
+from hydrus.client import ClientLocation
 from hydrus.client.duplicates import ClientDuplicates
 from hydrus.client.gui import ClientGUIDragDrop
 from hydrus.client.gui import ClientGUICore as CGC
@@ -89,7 +91,7 @@ class RatingIncDecCanvas( ClientGUIRatings.RatingIncDec ):
                         
                         hashes = content_update.GetHashes()
                         
-                        if HydrusData.SetsIntersect( self._hashes, hashes ):
+                        if HydrusLists.SetsIntersect( self._hashes, hashes ):
                             
                             ( self._rating_state, self._rating ) = ClientRatings.GetIncDecStateFromMedia( ( self._current_media, ), self._service_key )
                             
@@ -198,7 +200,7 @@ class RatingLikeCanvas( ClientGUIRatings.RatingLike ):
                         
                         hashes = content_update.GetHashes()
                         
-                        if HydrusData.SetsIntersect( self._hashes, hashes ):
+                        if HydrusLists.SetsIntersect( self._hashes, hashes ):
                             
                             self._SetRatingFromCurrentMedia()
                             
@@ -318,7 +320,7 @@ class RatingNumericalCanvas( ClientGUIRatings.RatingNumerical ):
                         
                         hashes = content_update.GetHashes()
                         
-                        if HydrusData.SetsIntersect( self._hashes, hashes ):
+                        if HydrusLists.SetsIntersect( self._hashes, hashes ):
                             
                             ( self._rating_state, self._rating ) = ClientRatings.GetIncDecStateFromMedia( ( self._current_media, ), self._service_key )
                             
@@ -2009,7 +2011,7 @@ class CanvasHoverFrameRightDuplicates( CanvasHoverFrame ):
                 
                 panel = ClientGUIScrolledPanels.EditSingleCtrlPanel( dlg )
                 
-                control = ClientGUICommon.NoneableSpinCtrl( panel, message = message, none_phrase = 'do not change', min = 1, max = 9 )
+                control = ClientGUICommon.NoneableSpinCtrl( panel, 3, message = message, none_phrase = 'do not change', min = 1, max = 9 )
                 control.setToolTip( ClientGUIFunctions.WrapToolTip( tooltip ) )
                 control.SetValue( value )
                 
@@ -2159,7 +2161,7 @@ class CanvasHoverFrameRightDuplicates( CanvasHoverFrame ):
     
 class CanvasHoverFrameTags( CanvasHoverFrame ):
     
-    def __init__( self, parent, my_canvas, top_hover: CanvasHoverFrameTop, canvas_key ):
+    def __init__( self, parent, my_canvas, top_hover: CanvasHoverFrameTop, canvas_key, location_context: ClientLocation.LocationContext ):
         
         CanvasHoverFrame.__init__( self, parent, my_canvas, canvas_key )
         
@@ -2167,7 +2169,7 @@ class CanvasHoverFrameTags( CanvasHoverFrame ):
         
         vbox = QP.VBoxLayout()
         
-        self._tags = ClientGUIListBoxes.ListBoxTagsMediaHoverFrame( self, self._canvas_key )
+        self._tags = ClientGUIListBoxes.ListBoxTagsMediaHoverFrame( self, self._canvas_key, location_context )
         
         QP.AddToLayout( vbox, self._tags, CC.FLAGS_EXPAND_SIZER_BOTH_WAYS )
         

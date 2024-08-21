@@ -95,6 +95,10 @@ def ConvertStatusCodeAndDataIntoExceptionInfo( status_code, data, is_hydrus_serv
         
         eclass = HydrusExceptions.SessionException
         
+    elif status_code == 422:
+        
+        eclass = HydrusExceptions.UnprocessableEntity
+        
     elif status_code == 426:
         
         eclass = HydrusExceptions.NetworkVersionException
@@ -213,7 +217,7 @@ class NetworkJob( object ):
         self._response_mime = None
         
         self._encoding = 'utf-8'
-        self._encoding_confirmed = False
+        self._the_network_job_gave_an_encoding = False
         
         self._stream_io = io.BytesIO()
         
@@ -450,6 +454,10 @@ class NetworkJob( object ):
             if response.encoding is not None:
                 
                 self._encoding = response.encoding
+                
+                # response.encoding will default to ISO-8859-1 or windows-1252 I believe, so tread carefully in trusting it!
+                explicit_http_header = self._encoding is not None and 'Content-Type' in response.headers and 'charset' in response.headers[ 'Content-Type' ]
+                self._the_network_job_gave_an_encoding = explicit_http_header or self._encoding not in HydrusText.DEFAULT_WEB_ENCODINGS
                 
             
             if response.ok: # i.e. we got what we expected, not some error
@@ -694,7 +702,6 @@ class NetworkJob( object ):
         self._response_mime = None
         
         self._encoding = 'utf-8'
-        self._encoding_confirmed = False
         
         self._stream_io = io.BytesIO()
         
@@ -1287,7 +1294,7 @@ class NetworkJob( object ):
         
         data = self.GetContentBytes()
         
-        ( text, self._encoding ) = HydrusText.NonFailingUnicodeDecode( data, self._encoding )
+        ( text, self._encoding ) = HydrusText.NonFailingUnicodeDecode( data, self._encoding, trust_the_encoding = self._the_network_job_gave_an_encoding )
         
         return text
         

@@ -397,9 +397,6 @@ class Controller( object ):
                 
                 job_status.SetErrorException( e )
                 
-                HydrusData.Print( 'CallBlockingToQt just caught this error:' )
-                HydrusData.DebugPrint( traceback.format_exc() )
-                
             finally:
                 
                 job_status.Finish()
@@ -627,13 +624,13 @@ class Controller( object ):
         return write
         
     
-    def ImportURLFromAPI( self, url, filterable_tags, additional_service_keys_to_tags, destination_page_name, destination_page_key, show_destination_page ):
+    def ImportURLFromAPI( self, url, filterable_tags, additional_service_keys_to_tags, destination_page_name, destination_page_key, show_destination_page, destination_location_context ):
         
         normalised_url = self.network_engine.domain_manager.NormaliseURL( url, for_server = True )
         
         human_result_text = '"{}" URL added successfully.'.format( normalised_url )
         
-        self.Write( 'import_url_test', url, filterable_tags, additional_service_keys_to_tags, destination_page_name, destination_page_key, show_destination_page )
+        self.Write( 'import_url_test', url, filterable_tags, additional_service_keys_to_tags, destination_page_name, destination_page_key, show_destination_page, destination_location_context )
         
         return ( normalised_url, human_result_text )
         
