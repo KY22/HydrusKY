@@ -351,9 +351,9 @@ class ManagementPanel( QW.QScrollArea ):
         pass
         
     
-    def GetDefaultEmptyMediaPanel( self ) -> ClientGUIResults.MediaPanel:
+    def GetDefaultEmptyMediaPanel( self, win: QW.QWidget ) -> ClientGUIResults.MediaPanel:
         
-        panel = ClientGUIResults.MediaPanelThumbnails( self._page, self._page_key, self._management_controller, [] )
+        panel = ClientGUIResults.MediaPanelThumbnails( win, self._page_key, self._management_controller, [] )
         
         status = self._GetDefaultEmptyPageStatusOverride()
         
@@ -2251,7 +2251,7 @@ class ManagementPanelImporterMultipleGallery( ManagementPanelImporter ):
                 
             else:
                 
-                sort_data_has_changed = self._gallery_importers_listctrl.UpdateDatas()
+                sort_data_has_changed = self._gallery_importers_listctrl.UpdateDatas( check_for_changed_sort_data = True )
                 
                 if sort_data_has_changed:
                     
@@ -3385,7 +3385,7 @@ class ManagementPanelImporterMultipleWatcher( ManagementPanelImporter ):
                 
             else:
                 
-                sort_data_has_changed = self._watchers_listctrl.UpdateDatas()
+                sort_data_has_changed = self._watchers_listctrl.UpdateDatas( check_for_changed_sort_data = True )
                 
                 if sort_data_has_changed:
                     
