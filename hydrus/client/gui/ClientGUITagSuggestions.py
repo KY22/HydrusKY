@@ -26,9 +26,9 @@ from hydrus.client.gui.widgets import ClientGUICommon
 from hydrus.client.media import ClientMedia
 from hydrus.client.metadata import ClientTags
 from hydrus.client.metadata import ClientTagSorting
-from hydrus.client.search import ClientSearch
+from hydrus.client.search import ClientSearchPredicate
 
-def FilterSuggestedPredicatesForMedia( predicates: typing.Sequence[ ClientSearch.Predicate ], medias: typing.Collection[ ClientMedia.Media ], service_key: bytes ) -> typing.List[ ClientSearch.Predicate ]:
+def FilterSuggestedPredicatesForMedia( predicates: typing.Sequence[ ClientSearchPredicate.Predicate ], medias: typing.Collection[ ClientMedia.Media ], service_key: bytes ) -> typing.List[ ClientSearchPredicate.Predicate ]:
     
     tags = [ predicate.GetValue() for predicate in predicates ]
     
@@ -150,7 +150,7 @@ class ListBoxTagsSuggestionsRelated( ClientGUIListBoxes.ListBoxTagsPredicates ):
         return False
         
     
-    def _GenerateTermFromPredicate( self, predicate: ClientSearch.Predicate ) -> ClientGUIListBoxesData.ListBoxItemPredicate:
+    def _GenerateTermFromPredicate( self, predicate: ClientSearchPredicate.Predicate ) -> ClientGUIListBoxesData.ListBoxItemPredicate:
         
         predicate = predicate.GetCountlessCopy()
         
@@ -175,7 +175,7 @@ class FavouritesTagsPanel( QW.QWidget ):
     
     def __init__( self, parent, service_key, tag_presentation_location: int, activate_callable ):
         
-        QW.QWidget.__init__( self, parent )
+        super().__init__( parent )
         
         self._service_key = service_key
         self._tag_presentation_location = tag_presentation_location
@@ -228,7 +228,7 @@ class RecentTagsPanel( QW.QWidget ):
     
     def __init__( self, parent, service_key, activate_callable ):
         
-        QW.QWidget.__init__( self, parent )
+        super().__init__( parent )
         
         self._service_key = service_key
         self._media = []
@@ -336,7 +336,7 @@ class RelatedTagsPanel( QW.QWidget ):
     
     def __init__( self, parent, service_key, activate_callable ):
         
-        QW.QWidget.__init__( self, parent )
+        super().__init__( parent )
         
         self._service_key = service_key
         self._media = []
@@ -478,7 +478,7 @@ class RelatedTagsPanel( QW.QWidget ):
             
             total_time_took = HydrusTime.GetNowPrecise() - start_time
             
-            predicates = ClientSearch.SortPredicates( predicates )
+            predicates = ClientSearchPredicate.SortPredicates( predicates )
             
             QP.CallAfter( qt_code, predicates, num_done, num_to_do, num_skipped, total_time_took )
             
@@ -589,7 +589,7 @@ class FileLookupScriptTagsPanel( QW.QWidget ):
     
     def __init__( self, parent, service_key, activate_callable ):
         
-        QW.QWidget.__init__( self, parent )
+        super().__init__( parent )
         
         self._service_key = service_key
         self._media = []
@@ -785,7 +785,7 @@ class SuggestedTagsPanel( QW.QWidget ):
     
     def __init__( self, parent, service_key, tag_presentation_location, handling_one_media, activate_callable ):
         
-        QW.QWidget.__init__( self, parent )
+        super().__init__( parent )
         
         self._service_key = service_key
         self._tag_presentation_location = tag_presentation_location

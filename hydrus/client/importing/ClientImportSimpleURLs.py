@@ -32,7 +32,7 @@ class SimpleDownloaderImport( HydrusSerialisable.SerialisableBase ):
     
     def __init__( self ):
         
-        HydrusSerialisable.SerialisableBase.__init__( self )
+        super().__init__()
         
         self._pending_jobs = []
         self._gallery_seed_log = ClientImportGallerySeeds.GallerySeedLog()
@@ -697,7 +697,9 @@ class SimpleDownloaderImport( HydrusSerialisable.SerialisableBase ):
             
             try:
                 
-                ClientImportControl.CheckImporterCanDoFileWorkBecausePausifyingProblem( self._file_import_options )
+                real_file_import_options = FileImportOptions.GetRealFileImportOptions( self._file_import_options, FileImportOptions.IMPORT_TYPE_LOUD )
+                
+                ClientImportControl.CheckImporterCanDoFileWorkBecausePausifyingProblem( real_file_import_options )
                 
             except HydrusExceptions.VetoException:
                 
@@ -839,7 +841,7 @@ class URLsImport( HydrusSerialisable.SerialisableBase ):
     
     def __init__( self, destination_location_context = None ):
         
-        HydrusSerialisable.SerialisableBase.__init__( self )
+        super().__init__()
         
         self._gallery_seed_log = ClientImportGallerySeeds.GallerySeedLog()
         self._file_seed_cache = ClientImportFileSeeds.FileSeedCache()
@@ -1399,7 +1401,9 @@ class URLsImport( HydrusSerialisable.SerialisableBase ):
             
             try:
                 
-                ClientImportControl.CheckImporterCanDoFileWorkBecausePausifyingProblem( self._file_import_options )
+                real_file_import_options = FileImportOptions.GetRealFileImportOptions( self._file_import_options, FileImportOptions.IMPORT_TYPE_LOUD )
+                
+                ClientImportControl.CheckImporterCanDoFileWorkBecausePausifyingProblem( real_file_import_options )
                 
             except HydrusExceptions.VetoException:
                 

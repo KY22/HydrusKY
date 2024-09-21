@@ -34,7 +34,7 @@ class MultipleWatcherImport( HydrusSerialisable.SerialisableBase ):
     
     def __init__( self, url = None ):
         
-        HydrusSerialisable.SerialisableBase.__init__( self )
+        super().__init__()
         
         self._lock = threading.Lock()
         
@@ -694,7 +694,7 @@ class WatcherImport( HydrusSerialisable.SerialisableBase ):
     
     def __init__( self ):
         
-        HydrusSerialisable.SerialisableBase.__init__( self )
+        super().__init__()
         
         self._page_key = b'initialising page key'
         self._publish_to_page = False
@@ -1824,7 +1824,9 @@ class WatcherImport( HydrusSerialisable.SerialisableBase ):
             
             try:
                 
-                ClientImportControl.CheckImporterCanDoFileWorkBecausePausifyingProblem( self._file_import_options )
+                real_file_import_options = FileImportOptions.GetRealFileImportOptions( self._file_import_options, FileImportOptions.IMPORT_TYPE_LOUD )
+                
+                ClientImportControl.CheckImporterCanDoFileWorkBecausePausifyingProblem( real_file_import_options )
                 
             except HydrusExceptions.VetoException:
                 

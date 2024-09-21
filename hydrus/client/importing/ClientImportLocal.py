@@ -40,7 +40,7 @@ class HDDImport( HydrusSerialisable.SerialisableBase ):
     
     def __init__( self, paths = None, file_import_options = None, metadata_routers = None, paths_to_additional_service_keys_to_tags = None, delete_after_success = None ):
         
-        HydrusSerialisable.SerialisableBase.__init__( self )
+        super().__init__()
         
         if metadata_routers is None:
             
@@ -408,6 +408,19 @@ class HDDImport( HydrusSerialisable.SerialisableBase ):
                 
             
             ClientImportControl.CheckImporterCanDoFileWorkBecausePaused( self._paused, self._file_seed_cache, self._page_key )
+            
+            try:
+                
+                real_file_import_options = FileImportOptions.GetRealFileImportOptions( self._file_import_options, FileImportOptions.IMPORT_TYPE_LOUD )
+                
+                ClientImportControl.CheckImporterCanDoFileWorkBecausePausifyingProblem( real_file_import_options )
+                
+            except HydrusExceptions.VetoException:
+                
+                self._paused = True
+                
+                raise
+                
             
         
         return True

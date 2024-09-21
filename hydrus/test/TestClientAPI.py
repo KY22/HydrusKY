@@ -36,7 +36,9 @@ from hydrus.client.metadata import ClientTags
 from hydrus.client.networking import ClientLocalServer
 from hydrus.client.networking import ClientLocalServerResources
 from hydrus.client.networking import ClientNetworkingContexts
-from hydrus.client.search import ClientSearch
+from hydrus.client.search import ClientSearchFileSearchContext
+from hydrus.client.search import ClientSearchPredicate
+from hydrus.client.search import ClientSearchTagContext
 
 from hydrus.test import HelperFunctions as HF
 
@@ -1021,6 +1023,49 @@ class TestClientAPI( unittest.TestCase ):
         wash_example_json_response( expected_result )
         
         self.assertEqual( response_json, expected_result )
+        
+        self.assertTrue( os.path.exists( hydrus_png_path ) )
+        
+        # do hydrus png as path, and delete it
+        
+        f = ClientImportFiles.FileImportStatus.STATICGetUnknownStatus()
+        
+        f.hash = hash
+        f.note = 'test note'
+        
+        HG.test_controller.SetRead( 'hash_status', f )
+        
+        headers = { 'Hydrus-Client-API-Access-Key' : access_key_hex, 'Content-Type' : HC.mime_mimetype_string_lookup[ HC.APPLICATION_JSON ] }
+        
+        path = '/add_files/add_file'
+        
+        temp_hydrus_png_path = os.path.join( HG.test_controller.db_dir, 'hydrus_png_client_api_import_test.wew' )
+        
+        HydrusPaths.MirrorFile( hydrus_png_path, temp_hydrus_png_path )
+        
+        body_dict = { 'path' : temp_hydrus_png_path, 'delete_after_successful_import' : True }
+        
+        body = json.dumps( body_dict )
+        
+        connection.request( 'POST', path, body = body, headers = headers )
+        
+        response = connection.getresponse()
+        
+        data = response.read()
+        
+        text = str( data, 'utf-8' )
+        
+        self.assertEqual( response.status, 200 )
+        
+        response_json = json.loads( text )
+        
+        expected_result = { 'status' : CC.STATUS_SUCCESSFUL_AND_NEW, 'hash' : hash.hex() , 'note' : 'test note' }
+        
+        wash_example_json_response( expected_result )
+        
+        self.assertEqual( response_json, expected_result )
+        
+        self.assertFalse( os.path.exists( temp_hydrus_png_path ) )
         
     
     def _test_add_files_migrate_files( self, connection, set_up_permissions ):
@@ -2958,8 +3003,8 @@ class TestClientAPI( unittest.TestCase ):
     def _test_add_tags_search_tags( self, connection, set_up_permissions ):
         
         predicates = [
-            ClientSearch.Predicate( ClientSearch.PREDICATE_TYPE_TAG, 'green', count = ClientSearch.PredicateCount( 2, 0, None, None ) ),
-            ClientSearch.Predicate( ClientSearch.PREDICATE_TYPE_TAG, 'green car', count = ClientSearch.PredicateCount( 5, 0, None, None ) )
+            ClientSearchPredicate.Predicate( ClientSearchPredicate.PREDICATE_TYPE_TAG, 'green', count = ClientSearchPredicate.PredicateCount( 2, 0, None, None ) ),
+            ClientSearchPredicate.Predicate( ClientSearchPredicate.PREDICATE_TYPE_TAG, 'green car', count = ClientSearchPredicate.PredicateCount( 5, 0, None, None ) )
         ]
         
         HG.test_controller.SetRead( 'autocomplete_predicates', predicates )
@@ -4390,10 +4435,10 @@ class TestClientAPI( unittest.TestCase ):
         
         # search files failed tag permission
         
-        tag_context = ClientSearch.TagContext( CC.COMBINED_TAG_SERVICE_KEY )
-        predicates = { ClientSearch.Predicate( ClientSearch.PREDICATE_TYPE_SYSTEM_EVERYTHING ) }
+        tag_context = ClientSearchTagContext.TagContext( CC.COMBINED_TAG_SERVICE_KEY )
+        predicates = { ClientSearchPredicate.Predicate( ClientSearchPredicate.PREDICATE_TYPE_SYSTEM_EVERYTHING ) }
         
-        default_file_search_context = ClientSearch.FileSearchContext( location_context = default_location_context, tag_context = tag_context, predicates = predicates )
+        default_file_search_context = ClientSearchFileSearchContext.FileSearchContext( location_context = default_location_context, tag_context = tag_context, predicates = predicates )
         
         default_potentials_search_type = ClientDuplicates.DUPE_SEARCH_ONE_FILE_MATCHES_ONE_SEARCH
         default_pixel_duplicates = ClientDuplicates.SIMILAR_FILES_PIXEL_DUPES_ALLOWED
@@ -4402,18 +4447,18 @@ class TestClientAPI( unittest.TestCase ):
         test_tag_service_key_1 = CC.DEFAULT_LOCAL_TAG_SERVICE_KEY
         test_tags_1 = [ 'skirt', 'system:width<400' ]
         
-        test_tag_context_1 = ClientSearch.TagContext( test_tag_service_key_1 )
+        test_tag_context_1 = ClientSearchTagContext.TagContext( test_tag_service_key_1 )
         test_predicates_1 = ClientLocalServerResources.ConvertTagListToPredicates( None, test_tags_1, do_permission_check = False )
         
-        test_file_search_context_1 = ClientSearch.FileSearchContext( location_context = default_location_context, tag_context = test_tag_context_1, predicates = test_predicates_1 )
+        test_file_search_context_1 = ClientSearchFileSearchContext.FileSearchContext( location_context = default_location_context, tag_context = test_tag_context_1, predicates = test_predicates_1 )
         
         test_tag_service_key_2 = HG.test_controller.example_tag_repo_service_key
         test_tags_2 = [ 'system:untagged' ]
         
-        test_tag_context_2 = ClientSearch.TagContext( test_tag_service_key_2 )
+        test_tag_context_2 = ClientSearchTagContext.TagContext( test_tag_service_key_2 )
         test_predicates_2 = ClientLocalServerResources.ConvertTagListToPredicates( None, test_tags_2, do_permission_check = False )
         
-        test_file_search_context_2 = ClientSearch.FileSearchContext( location_context = default_location_context, tag_context = test_tag_context_2, predicates = test_predicates_2 )
+        test_file_search_context_2 = ClientSearchFileSearchContext.FileSearchContext( location_context = default_location_context, tag_context = test_tag_context_2, predicates = test_predicates_2 )
         
         test_potentials_search_type = ClientDuplicates.DUPE_SEARCH_BOTH_FILES_MATCH_DIFFERENT_SEARCHES
         test_pixel_duplicates = ClientDuplicates.SIMILAR_FILES_PIXEL_DUPES_EXCLUDED
@@ -5170,7 +5215,7 @@ class TestClientAPI( unittest.TestCase ):
         self.assertEqual( file_search_context.GetTagContext().service_key, CC.COMBINED_TAG_SERVICE_KEY )
         self.assertEqual( file_search_context.GetTagContext().include_current_tags, True )
         self.assertEqual( file_search_context.GetTagContext().include_pending_tags, True )
-        self.assertEqual( set( file_search_context.GetPredicates() ), { ClientSearch.Predicate( ClientSearch.PREDICATE_TYPE_TAG, tag ) for tag in tags } )
+        self.assertEqual( set( file_search_context.GetPredicates() ), { ClientSearchPredicate.Predicate( ClientSearchPredicate.PREDICATE_TYPE_TAG, tag ) for tag in tags } )
         
         self.assertIn( 'sort_by', kwargs )
         
@@ -5289,7 +5334,7 @@ class TestClientAPI( unittest.TestCase ):
         
         self.assertEqual( file_search_context.GetLocationContext().current_service_keys, { CC.COMBINED_LOCAL_MEDIA_SERVICE_KEY } )
         self.assertEqual( file_search_context.GetTagContext().service_key, CC.COMBINED_TAG_SERVICE_KEY )
-        self.assertEqual( set( file_search_context.GetPredicates() ), { ClientSearch.Predicate( ClientSearch.PREDICATE_TYPE_TAG, tag ) for tag in tags } )
+        self.assertEqual( set( file_search_context.GetPredicates() ), { ClientSearchPredicate.Predicate( ClientSearchPredicate.PREDICATE_TYPE_TAG, tag ) for tag in tags } )
         
         self.assertIn( 'sort_by', kwargs )
         
@@ -5350,7 +5395,7 @@ class TestClientAPI( unittest.TestCase ):
         
         self.assertEqual( file_search_context.GetLocationContext().current_service_keys, { CC.COMBINED_LOCAL_MEDIA_SERVICE_KEY } )
         self.assertEqual( file_search_context.GetTagContext().service_key, CC.COMBINED_TAG_SERVICE_KEY )
-        self.assertEqual( set( file_search_context.GetPredicates() ), { ClientSearch.Predicate( ClientSearch.PREDICATE_TYPE_TAG, tag ) for tag in tags } )
+        self.assertEqual( set( file_search_context.GetPredicates() ), { ClientSearchPredicate.Predicate( ClientSearchPredicate.PREDICATE_TYPE_TAG, tag ) for tag in tags } )
         
         self.assertIn( 'sort_by', kwargs )
         
@@ -5399,7 +5444,7 @@ class TestClientAPI( unittest.TestCase ):
         
         self.assertEqual( file_search_context.GetLocationContext().current_service_keys, { CC.COMBINED_LOCAL_MEDIA_SERVICE_KEY } )
         self.assertEqual( file_search_context.GetTagContext().service_key, CC.COMBINED_TAG_SERVICE_KEY )
-        self.assertEqual( set( file_search_context.GetPredicates() ), { ClientSearch.Predicate( ClientSearch.PREDICATE_TYPE_TAG, tag ) for tag in tags } )
+        self.assertEqual( set( file_search_context.GetPredicates() ), { ClientSearchPredicate.Predicate( ClientSearchPredicate.PREDICATE_TYPE_TAG, tag ) for tag in tags } )
         
         self.assertIn( 'sort_by', kwargs )
         
@@ -5440,7 +5485,7 @@ class TestClientAPI( unittest.TestCase ):
         
         self.assertEqual( file_search_context.GetLocationContext().current_service_keys, { CC.COMBINED_LOCAL_MEDIA_SERVICE_KEY } )
         self.assertEqual( file_search_context.GetTagContext().service_key, CC.COMBINED_TAG_SERVICE_KEY )
-        self.assertEqual( set( file_search_context.GetPredicates() ), { ClientSearch.Predicate( ClientSearch.PREDICATE_TYPE_TAG, tag ) for tag in tags } )
+        self.assertEqual( set( file_search_context.GetPredicates() ), { ClientSearchPredicate.Predicate( ClientSearchPredicate.PREDICATE_TYPE_TAG, tag ) for tag in tags } )
         
         self.assertIn( 'sort_by', kwargs )
         
@@ -5486,7 +5531,7 @@ class TestClientAPI( unittest.TestCase ):
         
         self.assertEqual( file_search_context.GetLocationContext().current_service_keys, { CC.TRASH_SERVICE_KEY } )
         self.assertEqual( file_search_context.GetTagContext().service_key, CC.COMBINED_TAG_SERVICE_KEY )
-        self.assertEqual( set( file_search_context.GetPredicates() ), { ClientSearch.Predicate( ClientSearch.PREDICATE_TYPE_TAG, tag ) for tag in tags } )
+        self.assertEqual( set( file_search_context.GetPredicates() ), { ClientSearchPredicate.Predicate( ClientSearchPredicate.PREDICATE_TYPE_TAG, tag ) for tag in tags } )
         
         self.assertIn( 'sort_by', kwargs )
         
@@ -5533,7 +5578,7 @@ class TestClientAPI( unittest.TestCase ):
         
         self.assertEqual( file_search_context.GetLocationContext().current_service_keys, { CC.TRASH_SERVICE_KEY } )
         self.assertEqual( file_search_context.GetTagContext().service_key, CC.COMBINED_TAG_SERVICE_KEY )
-        self.assertEqual( set( file_search_context.GetPredicates() ), { ClientSearch.Predicate( ClientSearch.PREDICATE_TYPE_TAG, tag ) for tag in tags } )
+        self.assertEqual( set( file_search_context.GetPredicates() ), { ClientSearchPredicate.Predicate( ClientSearchPredicate.PREDICATE_TYPE_TAG, tag ) for tag in tags } )
         
         self.assertIn( 'sort_by', kwargs )
         
@@ -5665,8 +5710,8 @@ class TestClientAPI( unittest.TestCase ):
         
         expected_predicates = []
         
-        expected_predicates.append( ClientSearch.Predicate( predicate_type = ClientSearch.PREDICATE_TYPE_TAG, value = 'green' ) )
-        expected_predicates.append( ClientSearch.Predicate( predicate_type = ClientSearch.PREDICATE_TYPE_TAG, value = 'kino', inclusive = False ) )
+        expected_predicates.append( ClientSearchPredicate.Predicate( predicate_type = ClientSearchPredicate.PREDICATE_TYPE_TAG, value = 'green' ) )
+        expected_predicates.append( ClientSearchPredicate.Predicate( predicate_type = ClientSearchPredicate.PREDICATE_TYPE_TAG, value = 'kino', inclusive = False ) )
         
         self.assertEqual( set( predicates ), set( expected_predicates ) )
         
@@ -5681,8 +5726,8 @@ class TestClientAPI( unittest.TestCase ):
         
         expected_predicates = []
         
-        expected_predicates.append( ClientSearch.Predicate( predicate_type = ClientSearch.PREDICATE_TYPE_TAG, value = 'green' ) )
-        expected_predicates.append( ClientSearch.Predicate( predicate_type = ClientSearch.PREDICATE_TYPE_SYSTEM_ARCHIVE ) )
+        expected_predicates.append( ClientSearchPredicate.Predicate( predicate_type = ClientSearchPredicate.PREDICATE_TYPE_TAG, value = 'green' ) )
+        expected_predicates.append( ClientSearchPredicate.Predicate( predicate_type = ClientSearchPredicate.PREDICATE_TYPE_SYSTEM_ARCHIVE ) )
         
         self.assertEqual( set( predicates ), set( expected_predicates ) )
         
@@ -5697,22 +5742,22 @@ class TestClientAPI( unittest.TestCase ):
         
         expected_predicates = []
         
-        expected_predicates.append( ClientSearch.Predicate( predicate_type = ClientSearch.PREDICATE_TYPE_TAG, value = 'green' ) )
+        expected_predicates.append( ClientSearchPredicate.Predicate( predicate_type = ClientSearchPredicate.PREDICATE_TYPE_TAG, value = 'green' ) )
         
         expected_predicates.append(
-            ClientSearch.Predicate(
-                predicate_type = ClientSearch.PREDICATE_TYPE_OR_CONTAINER,
+            ClientSearchPredicate.Predicate(
+                predicate_type = ClientSearchPredicate.PREDICATE_TYPE_OR_CONTAINER,
                 value = [
-                    ClientSearch.Predicate( predicate_type = ClientSearch.PREDICATE_TYPE_TAG, value = 'red' ),
-                    ClientSearch.Predicate( predicate_type = ClientSearch.PREDICATE_TYPE_TAG, value = 'blue' )
+                    ClientSearchPredicate.Predicate( predicate_type = ClientSearchPredicate.PREDICATE_TYPE_TAG, value = 'red' ),
+                    ClientSearchPredicate.Predicate( predicate_type = ClientSearchPredicate.PREDICATE_TYPE_TAG, value = 'blue' )
                 ]
             )
         )
         
-        expected_predicates.append( ClientSearch.Predicate( predicate_type = ClientSearch.PREDICATE_TYPE_SYSTEM_ARCHIVE ) )
+        expected_predicates.append( ClientSearchPredicate.Predicate( predicate_type = ClientSearchPredicate.PREDICATE_TYPE_SYSTEM_ARCHIVE ) )
         
-        self.assertEqual( { pred for pred in predicates if pred.GetType() != ClientSearch.PREDICATE_TYPE_OR_CONTAINER }, { pred for pred in expected_predicates if pred.GetType() != ClientSearch.PREDICATE_TYPE_OR_CONTAINER } )
-        self.assertEqual( { frozenset( pred.GetValue() ) for pred in predicates if pred.GetType() == ClientSearch.PREDICATE_TYPE_OR_CONTAINER }, { frozenset( pred.GetValue() ) for pred in expected_predicates if pred.GetType() == ClientSearch.PREDICATE_TYPE_OR_CONTAINER } )
+        self.assertEqual( { pred for pred in predicates if pred.GetType() != ClientSearchPredicate.PREDICATE_TYPE_OR_CONTAINER }, { pred for pred in expected_predicates if pred.GetType() != ClientSearchPredicate.PREDICATE_TYPE_OR_CONTAINER } )
+        self.assertEqual( { frozenset( pred.GetValue() ) for pred in predicates if pred.GetType() == ClientSearchPredicate.PREDICATE_TYPE_OR_CONTAINER }, { frozenset( pred.GetValue() ) for pred in expected_predicates if pred.GetType() == ClientSearchPredicate.PREDICATE_TYPE_OR_CONTAINER } )
         
         #
         

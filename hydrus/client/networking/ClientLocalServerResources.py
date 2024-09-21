@@ -42,6 +42,7 @@ from hydrus.client import ClientOptions
 from hydrus.client import ClientConstants as CC
 from hydrus.client import ClientGlobals as CG
 from hydrus.client import ClientLocation
+from hydrus.client import ClientPaths
 from hydrus.client import ClientThreading
 from hydrus.client import ClientTime
 from hydrus.client import ClientRendering
@@ -60,9 +61,11 @@ from hydrus.client.networking import ClientNetworkingContexts
 from hydrus.client.networking import ClientNetworkingDomain
 from hydrus.client.networking import ClientNetworkingFunctions
 from hydrus.client.networking import ClientNetworkingJobs
-from hydrus.client.search import ClientSearch
+from hydrus.client.search import ClientSearchFileSearchContext
 from hydrus.client.search import ClientSearchAutocomplete
 from hydrus.client.search import ClientSearchParseSystemPredicates
+from hydrus.client.search import ClientSearchPredicate
+from hydrus.client.search import ClientSearchTagContext
 from hydrus.client.gui import ClientGUIPopupMessages
 
 # if a variable name isn't defined here, a GET with it won't work
@@ -568,7 +571,7 @@ def ParseClientAPIPOSTArgs( request ):
     
     return ( parsed_request_args, total_bytes_read )
     
-def ParseClientAPISearchPredicates( request ) -> typing.List[ ClientSearch.Predicate ]:
+def ParseClientAPISearchPredicates( request ) -> typing.List[ ClientSearchPredicate.Predicate ]:
     
     default_search_values = {}
     
@@ -591,7 +594,7 @@ def ParseClientAPISearchPredicates( request ) -> typing.List[ ClientSearch.Predi
         return predicates
         
     
-    we_have_at_least_one_inclusive_tag = True in ( predicate.GetType() == ClientSearch.PREDICATE_TYPE_TAG and predicate.IsInclusive() for predicate in predicates )
+    we_have_at_least_one_inclusive_tag = True in ( predicate.GetType() == ClientSearchPredicate.PREDICATE_TYPE_TAG and predicate.IsInclusive() for predicate in predicates )
     
     if not we_have_at_least_one_inclusive_tag:
         
@@ -618,15 +621,15 @@ def ParseDuplicateSearch( request: HydrusServerRequest.HydrusRequest ):
     CheckTagService( tag_service_key_1 )
     CheckTagService( tag_service_key_2 )
     
-    tag_context_1 = ClientSearch.TagContext( service_key = tag_service_key_1 )
-    tag_context_2 = ClientSearch.TagContext( service_key = tag_service_key_2 )
+    tag_context_1 = ClientSearchTagContext.TagContext( service_key = tag_service_key_1 )
+    tag_context_2 = ClientSearchTagContext.TagContext( service_key = tag_service_key_2 )
     
     tags_1 = request.parsed_request_args.GetValue( 'tags_1', list, default_value = [] )
     tags_2 = request.parsed_request_args.GetValue( 'tags_2', list, default_value = [] )
     
     if len( tags_1 ) == 0:
         
-        predicates_1 = [ ClientSearch.Predicate( ClientSearch.PREDICATE_TYPE_SYSTEM_EVERYTHING ) ]
+        predicates_1 = [ ClientSearchPredicate.Predicate( ClientSearchPredicate.PREDICATE_TYPE_SYSTEM_EVERYTHING ) ]
         
     else:
         
@@ -635,7 +638,7 @@ def ParseDuplicateSearch( request: HydrusServerRequest.HydrusRequest ):
     
     if len( tags_2 ) == 0:
         
-        predicates_2 = [ ClientSearch.Predicate( ClientSearch.PREDICATE_TYPE_SYSTEM_EVERYTHING ) ]
+        predicates_2 = [ ClientSearchPredicate.Predicate( ClientSearchPredicate.PREDICATE_TYPE_SYSTEM_EVERYTHING ) ]
         
     else:
         
@@ -643,8 +646,8 @@ def ParseDuplicateSearch( request: HydrusServerRequest.HydrusRequest ):
         
     
     
-    file_search_context_1 = ClientSearch.FileSearchContext( location_context = location_context, tag_context = tag_context_1, predicates = predicates_1 )
-    file_search_context_2 = ClientSearch.FileSearchContext( location_context = location_context, tag_context = tag_context_2, predicates = predicates_2 )
+    file_search_context_1 = ClientSearchFileSearchContext.FileSearchContext( location_context = location_context, tag_context = tag_context_1, predicates = predicates_1 )
+    file_search_context_2 = ClientSearchFileSearchContext.FileSearchContext( location_context = location_context, tag_context = tag_context_2, predicates = predicates_2 )
     
     dupe_search_type = request.parsed_request_args.GetValue( 'potentials_search_type', int, default_value = ClientDuplicates.DUPE_SEARCH_ONE_FILE_MATCHES_ONE_SEARCH )
     pixel_dupes_preference = request.parsed_request_args.GetValue( 'pixel_duplicates', int, default_value = ClientDuplicates.SIMILAR_FILES_PIXEL_DUPES_ALLOWED )
@@ -870,7 +873,7 @@ def ParseTagServiceKey( request: HydrusServerRequest.HydrusRequest ):
     return tag_service_key
     
 
-def ConvertTagListToPredicates( request, tag_list, do_permission_check = True, error_on_invalid_tag = True ) -> typing.List[ ClientSearch.Predicate ]:
+def ConvertTagListToPredicates( request, tag_list, do_permission_check = True, error_on_invalid_tag = True ) -> typing.List[ ClientSearchPredicate.Predicate ]:
     
     or_tag_lists = [ tag for tag in tag_list if isinstance( tag, list ) ]
     tag_strings = [ tag for tag in tag_list if isinstance( tag, str ) ]
@@ -972,7 +975,7 @@ def ConvertTagListToPredicates( request, tag_list, do_permission_check = True, e
         
         or_preds = ConvertTagListToPredicates( request, or_tag_list, do_permission_check = False )
         
-        predicates.append( ClientSearch.Predicate( ClientSearch.PREDICATE_TYPE_OR_CONTAINER, or_preds ) )
+        predicates.append( ClientSearchPredicate.Predicate( ClientSearchPredicate.PREDICATE_TYPE_OR_CONTAINER, or_preds ) )
         
     
     predicates.extend( ClientSearchParseSystemPredicates.ParseSystemPredicateStringsToPredicates( system_predicate_strings ) )
@@ -989,19 +992,19 @@ def ConvertTagListToPredicates( request, tag_list, do_permission_check = True, e
             if subtag == '*':
                 
                 tag = namespace
-                predicate_type = ClientSearch.PREDICATE_TYPE_NAMESPACE
+                predicate_type = ClientSearchPredicate.PREDICATE_TYPE_NAMESPACE
                 
             else:
                 
-                predicate_type = ClientSearch.PREDICATE_TYPE_WILDCARD
+                predicate_type = ClientSearchPredicate.PREDICATE_TYPE_WILDCARD
                 
             
         else:
             
-            predicate_type = ClientSearch.PREDICATE_TYPE_TAG
+            predicate_type = ClientSearchPredicate.PREDICATE_TYPE_TAG
             
         
-        predicates.append( ClientSearch.Predicate( predicate_type = predicate_type, value = tag, inclusive = inclusive ) )
+        predicates.append( ClientSearchPredicate.Predicate( predicate_type = predicate_type, value = tag, inclusive = inclusive ) )
         
     
     return predicates
@@ -1454,7 +1457,12 @@ class HydrusResourceClientAPIRestrictedAddFilesAddFile( HydrusResourceClientAPIR
     
     def _threadDoPOSTJob( self, request: HydrusServerRequest.HydrusRequest ):
         
+        path = None
+        delete_after_successful_import = False
+        
         if not hasattr( request, 'temp_file_info' ):
+            
+            # ok the caller has not sent us a file in the POST content, we have a 'path'
             
             path = request.parsed_request_args.GetValue( 'path', str )
             
@@ -1467,6 +1475,8 @@ class HydrusResourceClientAPIRestrictedAddFilesAddFile( HydrusResourceClientAPIR
                 
                 raise HydrusExceptions.BadRequestException( 'Path "{}" is not a file!'.format( path ) )
                 
+            
+            delete_after_successful_import = request.parsed_request_args.GetValue( 'delete_after_successful_import', bool, default_value = False )
             
             ( os_file_handle, temp_path ) = HydrusTemp.GetTempPath()
             
@@ -1508,6 +1518,14 @@ class HydrusResourceClientAPIRestrictedAddFilesAddFile( HydrusResourceClientAPIR
             file_import_status = ClientImportFiles.FileImportStatus( CC.STATUS_ERROR, file_import_job.GetHash(), note = note )
             
             body_dict[ 'traceback' ] = traceback.format_exc()
+            
+        
+        if path is not None:
+            
+            if delete_after_successful_import and file_import_status.status in CC.SUCCESSFUL_IMPORT_STATES:
+                
+                ClientPaths.DeletePath( path )
+                
             
         
         body_dict[ 'status' ] = file_import_status.status
@@ -2118,19 +2136,19 @@ class HydrusResourceClientAPIRestrictedAddTagsSearchTags( HydrusResourceClientAP
         return parsed_autocomplete_text
         
     
-    def _GetTagMatches( self, request: HydrusServerRequest.HydrusRequest, tag_display_type: int, tag_service_key: bytes, parsed_autocomplete_text: ClientSearchAutocomplete.ParsedAutocompleteText ) -> typing.List[ ClientSearch.Predicate ]:
+    def _GetTagMatches( self, request: HydrusServerRequest.HydrusRequest, tag_display_type: int, tag_service_key: bytes, parsed_autocomplete_text: ClientSearchAutocomplete.ParsedAutocompleteText ) -> typing.List[ ClientSearchPredicate.Predicate ]:
         
         matches = []
         
         if parsed_autocomplete_text.IsAcceptableForTagSearches():
             
-            tag_context = ClientSearch.TagContext( service_key = tag_service_key )
+            tag_context = ClientSearchTagContext.TagContext( service_key = tag_service_key )
             
             autocomplete_search_text = parsed_autocomplete_text.GetSearchText( True )
             
             location_context = ParseLocationContext( request, ClientLocation.LocationContext.STATICCreateSimple( CC.COMBINED_LOCAL_MEDIA_SERVICE_KEY ) )
             
-            file_search_context = ClientSearch.FileSearchContext( location_context = location_context, tag_context = tag_context )
+            file_search_context = ClientSearchFileSearchContext.FileSearchContext( location_context = location_context, tag_context = tag_context )
             
             job_status = ClientThreading.JobStatus( cancellable = True )
             
@@ -2142,9 +2160,9 @@ class HydrusResourceClientAPIRestrictedAddTagsSearchTags( HydrusResourceClientAP
             
             display_tag_service_key = tag_context.display_service_key
             
-            matches = ClientSearch.FilterPredicatesBySearchText( display_tag_service_key, autocomplete_search_text, predicates )
+            matches = ClientSearchAutocomplete.FilterPredicatesBySearchText( display_tag_service_key, autocomplete_search_text, predicates )
             
-            matches = ClientSearch.SortPredicates( matches )
+            matches = ClientSearchPredicate.SortPredicates( matches )
             
         
         return matches
@@ -2821,7 +2839,7 @@ class HydrusResourceClientAPIRestrictedGetFilesSearchFiles( HydrusResourceClient
         include_current_tags = request.parsed_request_args.GetValue( 'include_current_tags', bool, default_value = True )
         include_pending_tags = request.parsed_request_args.GetValue( 'include_pending_tags', bool, default_value = True )
         
-        tag_context = ClientSearch.TagContext( service_key = tag_service_key, include_current_tags = include_current_tags, include_pending_tags = include_pending_tags )
+        tag_context = ClientSearchTagContext.TagContext( service_key = tag_service_key, include_current_tags = include_current_tags, include_pending_tags = include_pending_tags )
         predicates = ParseClientAPISearchPredicates( request )
         
         return_hashes = False
@@ -2833,7 +2851,7 @@ class HydrusResourceClientAPIRestrictedGetFilesSearchFiles( HydrusResourceClient
             
         else:
             
-            file_search_context = ClientSearch.FileSearchContext( location_context = location_context, tag_context = tag_context, predicates = predicates )
+            file_search_context = ClientSearchFileSearchContext.FileSearchContext( location_context = location_context, tag_context = tag_context, predicates = predicates )
             
             file_sort_type = CC.SORT_FILES_BY_IMPORT_TIME
             
@@ -4030,10 +4048,10 @@ class HydrusResourceClientAPIRestrictedManageDatabaseMrBones( HydrusResourceClie
             raise HydrusExceptions.BadRequestException( 'Sorry, search for all known tags over all known files is not supported!' )
             
         
-        tag_context = ClientSearch.TagContext( service_key = tag_service_key )
+        tag_context = ClientSearchTagContext.TagContext( service_key = tag_service_key )
         predicates = ParseClientAPISearchPredicates( request )
         
-        file_search_context = ClientSearch.FileSearchContext( location_context = location_context, tag_context = tag_context, predicates = predicates )
+        file_search_context = ClientSearchFileSearchContext.FileSearchContext( location_context = location_context, tag_context = tag_context, predicates = predicates )
         
         job_status = ClientThreading.JobStatus( cancellable = True )
         

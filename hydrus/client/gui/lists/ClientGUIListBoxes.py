@@ -40,9 +40,16 @@ from hydrus.client.gui.widgets import ClientGUIMenuButton
 from hydrus.client.media import ClientMedia
 from hydrus.client.metadata import ClientTags
 from hydrus.client.metadata import ClientTagSorting
-from hydrus.client.search import ClientSearch
+from hydrus.client.search import ClientSearchPredicate
 
 class BetterQListWidget( QW.QListWidget ):
+    
+    def __init__( self, parent, delete_callable = None ):
+        
+        self._delete_callable = delete_callable
+        
+        super().__init__( parent )
+        
     
     def _DeleteIndices( self, indices: typing.Iterable[ int ] ):
         
@@ -191,7 +198,15 @@ class BetterQListWidget( QW.QListWidget ):
     
     def keyPressEvent( self, event: QG.QKeyEvent ):
         
-        if event.modifiers() & QC.Qt.ControlModifier and event.key() in ( QC.Qt.Key_C, QC.Qt.Key_Insert ):
+        ( modifier, key ) = ClientGUIShortcuts.ConvertKeyEventToSimpleTuple( event )
+        
+        if key in ClientGUIShortcuts.DELETE_KEYS_QT and self._delete_callable is not None:
+            
+            event.accept()
+            
+            self._delete_callable()
+            
+        elif event.modifiers() & QC.Qt.ControlModifier and event.key() in ( QC.Qt.Key_C, QC.Qt.Key_Insert ):
             
             event.accept()
             
@@ -295,7 +310,7 @@ class AddEditDeleteListBox( QW.QWidget ):
         self._add_callable = add_callable
         self._edit_callable = edit_callable
         
-        QW.QWidget.__init__( self, parent )
+        super().__init__( parent )
         
         self._listbox = BetterQListWidget( self )
         self._listbox.setSelectionMode( QW.QListWidget.ExtendedSelection )
@@ -845,7 +860,7 @@ class QueueListBox( QW.QWidget ):
         self._add_callable = add_callable
         self._edit_callable = edit_callable
         
-        QW.QWidget.__init__( self, parent )
+        super().__init__( parent )
         
         self._listbox = BetterQListWidget( self )
         self._listbox.setSelectionMode( QW.QListWidget.ExtendedSelection )
@@ -1395,9 +1410,9 @@ class ListBox( QW.QScrollArea ):
         predicates = self._GetPredicatesFromTerms( self._selected_terms )
         inverse_predicates = [ predicate.GetInverseCopy() for predicate in predicates if predicate.IsInvertible() ]
         
-        if len( predicates ) > 1 and ClientSearch.PREDICATE_TYPE_OR_CONTAINER not in ( p.GetType() for p in predicates ):
+        if len( predicates ) > 1 and ClientSearchPredicate.PREDICATE_TYPE_OR_CONTAINER not in ( p.GetType() for p in predicates ):
             
-            or_predicate = ClientSearch.Predicate( ClientSearch.PREDICATE_TYPE_OR_CONTAINER, value = list( predicates ) )
+            or_predicate = ClientSearchPredicate.Predicate( ClientSearchPredicate.PREDICATE_TYPE_OR_CONTAINER, value = list( predicates ) )
             
         else:
             
@@ -1407,7 +1422,7 @@ class ListBox( QW.QScrollArea ):
         namespace_predicate = None
         inverse_namespace_predicate = None
         
-        if False not in [ predicate.GetType() == ClientSearch.PREDICATE_TYPE_TAG for predicate in predicates ]:
+        if False not in [ predicate.GetType() == ClientSearchPredicate.PREDICATE_TYPE_TAG for predicate in predicates ]:
             
             namespaces = { HydrusTags.SplitTag( predicate.GetValue() )[0] for predicate in predicates }
             
@@ -1415,7 +1430,7 @@ class ListBox( QW.QScrollArea ):
                 
                 ( namespace, ) = namespaces
                 
-                namespace_predicate = ClientSearch.Predicate( ClientSearch.PREDICATE_TYPE_NAMESPACE, value = namespace )
+                namespace_predicate = ClientSearchPredicate.Predicate( ClientSearchPredicate.PREDICATE_TYPE_NAMESPACE, value = namespace )
                 inverse_namespace_predicate = namespace_predicate.GetInverseCopy()
                 
             
@@ -2294,7 +2309,7 @@ class ListBox( QW.QScrollArea ):
         
         def __init__( self, parent ):
             
-            QW.QWidget.__init__( self, parent )
+            super().__init__( parent )
             
             self._parent = parent
             
@@ -2560,7 +2575,7 @@ class ListBoxTags( ListBox ):
         return ClientLocation.LocationContext.STATICCreateSimple( CC.COMBINED_LOCAL_MEDIA_SERVICE_KEY )
         
     
-    def _GetCurrentPagePredicates( self ) -> typing.Set[ ClientSearch.Predicate ]:
+    def _GetCurrentPagePredicates( self ) -> typing.Set[ ClientSearchPredicate.Predicate ]:
         
         return set()
         
@@ -3662,7 +3677,7 @@ class ListBoxTagsPredicates( ListBoxTags ):
         ListBoxTags.__init__( self, *args, tag_display_type = tag_display_type, **kwargs )
         
     
-    def _GenerateTermFromPredicate( self, predicate: ClientSearch.Predicate ) -> ClientGUIListBoxesData.ListBoxItemPredicate:
+    def _GenerateTermFromPredicate( self, predicate: ClientSearchPredicate.Predicate ) -> ClientGUIListBoxesData.ListBoxItemPredicate:
         
         return ClientGUIListBoxesData.ListBoxItemPredicate( predicate )
         
@@ -3681,7 +3696,7 @@ class ListBoxTagsPredicates( ListBoxTags ):
         return True
         
     
-    def GetPredicates( self ) -> typing.Set[ ClientSearch.Predicate ]:
+    def GetPredicates( self ) -> typing.Set[ ClientSearchPredicate.Predicate ]:
         
         return set( self._GetPredicatesFromTerms( self._ordered_terms ) )
         

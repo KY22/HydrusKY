@@ -20,7 +20,7 @@ from hydrus.client.media import ClientMediaManagers
 from hydrus.client.media import ClientMediaResult
 from hydrus.client.metadata import ClientContentUpdates
 from hydrus.client.metadata import ClientTags
-from hydrus.client.search import ClientSearch
+from hydrus.client.search import ClientSearchTagContext
 
 def CanDisplayMedia( media: "MediaSingleton" ) -> bool:
     
@@ -474,7 +474,7 @@ class MediaCollect( HydrusSerialisable.SerialisableBase ):
         
         if tag_context is None:
             
-            tag_context = ClientSearch.TagContext( service_key = CC.COMBINED_TAG_SERVICE_KEY )
+            tag_context = ClientSearchTagContext.TagContext( service_key = CC.COMBINED_TAG_SERVICE_KEY )
             
         
         self.namespaces = namespaces
@@ -507,7 +507,7 @@ class MediaCollect( HydrusSerialisable.SerialisableBase ):
             
             ( namespaces, serialisable_rating_service_keys, collect_unmatched ) = old_serialisable_info
             
-            tag_context = ClientSearch.TagContext( service_key = CC.COMBINED_TAG_SERVICE_KEY )
+            tag_context = ClientSearchTagContext.TagContext( service_key = CC.COMBINED_TAG_SERVICE_KEY )
             
             serialisable_tag_context = tag_context.GetSerialisableTuple()
             
@@ -541,7 +541,9 @@ HydrusSerialisable.SERIALISABLE_TYPES_TO_OBJECT_TYPES[ HydrusSerialisable.SERIAL
 
 class MediaList( object ):
     
-    def __init__( self, location_context: ClientLocation.LocationContext, media_results ):
+    def __init__( self, location_context: ClientLocation.LocationContext, media_results, *args, **kwargs ):
+        
+        super().__init__( *args, **kwargs )
         
         hashes_seen = set()
         
@@ -1352,9 +1354,9 @@ class MediaList( object ):
 
 class ListeningMediaList( MediaList ):
     
-    def __init__( self, location_context: ClientLocation.LocationContext, media_results ):
+    def __init__( self, location_context: ClientLocation.LocationContext, media_results, *args, **kwargs ):
         
-        MediaList.__init__( self, location_context, media_results )
+        super().__init__( location_context, media_results, *args, **kwargs )
         
         CG.client_controller.sub( self, 'ProcessContentUpdatePackage', 'content_updates_gui' )
         CG.client_controller.sub( self, 'ProcessServiceUpdates', 'service_updates_gui' )
@@ -1367,8 +1369,7 @@ class MediaCollection( MediaList, Media ):
         
         # note for later: ideal here is to stop this multiple inheritance mess and instead have this be a media that *has* a list, not *is* a list
         
-        Media.__init__( self )
-        MediaList.__init__( self, location_context, media_results )
+        super().__init__( location_context, media_results )
         
         self._archive = True
         self._inbox = False
@@ -1816,7 +1817,7 @@ class MediaSingleton( Media ):
     
     def __init__( self, media_result: ClientMediaResult.MediaResult ):
         
-        Media.__init__( self )
+        super().__init__()
         
         self._media_result = media_result
         
@@ -2353,7 +2354,7 @@ class MediaSort( HydrusSerialisable.SerialisableBase ):
         
         if tag_context is None:
             
-            tag_context = ClientSearch.TagContext( service_key = CC.COMBINED_TAG_SERVICE_KEY )
+            tag_context = ClientSearchTagContext.TagContext( service_key = CC.COMBINED_TAG_SERVICE_KEY )
             
         
         ( sort_metatype, sort_data ) = sort_type
@@ -2456,7 +2457,7 @@ class MediaSort( HydrusSerialisable.SerialisableBase ):
             
             ( sort_metatype, serialisable_sort_data, sort_order ) = old_serialisable_info
             
-            tag_context = ClientSearch.TagContext( service_key = CC.COMBINED_TAG_SERVICE_KEY )
+            tag_context = ClientSearchTagContext.TagContext( service_key = CC.COMBINED_TAG_SERVICE_KEY )
             
             serialisable_tag_context = tag_context.GetSerialisableTuple()
             

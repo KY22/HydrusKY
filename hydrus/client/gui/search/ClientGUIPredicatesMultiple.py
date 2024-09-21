@@ -14,13 +14,13 @@ from hydrus.client.gui import QtPorting as QP
 from hydrus.client.gui.search import ClientGUIPredicatesSingle
 from hydrus.client.gui.widgets import ClientGUICommon
 from hydrus.client.metadata import ClientRatings
-from hydrus.client.search import ClientSearch
+from hydrus.client.search import ClientSearchPredicate
 
 class PredicateSystemRatingIncDecControl( QW.QWidget ):
     
-    def __init__( self, parent: QW.QWidget, service_key: bytes, predicate: typing.Optional[ ClientSearch.Predicate ] ):
+    def __init__( self, parent: QW.QWidget, service_key: bytes, predicate: typing.Optional[ ClientSearchPredicate.Predicate ] ):
         
-        QW.QWidget.__init__( self, parent )
+        super().__init__( parent )
         
         self._service_key = service_key
         
@@ -99,16 +99,16 @@ class PredicateSystemRatingIncDecControl( QW.QWidget ):
         
         rating = self._rating_value.value()
         
-        predicate = ClientSearch.Predicate( ClientSearch.PREDICATE_TYPE_SYSTEM_RATING, ( operator, rating, self._service_key ) )
+        predicate = ClientSearchPredicate.Predicate( ClientSearchPredicate.PREDICATE_TYPE_SYSTEM_RATING, ( operator, rating, self._service_key ) )
         
         return [ predicate ]
         
     
 class PredicateSystemRatingLikeControl( QW.QWidget ):
     
-    def __init__( self, parent: QW.QWidget, service_key: bytes, predicate: typing.Optional[ ClientSearch.Predicate ] ):
+    def __init__( self, parent: QW.QWidget, service_key: bytes, predicate: typing.Optional[ ClientSearchPredicate.Predicate ] ):
         
-        QW.QWidget.__init__( self, parent )
+        super().__init__( parent )
         
         self.setToolTip( ClientGUIFunctions.WrapToolTip( 'Set "is" and leave rating null to search for "unrated".' ) )
         
@@ -235,16 +235,16 @@ class PredicateSystemRatingLikeControl( QW.QWidget ):
                 
             
         
-        predicate = ClientSearch.Predicate( ClientSearch.PREDICATE_TYPE_SYSTEM_RATING, ( '=', rating, self._service_key ) )
+        predicate = ClientSearchPredicate.Predicate( ClientSearchPredicate.PREDICATE_TYPE_SYSTEM_RATING, ( '=', rating, self._service_key ) )
         
         return [ predicate ]
         
     
 class PredicateSystemRatingNumericalControl( QW.QWidget ):
     
-    def __init__( self, parent: QW.QWidget, service_key: bytes, predicate: typing.Optional[ ClientSearch.Predicate ] ):
+    def __init__( self, parent: QW.QWidget, service_key: bytes, predicate: typing.Optional[ ClientSearchPredicate.Predicate ] ):
         
-        QW.QWidget.__init__( self, parent )
+        super().__init__( parent )
         
         self.setToolTip( ClientGUIFunctions.WrapToolTip( 'Set "is" and leave rating null to search for "unrated".' ) )
         
@@ -374,19 +374,19 @@ class PredicateSystemRatingNumericalControl( QW.QWidget ):
                 
             
         
-        predicate = ClientSearch.Predicate( ClientSearch.PREDICATE_TYPE_SYSTEM_RATING, ( operator, rating, self._service_key ) )
+        predicate = ClientSearchPredicate.Predicate( ClientSearchPredicate.PREDICATE_TYPE_SYSTEM_RATING, ( operator, rating, self._service_key ) )
         
         return [ predicate ]
         
     
 class PanelPredicateSystemMultiple( ClientGUIPredicatesSingle.PanelPredicateSystem ):
     
-    def _FilterWhatICanEdit( self, predicates: typing.Collection[ ClientSearch.Predicate ] ) -> typing.Collection[ ClientSearch.Predicate ]:
+    def _FilterWhatICanEdit( self, predicates: typing.Collection[ ClientSearchPredicate.Predicate ] ) -> typing.Collection[ ClientSearchPredicate.Predicate ]:
         
         raise NotImplementedError()
         
     
-    def _GetPredicatesToInitialisePanelWith( self, predicates: typing.Collection[ ClientSearch.Predicate ] ) -> typing.Collection[ ClientSearch.Predicate ]:
+    def _GetPredicatesToInitialisePanelWith( self, predicates: typing.Collection[ ClientSearchPredicate.Predicate ] ) -> typing.Collection[ ClientSearchPredicate.Predicate ]:
         
         raise NotImplementedError()
         
@@ -396,7 +396,7 @@ class PanelPredicateSystemMultiple( ClientGUIPredicatesSingle.PanelPredicateSyst
         raise NotImplementedError()
         
     
-    def GetDefaultPredicates( self ) -> typing.Collection[ ClientSearch.Predicate ]:
+    def GetDefaultPredicates( self ) -> typing.Collection[ ClientSearchPredicate.Predicate ]:
         
         raise NotImplementedError()
         
@@ -510,7 +510,7 @@ class PanelPredicateSystemRating( PanelPredicateSystemMultiple ):
         self.setLayout( vbox )
         
     
-    def _FilterWhatICanEdit( self, predicates: typing.Collection[ ClientSearch.Predicate ] ) -> typing.Collection[ ClientSearch.Predicate ]:
+    def _FilterWhatICanEdit( self, predicates: typing.Collection[ ClientSearchPredicate.Predicate ] ) -> typing.Collection[ ClientSearchPredicate.Predicate ]:
         
         local_rating_service_keys = CG.client_controller.services_manager.GetServiceKeys( HC.RATINGS_SERVICES )
         
@@ -534,7 +534,7 @@ class PanelPredicateSystemRating( PanelPredicateSystemMultiple ):
         return good_predicates
         
     
-    def _GetPredicatesToInitialisePanelWith( self, predicates: typing.Collection[ ClientSearch.Predicate ] ) -> typing.Collection[ ClientSearch.Predicate ]:
+    def _GetPredicatesToInitialisePanelWith( self, predicates: typing.Collection[ ClientSearchPredicate.Predicate ] ) -> typing.Collection[ ClientSearchPredicate.Predicate ]:
         
         predicates = self._FilterWhatICanEdit( predicates )
         
@@ -543,7 +543,7 @@ class PanelPredicateSystemRating( PanelPredicateSystemMultiple ):
             return predicates
             
         
-        custom_default_predicates = CG.client_controller.new_options.GetCustomDefaultSystemPredicates( predicate_type = ClientSearch.PREDICATE_TYPE_SYSTEM_RATING )
+        custom_default_predicates = CG.client_controller.new_options.GetCustomDefaultSystemPredicates( predicate_type = ClientSearchPredicate.PREDICATE_TYPE_SYSTEM_RATING )
         
         custom_default_predicates = self._FilterWhatICanEdit( custom_default_predicates )
         
@@ -559,7 +559,7 @@ class PanelPredicateSystemRating( PanelPredicateSystemMultiple ):
     
     def ClearCustomDefault( self ):
         
-        CG.client_controller.new_options.ClearCustomDefaultSystemPredicates( predicate_type = ClientSearch.PREDICATE_TYPE_SYSTEM_RATING )
+        CG.client_controller.new_options.ClearCustomDefaultSystemPredicates( predicate_type = ClientSearchPredicate.PREDICATE_TYPE_SYSTEM_RATING )
         
     
     def GetDefaultPredicates( self ):
@@ -583,12 +583,12 @@ class PanelPredicateSystemRating( PanelPredicateSystemMultiple ):
         
         predicates = self.GetPredicates()
         
-        CG.client_controller.new_options.SetCustomDefaultSystemPredicates( predicate_type = ClientSearch.PREDICATE_TYPE_SYSTEM_RATING, predicates = predicates )
+        CG.client_controller.new_options.SetCustomDefaultSystemPredicates( predicate_type = ClientSearchPredicate.PREDICATE_TYPE_SYSTEM_RATING, predicates = predicates )
         
     
     def UsesCustomDefault( self ) -> bool:
         
-        custom_default_predicates = CG.client_controller.new_options.GetCustomDefaultSystemPredicates( predicate_type = ClientSearch.PREDICATE_TYPE_SYSTEM_RATING )
+        custom_default_predicates = CG.client_controller.new_options.GetCustomDefaultSystemPredicates( predicate_type = ClientSearchPredicate.PREDICATE_TYPE_SYSTEM_RATING )
         
         custom_default_predicates = self._FilterWhatICanEdit( custom_default_predicates )
         

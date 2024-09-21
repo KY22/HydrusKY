@@ -94,7 +94,7 @@ class StringConverter( StringProcessingStep ):
             example_string = 'example string'
             
         
-        StringProcessingStep.__init__( self )
+        super().__init__()
         
         self.conversions = conversions
         
@@ -491,7 +491,7 @@ class StringJoiner( StringProcessingStep ):
     
     def __init__( self, joiner: str = '', join_tuple_size: typing.Optional[ int ] = None ):
         
-        StringProcessingStep.__init__( self )
+        super().__init__()
         
         self._joiner = joiner
         self._join_tuple_size = join_tuple_size
@@ -615,9 +615,11 @@ STRING_MATCH_FLEXIBLE = 1
 STRING_MATCH_REGEX = 2
 STRING_MATCH_ANY = 3
 
-ALPHA = 0
-ALPHANUMERIC = 1
-NUMERIC = 2
+FLEXIBLE_MATCH_ALPHA = 0
+FLEXIBLE_MATCH_ALPHANUMERIC = 1
+FLEXIBLE_MATCH_NUMERIC = 2
+FLEXIBLE_MATCH_HEX = 3
+FLEXIBLE_MATCH_BASE64 = 4
 
 class StringMatch( StringProcessingStep ):
     
@@ -627,7 +629,7 @@ class StringMatch( StringProcessingStep ):
     
     def __init__( self, match_type = STRING_MATCH_ANY, match_value = '', min_chars = None, max_chars = None, example_string = 'example string' ):
         
-        StringProcessingStep.__init__( self )
+        super().__init__()
         
         self._match_type = match_type
         self._match_value = match_value
@@ -724,20 +726,35 @@ class StringMatch( StringProcessingStep ):
             
             if self._match_type == STRING_MATCH_FLEXIBLE:
                 
-                if self._match_value == ALPHA:
+                if self._match_value == FLEXIBLE_MATCH_ALPHA:
                     
                     r = '^[a-zA-Z]+$'
                     fail_reason = ' had non-alpha characters'
                     
-                elif self._match_value == ALPHANUMERIC:
+                elif self._match_value == FLEXIBLE_MATCH_ALPHANUMERIC:
                     
                     r = '^[a-zA-Z\\d]+$'
                     fail_reason = ' had non-alphanumeric characters'
                     
-                elif self._match_value == NUMERIC:
+                elif self._match_value == FLEXIBLE_MATCH_NUMERIC:
                     
                     r = '^\\d+$'
                     fail_reason = ' had non-numeric characters'
+                    
+                elif self._match_value == FLEXIBLE_MATCH_HEX:
+                    
+                    r = '^[\\da-fA-F]+$'
+                    fail_reason = ' had non-hex characters'
+                    
+                elif self._match_value == FLEXIBLE_MATCH_BASE64:
+                    
+                    r = '^[a-zA-Z\\d+/]+={0,2}$'
+                    fail_reason = ' had non-base64 characters'
+                    
+                else:
+                    
+                    r = ''
+                    fail_reason = ' (unknown error, this object is probably from a newer client)'
                     
                 
             elif self._match_type == STRING_MATCH_REGEX:
@@ -822,17 +839,29 @@ class StringMatch( StringProcessingStep ):
             
         elif self._match_type == STRING_MATCH_FLEXIBLE:
             
-            if self._match_value == ALPHA:
+            if self._match_value == FLEXIBLE_MATCH_ALPHA:
                 
                 result += 'alphabetical characters'
                 
-            elif self._match_value == ALPHANUMERIC:
+            elif self._match_value == FLEXIBLE_MATCH_ALPHANUMERIC:
                 
                 result += 'alphanumeric characters'
                 
-            elif self._match_value == NUMERIC:
+            elif self._match_value == FLEXIBLE_MATCH_NUMERIC:
                 
                 result += 'numeric characters'
+                
+            elif self._match_value == FLEXIBLE_MATCH_HEX:
+                
+                result += 'hex characters'
+                
+            elif self._match_value == FLEXIBLE_MATCH_BASE64:
+                
+                result += 'base-64 characters'
+                
+            else:
+                
+                result += 'unknown characters, this object is probably from a newer client'
                 
             
         elif self._match_type == STRING_MATCH_REGEX:
@@ -863,7 +892,7 @@ class StringSlicer( StringProcessingStep ):
     
     def __init__( self, index_start: typing.Optional[ int ] = None, index_end: typing.Optional[ int ] = None ):
         
-        StringProcessingStep.__init__( self )
+        super().__init__()
         
         self._index_start = index_start
         self._index_end = index_end
@@ -1034,7 +1063,7 @@ class StringSorter( StringProcessingStep ):
     
     def __init__( self, sort_type: int = CONTENT_PARSER_SORT_TYPE_HUMAN_SORT, asc: bool = False, regex: typing.Optional[ str ] = None ):
         
-        StringProcessingStep.__init__( self )
+        super().__init__()
         
         self._sort_type = sort_type
         self._asc = asc
@@ -1168,7 +1197,7 @@ class StringSplitter( StringProcessingStep ):
     
     def __init__( self, separator: str = ',', max_splits: typing.Optional[ int ] = None ):
         
-        StringProcessingStep.__init__( self )
+        super().__init__()
         
         self._separator = separator
         self._max_splits = max_splits
@@ -1281,7 +1310,7 @@ class StringTagFilter( StringProcessingStep ):
     
     def __init__( self, tag_filter = None, example_string = 'blue eyes' ):
         
-        StringProcessingStep.__init__( self )
+        super().__init__()
         
         if tag_filter is None:
             
@@ -1409,7 +1438,7 @@ class StringProcessor( StringProcessingStep ):
     
     def __init__( self ):
         
-        StringProcessingStep.__init__( self )
+        super().__init__()
         
         self._processing_steps = []
         

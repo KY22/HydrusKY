@@ -48,7 +48,7 @@ class GalleryImport( HydrusSerialisable.SerialisableBase ):
         
         initial_search_urls = HydrusData.DedupeList( initial_search_urls )
         
-        HydrusSerialisable.SerialisableBase.__init__( self )
+        super().__init__()
         
         self._creation_time = HydrusTime.GetNow()
         self._gallery_import_key = HydrusData.GenerateKey()
@@ -919,7 +919,9 @@ class GalleryImport( HydrusSerialisable.SerialisableBase ):
             
             try:
                 
-                ClientImportControl.CheckImporterCanDoFileWorkBecausePausifyingProblem( self._file_import_options )
+                real_file_import_options = FileImportOptions.GetRealFileImportOptions( self._file_import_options, FileImportOptions.IMPORT_TYPE_LOUD )
+                
+                ClientImportControl.CheckImporterCanDoFileWorkBecausePausifyingProblem( real_file_import_options )
                 
             except HydrusExceptions.VetoException:
                 
@@ -1072,7 +1074,7 @@ class MultipleGalleryImport( HydrusSerialisable.SerialisableBase ):
             gug_key_and_name = ( HydrusData.GenerateKey(), 'unknown source' )
             
         
-        HydrusSerialisable.SerialisableBase.__init__( self )
+        super().__init__()
         
         self._lock = threading.Lock()
         
