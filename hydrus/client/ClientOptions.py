@@ -86,6 +86,8 @@ class ClientOptions( HydrusSerialisable.SerialisableBase ):
         
         media_view[ HC.ANIMATION_WEBP ] = ( CC.MEDIA_VIEWER_ACTION_SHOW_WITH_NATIVE, media_start_paused, media_start_with_embed, CC.MEDIA_VIEWER_ACTION_SHOW_WITH_NATIVE, preview_start_paused, preview_start_with_embed, gif_zoom_info )
         
+        media_view[ HC.ANIMATION_UGOIRA ] = ( CC.MEDIA_VIEWER_ACTION_SHOW_WITH_NATIVE, media_start_paused, media_start_with_embed, CC.MEDIA_VIEWER_ACTION_SHOW_WITH_NATIVE, preview_start_paused, preview_start_with_embed, gif_zoom_info )
+        
         return media_view
         
     
@@ -262,7 +264,8 @@ class ClientOptions( HydrusSerialisable.SerialisableBase ):
             'command_palette_show_media_menu' : False,
             'disallow_media_drags_on_duration_media' : False,
             'show_all_my_files_on_page_chooser' : True,
-            'show_local_files_on_page_chooser' : False
+            'show_local_files_on_page_chooser' : False,
+            'use_nice_resolution_strings' : True
         }
         
         #
