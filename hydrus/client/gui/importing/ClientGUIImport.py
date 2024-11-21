@@ -15,7 +15,6 @@ from hydrus.core import HydrusTime
 
 from hydrus.client import ClientConstants as CC
 from hydrus.client import ClientGlobals as CG
-from hydrus.client import ClientTime
 from hydrus.client.gui import ClientGUIDialogs
 from hydrus.client.gui import ClientGUIDialogsMessage
 from hydrus.client.gui import ClientGUIDialogsQuick
@@ -256,7 +255,7 @@ class FilenameTaggingOptionsPanel( QW.QWidget ):
             
             model = ClientGUIListCtrl.HydrusListItemModel( self, CGLC.COLUMN_LIST_QUICK_NAMESPACES.ID, self._ConvertQuickRegexDataToDisplayTuple, self._ConvertQuickRegexDataToSortTuple )
             
-            self._quick_namespaces_list = ClientGUIListCtrl.BetterListCtrlTreeView( quick_namespaces_listctrl_panel, CGLC.COLUMN_LIST_QUICK_NAMESPACES.ID, 4, model, use_simple_delete = True, activation_callback = self.EditQuickNamespaces )
+            self._quick_namespaces_list = ClientGUIListCtrl.BetterListCtrlTreeView( quick_namespaces_listctrl_panel, 4, model, use_simple_delete = True, activation_callback = self.EditQuickNamespaces )
             
             quick_namespaces_listctrl_panel.SetListCtrl( self._quick_namespaces_list )
             
@@ -870,7 +869,7 @@ class EditLocalImportFilenameTaggingPanel( ClientGUIScrolledPanels.EditPanel ):
             page.movePageLeft.connect( self.MovePageLeft )
             page.movePageRight.connect( self.MovePageRight )
             
-            tab_index = self._notebook.addTab( page, name )
+            self._notebook.addTab( page, name )
             
             if service_key == default_tag_service_key:
                 
@@ -901,7 +900,7 @@ class EditLocalImportFilenameTaggingPanel( ClientGUIScrolledPanels.EditPanel ):
         
         if CG.client_controller.new_options.GetBoolean( 'save_default_tag_service_tab_on_change' ):
             
-            current_page = self._notebook.currentWidget()
+            current_page: EditLocalImportFilenameTaggingPanel._FilenameTaggingOptionsPanel = self._notebook.currentWidget()
             
             if current_page in self._filename_tagging_option_pages:
                 
@@ -912,7 +911,9 @@ class EditLocalImportFilenameTaggingPanel( ClientGUIScrolledPanels.EditPanel ):
     
     def _SetSearchFocus( self ):
         
-        self._notebook.currentWidget().SetSearchFocus()
+        current_page: EditLocalImportFilenameTaggingPanel._FilenameTaggingOptionsPanel = self._notebook.currentWidget()
+        
+        current_page.SetSearchFocus()
         
     
     def GetValue( self ):
@@ -943,14 +944,14 @@ class EditLocalImportFilenameTaggingPanel( ClientGUIScrolledPanels.EditPanel ):
         
         self._notebook.SelectLeft()
         
-        self._notebook.currentWidget().SetSearchFocus()
+        self._SetSearchFocus()
         
     
     def MovePageRight( self ):
         
         self._notebook.SelectRight()
         
-        self._notebook.currentWidget().SetSearchFocus()
+        self._SetSearchFocus()
         
     
     class _FilenameTaggingOptionsPanel( QW.QWidget ):
@@ -967,7 +968,7 @@ class EditLocalImportFilenameTaggingPanel( ClientGUIScrolledPanels.EditPanel ):
             
             model = ClientGUIListCtrl.HydrusListItemModel( self, CGLC.COLUMN_LIST_PATHS_TO_TAGS.ID, self._ConvertDataToDisplayTuple, self._ConvertDataToSortTuple )
             
-            self._paths_list = ClientGUIListCtrl.BetterListCtrlTreeView( self, CGLC.COLUMN_LIST_PATHS_TO_TAGS.ID, 10, model )
+            self._paths_list = ClientGUIListCtrl.BetterListCtrlTreeView( self, 10, model )
             
             self._paths_list.selectionModel().selectionChanged.connect( self.EventItemSelected )
             
@@ -1082,7 +1083,7 @@ class EditLocalImportFilenameTaggingPanel( ClientGUIScrolledPanels.EditPanel ):
             
             model = ClientGUIListCtrl.HydrusListItemModel( self, CGLC.COLUMN_LIST_PATHS_TO_TAGS.ID, self._ConvertDataToDisplayTuple, self._ConvertDataToSortTuple )
             
-            self._paths_list = ClientGUIListCtrl.BetterListCtrlTreeView( self, CGLC.COLUMN_LIST_PATHS_TO_TAGS.ID, 10, model )
+            self._paths_list = ClientGUIListCtrl.BetterListCtrlTreeView( self, 10, model )
             
             allowed_importer_classes = [ ClientMetadataMigrationImporters.SingleFileMetadataImporterTXT, ClientMetadataMigrationImporters.SingleFileMetadataImporterJSON ]
             allowed_exporter_classes = [ ClientMetadataMigrationExporters.SingleFileMetadataExporterMediaTags, ClientMetadataMigrationExporters.SingleFileMetadataExporterMediaNotes, ClientMetadataMigrationExporters.SingleFileMetadataExporterMediaURLs, ClientMetadataMigrationExporters.SingleFileMetadataExporterMediaTimestamps ]
@@ -1214,7 +1215,7 @@ class EditLocalImportFilenameTaggingPanel( ClientGUIScrolledPanels.EditPanel ):
     
 class EditFilenameTaggingOptionPanel( ClientGUIScrolledPanels.EditPanel ):
     
-    def __init__( self, parent, service_key, filename_tagging_options ):
+    def __init__( self, parent, service_key, filename_tagging_options, example_path = None ):
         
         super().__init__( parent )
         
@@ -1230,6 +1231,7 @@ class EditFilenameTaggingOptionPanel( ClientGUIScrolledPanels.EditPanel ):
         #
         
         self._example_path_input.setPlaceholderText( 'enter example path here' )
+        
         self._example_output.setEnabled( False )
         
         #
@@ -1247,6 +1249,11 @@ class EditFilenameTaggingOptionPanel( ClientGUIScrolledPanels.EditPanel ):
         self._example_path_input.textChanged.connect( self.ScheduleRefreshTags )
         
         self._filename_tagging_options_panel.tagsChanged.connect( self.ScheduleRefreshTags )
+        
+        if example_path is not None:
+            
+            self._example_path_input.setText( example_path )
+            
         
     
     def GetValue( self ):
@@ -1982,7 +1989,7 @@ class WatcherReviewPanel( ClientGUICommon.StaticBox ):
                         
                     else:
                         
-                        watcher_status = 'next check ' + ClientTime.TimestampToPrettyTimeDelta( next_check_time, just_now_threshold = 0 )
+                        watcher_status = 'next check ' + HydrusTime.TimestampToPrettyTimeDelta( next_check_time, just_now_threshold = 0 )
                         
                     
                 

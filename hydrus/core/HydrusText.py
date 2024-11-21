@@ -15,7 +15,6 @@ import json
 import re
 
 from hydrus.core import HydrusConstants as HC
-from hydrus.core import HydrusExceptions
 from hydrus.core import HydrusNumbers
 
 re_one_or_more_whitespace = re.compile( r'\s+' ) # this does \t and friends too
@@ -224,7 +223,12 @@ def ElideText( text, max_length, elide_center = False ):
     return text
     
 
-def GetFirstLine( text: str ) -> str:
+def GetFirstLine( text: typing.Optional[ str ] ) -> str:
+    
+    if text is None:
+        
+        return 'unknown'
+        
     
     if len( text ) > 0:
         

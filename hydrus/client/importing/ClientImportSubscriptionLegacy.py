@@ -1,4 +1,3 @@
-import os
 import random
 import typing
 
@@ -12,7 +11,6 @@ from hydrus.core import HydrusTime
 from hydrus.client import ClientConstants as CC
 from hydrus.client import ClientDownloading
 from hydrus.client import ClientGlobals as CG
-from hydrus.client import ClientTime
 from hydrus.client.importing import ClientImporting
 from hydrus.client.importing import ClientImportFileSeeds
 from hydrus.client.importing import ClientImportGallerySeeds
@@ -246,7 +244,7 @@ class SubscriptionQueryLegacy( HydrusSerialisable.SerialisableBase ):
                 
             else:
                 
-                s = ClientTime.TimestampToPrettyTimeDelta( self._next_check_time )
+                s = HydrusTime.TimestampToPrettyTimeDelta( self._next_check_time )
                 
             
             if self._paused:

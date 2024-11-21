@@ -1,11 +1,9 @@
-import itertools
 import traceback
 import typing
 
 from hydrus.core import HydrusConstants as HC
 from hydrus.core import HydrusText
 from hydrus.core import HydrusData
-from hydrus.core import HydrusGlobals as HG
 from hydrus.core import HydrusLists
 from hydrus.core import HydrusNumbers
 from hydrus.core import HydrusSerialisable
@@ -14,6 +12,7 @@ from hydrus.client import ClientConstants as CC
 from hydrus.client import ClientGlobals as CG
 from hydrus.client import ClientThreading
 from hydrus.client.media import ClientMedia
+from hydrus.client.media import ClientMediaResult
 from hydrus.client.metadata import ClientTags
 
 FILE_FILTER_ALL = 0
@@ -478,15 +477,17 @@ def FilterAndReportDeleteLockFailures( medias: typing.Collection[ ClientMedia.Me
         
         locked_medias = [ media for media in medias if media.HasDeleteLocked() ]
         
-        ReportDeleteLockFailures( locked_medias )
+        locked_media_results = [ media_singleton.GetMediaResult() for media_singleton in ClientMedia.FlattenMedia( locked_medias ) ]
+        
+        ReportDeleteLockFailures( locked_media_results )
         
     
     return deletee_medias
     
 
-def ReportDeleteLockFailures( medias: typing.Collection[ ClientMedia.Media ] ):
+def ReportDeleteLockFailures( media_results: typing.Collection[ ClientMediaResult.MediaResult ] ):
     
-    HydrusData.Print( 'Hey, we had a delete-lock problem, here is the stack, which hydev may care to see:' )
+    HydrusData.Print( 'Hey, we had a delete-lock problem. Here is the stack, which hydev may care to see:' )
     
     traceback.print_stack()
     
@@ -496,7 +497,7 @@ def ReportDeleteLockFailures( medias: typing.Collection[ ClientMedia.Media ] ):
     
     job_status.SetStatusText( message )
     
-    hashes = list( itertools.chain.from_iterable( ( media.GetHashes() for media in medias ) ) )
+    hashes = [ media_result.GetHash() for media_result in media_results ]
     
     job_status.SetFiles( hashes, 'see them' )
     

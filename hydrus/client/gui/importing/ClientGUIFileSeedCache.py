@@ -1,5 +1,3 @@
-import os
-
 from qtpy import QtWidgets as QW
 
 from hydrus.core import HydrusConstants as HC
@@ -7,13 +5,13 @@ from hydrus.core import HydrusData
 from hydrus.core import HydrusExceptions
 from hydrus.core import HydrusNumbers
 from hydrus.core import HydrusText
+from hydrus.core import HydrusTime
 
 from hydrus.client import ClientConstants as CC
 from hydrus.client import ClientGlobals as CG
 from hydrus.client import ClientLocation
 from hydrus.client import ClientPaths
 from hydrus.client import ClientSerialisable
-from hydrus.client import ClientTime
 from hydrus.client.gui import ClientGUIDialogsMessage
 from hydrus.client.gui import ClientGUIDialogsQuick
 from hydrus.client.gui import ClientGUIFunctions
@@ -361,7 +359,7 @@ class EditFileSeedCachePanel( ClientGUIScrolledPanels.EditPanel ):
         
         model = ClientGUIListCtrl.HydrusListItemModel( self, CGLC.COLUMN_LIST_FILE_SEED_CACHE.ID, self._ConvertFileSeedToDisplayTuple, self._ConvertFileSeedToSortTuple )
         
-        self._list_ctrl = ClientGUIListCtrl.BetterListCtrlTreeView( self, CGLC.COLUMN_LIST_FILE_SEED_CACHE.ID, 30, model, activation_callback = self._ShowSelectionInNewPage, delete_key_callback = self._DeleteSelected )
+        self._list_ctrl = ClientGUIListCtrl.BetterListCtrlTreeView( self, 30, model, activation_callback = self._ShowSelectionInNewPage, delete_key_callback = self._DeleteSelected )
         
         #
         
@@ -416,8 +414,8 @@ class EditFileSeedCachePanel( ClientGUIScrolledPanels.EditPanel ):
             
         
         pretty_status = CC.status_string_lookup[ status ] if status != CC.STATUS_UNKNOWN else ''
-        pretty_added = ClientTime.TimestampToPrettyTimeDelta( added )
-        pretty_modified = ClientTime.TimestampToPrettyTimeDelta( modified )
+        pretty_added = HydrusTime.TimestampToPrettyTimeDelta( added )
+        pretty_modified = HydrusTime.TimestampToPrettyTimeDelta( modified )
         
         if source_time is None:
             
@@ -425,7 +423,7 @@ class EditFileSeedCachePanel( ClientGUIScrolledPanels.EditPanel ):
             
         else:
             
-            pretty_source_time = ClientTime.TimestampToPrettyTimeDelta( source_time )
+            pretty_source_time = HydrusTime.TimestampToPrettyTimeDelta( source_time )
             
         
         pretty_note = HydrusText.GetFirstLine( note )
@@ -794,8 +792,6 @@ class EditFileSeedCachePanel( ClientGUIScrolledPanels.EditPanel ):
                 if result == QW.QDialog.Accepted:
                     
                     deletee_hashes = { file_seed.GetHash() for file_seed in deleted_and_clearable_file_seeds }
-                    
-                    from hydrus.client.gui.media import ClientGUIMediaModalActions
                     
                     ClientGUIMediaSimpleActions.UndeleteFiles( deletee_hashes )
                     

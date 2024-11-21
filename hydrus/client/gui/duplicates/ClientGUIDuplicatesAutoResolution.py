@@ -12,6 +12,7 @@ from hydrus.client.duplicates import ClientDuplicatesAutoResolution
 from hydrus.client.gui import ClientGUIDialogsQuick
 from hydrus.client.gui import ClientGUITopLevelWindowsPanels
 from hydrus.client.gui import QtPorting as QP
+from hydrus.client.gui.duplicates import ClientGUIPotentialDuplicatesSearchContext
 from hydrus.client.gui.lists import ClientGUIListConstants as CGLC
 from hydrus.client.gui.lists import ClientGUIListCtrl
 from hydrus.client.gui.panels import ClientGUIScrolledPanels
@@ -40,7 +41,7 @@ class EditDuplicatesAutoResolutionRulesPanel( ClientGUIScrolledPanels.EditPanel 
         
         model = ClientGUIListCtrl.HydrusListItemModel( self, CGLC.COLUMN_LIST_EDIT_DUPLICATES_AUTO_RESOLUTION_RULES.ID, self._ConvertRuleToDisplayTuple, self._ConvertRuleToSortTuple )
         
-        self._duplicates_auto_resolution_rules = ClientGUIListCtrl.BetterListCtrlTreeView( self._duplicates_auto_resolution_rules_panel, CGLC.COLUMN_LIST_EXPORT_FOLDERS.ID, 12, model, use_simple_delete = True, activation_callback = self._Edit )
+        self._duplicates_auto_resolution_rules = ClientGUIListCtrl.BetterListCtrlTreeView( self._duplicates_auto_resolution_rules_panel, 12, model, use_simple_delete = True, activation_callback = self._Edit )
         
         self._duplicates_auto_resolution_rules_panel.SetListCtrl( self._duplicates_auto_resolution_rules )
         
@@ -139,7 +140,7 @@ class EditDuplicatesAutoResolutionRulesPanel( ClientGUIScrolledPanels.EditPanel 
             return
             
         
-        with ClientGUITopLevelWindowsPanels.DialogEdit( self, 'edit export folder' ) as dlg:
+        with ClientGUITopLevelWindowsPanels.DialogEdit( self, 'edit duplicates auto-resolution rule' ) as dlg:
             
             panel = EditDuplicatesAutoResolutionRulePanel( dlg, duplicates_auto_resolution_rule )
             
@@ -193,24 +194,112 @@ class EditDuplicatesAutoResolutionRulePanel( ClientGUIScrolledPanels.EditPanel )
         
         self._name = QW.QLineEdit( self._rule_panel )
         
-        # paused
-        # search gubbins
-        # comparator gubbins
-        # some way to test-run searches and see pair counts, and, eventually, a way to preview some pairs and the auto-choices we'd see
+        self._paused = QW.QCheckBox( self._rule_panel )
+        
+        self._main_notebook = ClientGUICommon.BetterNotebook( self )
+        
+        #
+        
+        self._search_panel = QW.QWidget( self._main_notebook )
+        
+        potential_duplicates_search_context = duplicates_auto_resolution_rule.GetPotentialDuplicatesSearchContext()
+        
+        self._potential_duplicates_search_context = ClientGUIPotentialDuplicatesSearchContext.EditPotentialDuplicatesSearchContextPanel( self._search_panel, potential_duplicates_search_context, put_searches_side_by_side = True )
+        
+        self._potential_duplicates_search_context.setEnabled( False )
+        
+        #
+        
+        self._selector_panel = QW.QWidget( self._main_notebook )
+        
+        #
+        
+        self._action_panel = QW.QWidget( self._main_notebook )
+        
+        #
+        
+        self._preview_panel = QW.QWidget( self._main_notebook )
         
         #
         
         self._name.setText( self._duplicates_auto_resolution_rule.GetName() )
+        self._paused.setChecked( self._duplicates_auto_resolution_rule.IsPaused() )
+        
+        #
+        
+        label = 'Set which potential duplicates pairs you wish to test. This can be system:everything if you like, but it is best to narrow it down if you can.'
+        
+        st = ClientGUICommon.BetterStaticText( self._search_panel, label = label )
+        
+        st.setWordWrap( True )
+        
+        vbox = QP.VBoxLayout()
+        
+        QP.AddToLayout( vbox, st, CC.FLAGS_EXPAND_PERPENDICULAR )
+        QP.AddToLayout( vbox, self._potential_duplicates_search_context, CC.FLAGS_EXPAND_BOTH_WAYS )
+        
+        self._search_panel.setLayout( vbox )
+        
+        #
+        
+        label = 'In future, this panel will edit the test that determines when we should commit our action and which file should be A or B.\n\nAdd/Remove Single Column list of Comparator objects'
+        
+        st = ClientGUICommon.BetterStaticText( self._selector_panel, label = label )
+        
+        st.setWordWrap( True )
+        
+        vbox = QP.VBoxLayout()
+        
+        QP.AddToLayout( vbox, st, CC.FLAGS_EXPAND_BOTH_WAYS )
+        
+        self._selector_panel.setLayout( vbox )
+        
+        #
+        
+        label = 'In future, this panel will edit the action and content updates/merge for pairs that pass the test.\n\nduplicate action\n\ndelete A, delete B\n\nNoneable custom content merge options'
+        
+        st = ClientGUICommon.BetterStaticText( self._action_panel, label = label )
+        
+        st.setWordWrap( True )
+        
+        vbox = QP.VBoxLayout()
+        
+        QP.AddToLayout( vbox, st, CC.FLAGS_EXPAND_BOTH_WAYS )
+        
+        self._action_panel.setLayout( vbox )
+        
+        #
+        
+        label = 'In future, this panel will run some live database queries and preview examples of the pairs it finds and which pass the test.\n\nRun Search (pair count)\n\nRun Test on n pairs\n\nTest Results%\n\nShow a Failing Test | Show a Passing Test\n\nthumb A <-> thumb B, some way to launch a (read-only?) media viewer or something'
+        
+        st = ClientGUICommon.BetterStaticText( self._preview_panel, label = label )
+        
+        st.setWordWrap( True )
+        
+        vbox = QP.VBoxLayout()
+        
+        QP.AddToLayout( vbox, st, CC.FLAGS_EXPAND_BOTH_WAYS )
+        
+        self._preview_panel.setLayout( vbox )
+        
+        #
+        
+        self._main_notebook.addTab( self._search_panel, 'search' )
+        self._main_notebook.addTab( self._selector_panel, 'comparison' )
+        self._main_notebook.addTab( self._action_panel, 'action' )
+        self._main_notebook.addTab( self._preview_panel, 'preview' )
         
         #
         
         rows = []
         
         rows.append( ( 'name: ', self._name ) )
+        rows.append( ( 'paused: ', self._paused ) )
         
         gridbox = ClientGUICommon.WrapInGrid( self._rule_panel, rows )
         
         self._rule_panel.Add( gridbox, CC.FLAGS_EXPAND_SIZER_PERPENDICULAR )
+        self._rule_panel.Add( self._main_notebook, CC.FLAGS_EXPAND_PERPENDICULAR )
         
         #
         
@@ -232,9 +321,15 @@ class EditDuplicatesAutoResolutionRulePanel( ClientGUIScrolledPanels.EditPanel )
         
         duplicates_auto_resolution_rule = ClientDuplicatesAutoResolution.DuplicatesAutoResolutionRule( name )
         
-        # paused and search gubbins, everything else
+        duplicates_auto_resolution_rule.SetPaused( self._paused.isChecked() )
         
-        # TODO: transfer any cached search data, including what we may have re-fetched in this panel's work, to the new folder
+        duplicates_auto_resolution_rule.SetPotentialDuplicatesSearchContext( self._potential_duplicates_search_context.GetValue() )
+        
+        # everything else
+        
+        duplicates_auto_resolution_rule.SetId( self._duplicates_auto_resolution_rule.GetId() )
+        
+        # TODO: transfer any cached search data, including what we may have re-fetched in this panel's work, to the new rule
         
         return duplicates_auto_resolution_rule
         
@@ -266,7 +361,7 @@ class ReviewDuplicatesAutoResolutionPanel( QW.QWidget ):
         
         model = ClientGUIListCtrl.HydrusListItemModel( self, CGLC.COLUMN_LIST_REVIEW_DUPLICATES_AUTO_RESOLUTION_RULES.ID, self._ConvertRuleToDisplayTuple, self._ConvertRuleToSortTuple )
         
-        self._duplicates_auto_resolution_rules = ClientGUIListCtrl.BetterListCtrlTreeView( self._duplicates_auto_resolution_rules_panel, CGLC.COLUMN_LIST_EXPORT_FOLDERS.ID, 12, model, use_simple_delete = True, activation_callback = self._Edit )
+        self._duplicates_auto_resolution_rules = ClientGUIListCtrl.BetterListCtrlTreeView( self._duplicates_auto_resolution_rules_panel, 12, model, use_simple_delete = True, activation_callback = self._Edit )
         
         self._duplicates_auto_resolution_rules_panel.SetListCtrl( self._duplicates_auto_resolution_rules )
         

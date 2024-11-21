@@ -7,6 +7,162 @@ title: Changelog
 !!! note
     This is the new changelog, only the most recent builds. For all versions, see the [old changelog](old_changelog.html).
 
+## [Version 599](https://github.com/hydrusnetwork/hydrus/releases/tag/v599)
+
+### misc
+
+* some users ended up getting a crazy wide duplicates page after the recent mix-up with the new auto-resolution multi-column list's ID. on update, the list will be reset to default widths, which should fix the rest of the duplicates page. let me know if you have any more trouble! (issue #1625)
+* the e621 downloader is fixed to find search results again (I updated the gallery parser to reflect their recent html changes). I understand they may be updating again soon, so let me know if anything breaks again (issue #1628)
+* I cleaned the media viewer hover window show/hide and size/position code a bit more and think I reduced more layout flicker, particularly the 'do another adjustment layout right after showing' issue the notes hover often does when super tall. I _might_ have also fixed the 'ok I guess I am going to sometimes initialise as a super wide guy in the middle of the viewer and when the user moves the mouse over my ghost I will flicker for one frame before moving where I belong' issue too
+* the timestamps in the media viewer top hover window and all the timestamp lines in the media right-click menu's top-row submenu now have a tooltip that has times with the reverse of your 'always show ISO times' settings. if you see '2022-11-20 14:39:52', it'll say '2 years ago' on the tooltip, and vice versa!
+* when you hit "open files in a new duplicates filter page", the file domain is now set explicitly to "all my files". if you know what you are doing and need to turn this off, there's a new checkbox under `options->duplicates`
+* new duplicates filter pages now also start on "all my files" rather than your default fallback file domain. "all my files" is the ideal default duplicates search context bros
+* if you have an OR predicate under construction in a file search tag autocomplete (use Shift+Enter when you enter stuff), hitting Escape on an empty text input now 'rewinds' it one predicate at a time before cancelling it entirely
+* animations that report they have exactly 100fps are now distrusted and their frames are counted manually. this 'count the frames manually' routine will now trigger generally in more cases and on larger files
+* all files with ~100fps will be metadata-rescanned on update
+
+### new vacuum tech
+
+* the vacuum in the client and server now uses `VACUUM INTO` SQLite tech. rather than writing a copy of the db to your temp dir and then to the WAL and then writing that 'commit' into the original file (which it seems is actually what happens--there's no atomic filename swap at the end), we now vacuum to a fresh file beside the original, no temp dir or WAL gubbins needed, and do a filename swap afterwards. this appears to work significantly faster than the old method, with the only caveat that there is a very brief dangerzone where neither file is named what we need, so if the hard drive disconnects or similar in that 2ms window, hydrus cannot automatically recover itself
+* all operations err on the side of failsafe, and I have added copious error handling code to navigate all the possible problems. if anything does go wrong, the user will be presented with a record of what happened, and in the case where hydrus could not fix itself, how they can fix it
+* the various 'do we have enough space to vacuum?' and 'how long will it take?' tests are adapted to the new rules. it doesn't use the temp dir any more, so if you have been struggling to find system drive space for client.mappings.db, this is no longer a problem
+* when the job is complete, the log message, which previously just said the time taken, now records the size change and the bytes per second, and this message is also now thrown into a popup. on my dev machine SSD, I have seen 170MB/s on database files that are in memory and ~30MB/s on a 4GB file not in memory. I guess we now asymptote to about 10MB/s on a superhuge file. I am interested in what users see in their different situations
+* If you are on an HDD and have a big db, you still have no hope, its over
+* thanks to the user who suggested this option
+
+### duplicates auto-resolution
+
+* _the duplicates auto-resolution system is moving forward. still lots to do, but I'm still feeling good about it all_
+* fleshed out the objects more--most stuff is now serialisable and has typedefs, getter/setters, and summary generation methods
+* connected most of the decision pipeline together, and we are basically ready to process our initial jpeg/png pixel pairs
+* did a hair more UI
+* my taglists now handle setEnabled calls properly, so the stub UI in the duplicates auto-resolution panel is now properly un-editable
+
+### boring cleanup
+
+* overhauled the way medias produce the various nice info strings on the right-click menu top-row submenu (and some other places). rather than a tangle of tuples, there's a couple simple classes being passed around that can do tooltip overrides and stuff. I also cleaned up the code around here generally
+* the main gui window status bar info when you only have one file selected is now much simpler. I previously piped the 'interesting' file info lines to it, but it too often ended up a spammy huge long line--not a good summary!
+* rewrote the 'always show iso time' solution from the old BaseMethod-to-Method replace trick to a simpler and saner global bool, as I recently did with some PIL/ICC settings
+* import folders now 'action' their original files immediately after import is done. previously they would do it in batches of ten, and if the import folder were interrupted by something like program shutdown, they'd have to wait for the next run to be cleared. I'm not totally sure, but I also think import folders set to 'ignore, not try again' on a large number of files may run a bit faster now
+* clarified the additional ways to import downloaders in the Lain import dialog. Lain's paste button now also accepts URI-aware file paths (i.e. if you select some files in your file explorer and tell your OS to 'copy') as the clipboard source
+* converted some duplicates processing code, and, relatedly, some delete-lock reporting stuff, from the being-overhauled `MediaSingleton` to `MediaResult`. this allowed me to clean up some wew code in duplicates auto-resolution, the duplicates filter, test code, and the Client API
+* updated the running from source help to talk about mpv/libmpv on Linux
+* fixed some bad panel/dialog calls into nicer Qt signals
+* added some typedefs to clear out about a hundred more PyUnresolvedReferences that PyCharm found. mostly custom widget calls
+
+## [Version 598](https://github.com/hydrusnetwork/hydrus/releases/tag/v598)
+
+### misc
+
+* I screwed up the import folder deduplication fix last week! it caused import folders that contained duplicated items (and a handful of subscriptions, and even one normal GUI session) to not be able to save back their work. nothing was damaged, _per se_, but progress was not being saved and work was stopping after the respective systems paused out of safety. I am sorry for the trouble and worry here, and I hate it when this kind of error happens. I did made a test to test this thing worked, but it wasn't good enough. I have fixed it now and I am rejigging my test procedures to explicitly check for this specific class of object type problem (issue #1624)
+* fixed the duplicate filter comparison statements to obey the new 'do not use pretty (720p etc..) resolution swap-in strings' option (issue #1621)
+* the 'maintenance and processing' page now has some expand/collapse stuff on its boxes to make the options page not want to be so tall on startup
+* the 'edit filename tagging options' panel under the 'edit import folder' dialog now auto-populates the example filename from the actual folder's current contents. thanks to a user for pointing this out
+* moved a bunch of checkboxes around in the options. `options->tags` is renamed `tag autocomplete tabs` and now just handles children and favourites. `search` is renamed `file search` and handles the 'read' autocomplete and implicit system:limit, and a new page `tag editing` is added to handle the 'write' autocomplete and various 'tag service panel' settings
+* the normal search page 'selection tags' list now only computes the tags for the first n thumbnails (default 4096) on a page when you have no files selected. this saves time on mega pages when you click off a selection and also on giant import pages where new files are continually streaming in at the end. I expect this to reduce CPU and lag significantly on clients that idle looking at big import pages. you can set the n under `options->tag presentation`, including turning it off entirely. I did some misc optimisation here too, but I also found some places I can improve the general tag re-compute in future cleanup work
+* I may have improved some media viewer hover window positioning, sizing, and flicker in layout, particularly on the note window
+* the 'do really heavy sibling and parents calculation work in the background' daemon now waits 60 seconds after boot to start work (previously 10s). since I added the new fast sibling and parent cache (which works quick but takes some extra work to initialise), I've noticed you often get a heap of lag as this guy is initially populated right after boot. so, the primary caller now happens a little later in the boot rush and _should_ smooth out the curve a little
+
+### listbooks
+
+* I rewrote the 'ListBook' the options dialog relies on from ancient and irll-desingned wx code to a nice clean simple Qt panel
+* if you have a ton of tag services, a new 'use listbook instead of tabbed notebook for tag service panels' checkbox under `options->tag editing` now lets you use the new listbook instead of the old notebook/tabbed widget in: manage tags, manage tag siblings, manage tag parents, manage tag display and application, and review tag display sync
+
+### drag and drops
+
+* moved the DnD options out of `options->gui` and to a new `exporting` panel and added a bit of text
+* the BUGFIX 'secret' Discord fix is now formalised into an always-on 'set the DnD to a move flag', with a nice explanatory tooltip. it is now also always safe because it will now only ever run if you are set to export your DnDs to the temp folder
+* the 'DnD temp folder' system is now cleaner and DnD temp folders will now be deleted after six hours (previously they were only cleaned up on client exit)
+* added a note to the 'getting started with files' help to say you can export files with drag and drop m8
+
+### some multi-column list fixes
+
+* fixed a bad list type definition in the new auto-resolution rules UI. it thought it was the export folder dialog's list and was throwing weird errors if that list was sorted in column &gt;=4
+* if a multi-column list fails to sort, it now catches and displays the error and continues with whatever was going on at the time
+* if a multi-column list status is asked for a non-existing column type, the status now reports the error info and attempts its best fallback
+* improved multi-column list initialisation across the board so the above problem cannot happen again (the list type was being set in two different locations, and I missed a ctrl+c/v edit)
+
+### parsing
+
+* behind the scenes, the 'subsidiary page parser' is now one object. it was a janky thing before
+* the subsidiary page parsers list in the parsing edit UI now has import/export/duplicate buttons
+* it doesn't matter outside of file log post order, I don't think, but subsidiary page parsers now always work in alphabetical order
+* they also now name themselves specifically when they cause an error
+* parsers now deduplicate the list when saying what they 'produce/parse' in UI
+
+### boring linting cleanup
+
+* tweaked my linter settings to better catch some stupid errors and put the effort into cleaning up the hundreds of long-time warnings, probably more than a thousand items of Qt Signal false-positive spam, and the actual real bugs. I am hoping to better expose future needles without a haystack of garbage in the way. I am determined to maintain a 0 error count on Unresolved References going forward
+* every single unused import statement is now removed or suppressed. I'm sure there are still tangles and bad ideas generally, but everything is completely lean now
+* fixed some PILImage enum references
+* improved some hydrus serialisable typedefs
+* fixed some exception/warning defs
+* deleted some old defunct 'retry' code from subscriptions
+* fixed some bitmap generation code to handle non-c-contiguous memoryviews properly
+* cleaned up some html parsing to properly navigate weird stuff bs4 might put out
+* fixed a stupid type error in the old HydrusTagArchive namespace code
+* fixed some account type calls in _manage services_ auto-account creation
+* fixed an issue with unusual tab drag and drops
+* deleted the empty `TestClientData.py`
+* deleted the empty `ServerServices.py`
+* fixed a bunch of misc typedefs in general
+
+### boring build/source stuff
+
+* updated my Windows 'running from source' help to now say you need to put the sqlite3.dll in your actual python DLLs dir. as this is more scary than just dropping it in your hydrus install dir, I emphasise this is optional
+* updated my 'requirements_server.txt', which is not used but a reference, to use the new requests and setuptools versions we recently updated to
+* I am dropping support for the ancient OpenCV 2. we've had some enum monkeypatches in place for years and years, but I don't even know if 2 will even run on any modern python; it is gone now
+
+## [Version 597](https://github.com/hydrusnetwork/hydrus/releases/tag/v597)
+
+### misc
+
+* fixed an issue that caused non-empty hard drive file import file logs that were created before v595 (this typically affected import folders that are set to 'leave source alone, do not reattempt it' for any of the result actions) to lose track of their original import objects' unique IDs and thus, when given more items to possibly add (again, usually on an import folder sync), to re-add the same items one time over again and essentially double-up in size one time. this broke the ability to review the file log UI panel too, so users who noticed the behaviour was jank couldn't see what was going on. on update, all the newer duplicate items will be removed and you'll reset to the original 'already in db' etc.. stuff you had before. all file logs now check for and remove newer duplicates whenever they load or change contents. this happened because of the 'make file logs load faster' update in v595--it worked great for downloaders and subs, but local file imports use a slightly different ID system to differentiate separate objects and it was not updated correct
+* the main text-fetching routine that failed to load the list UI in the above case can now recover from null results if this happens again
+* file import objects now have some more safety code to ensure they are identifying themselves correctly on load
+* did some more work on copying tags: the new 'always copy parents with tags' was not as helpful as I expected, so this is no longer the default when you hit Ctrl+C (it goes back to the old behaviour of just copying the top-line rows in your selection). when you open a tag selection 'copy' menu, it now lists as a separate item 'copy 2 selected and 3 parents' kind of thing if you do want parents. also, parents will no longer copy with their indent (wew), and the taglists are now deduped so you will not be inundated with tagspam. futhermore, the 'what tags do we have' taglist in the manage tags dialog, and favourites/suggestions taglists, are now more parent-aware and plugged into this system
+* added Mr Bones to the frame locations list under `options->gui`. if you use him a lot, he'll now remember where he was and how big he was
+* also added `manage_times_dialog`, `manage_urls_dialog`, `manage_notes_dialog`, and `export_files_frame` to the list. they will all remember last size and position by default
+* the client now recovers from a missing frame location entry with a fallback and a note in the log
+* rewrote the way the media viewer hover windows and their sub-controls are updated to the current media object. the old asynchronous pubsub is out, and synchronous Qt signals are in. fingers crossed this truly fixes the rare-but-annoying 'oh the ratings in the top-right hover aren't updating I guess' bug, but we'll see. I had to be stricter about the pipeline here, and I was careful to ensure it would be failsafe, so if you discover a media viewer with hover windows that simply won't switch media (they'd probably be frozen in a null state from viewer open), let me know the details!
+* some built versions of the client seem unable to find their local help, so now, when a user asks to open a help page, if it seems to be missing locally, a little text with the paths involved is now written to the log
+
+### parsing
+
+* all formulae now have a 'name/description' field. this is wholly decorative and simply appears in the single- or multi-line summary of the formula in UI. all formulae start with and will initialise with a blank label
+* the generic 'edit formula' panel (the one where you can change the formula type) now has import/export buttons
+* updated the ZIPPER UI to use a newer single-class 'queue list' widget rather than some ten year old 'still has some wx in it' scatter of gubbins
+* added import/export/duplicate capability to the 'queue list' widget, and added it for ZIPPER formulae
+* also added import/export/duplicate buttons to the 'edit string processor' list!!
+* 'any characters' String Match objects now describe themselves with the 'such as' respective example string, with the new proviso that no String Match will give this string if it is stuck at the 'example string' default. you'll probably most see this in the manage url class dialog for components and parameters
+* cleaned a bunch of this code generally
+
+### client api
+
+* fixed an issue fetching millisecond-precise timestamps in the `file_metadata` call when one of the timestamps had a null value (for instance if the file has no modified date of any kind registered)
+* in the various potential duplicates calls, some simple searches (usually when one/both of two searches are system:everything) are now optimised using the same routine that happens in UI
+* the client api version is now 75
+
+### Win 7 news
+
+* for Win 7 users who run from source, I believe newer the program's newer virtual environments will no longer build in Win 7. it looks like a new version of psd-tools will not compile in python 3.8, and there's also some code in newer versions of the program that 3.8 simply won't run. I think the last version that works for you is v582. we've known this train was coming for a while, so I'm afraid Win 7 guys will have to freeze at that version unless and until they update Windows or move to Linux/macOS
+* I have updated the 'running from source' help to talk about this, including adding the magic git line you need to choose a specific version rather than normal git pull. this is likely the last time I will specifically support Win 7, and I suspect I will sunset pyside2 and PyQt5 testing too
+
+### Windows future build
+
+* I am releasing a future build alongside this release, just for Windows. it has new dlls for SQLite and mpv. advanced users are invited to test it out and tell me if there are any problems booting and playing media, and if there are no issues, I'll fold this into the normal build next week
+* mpv: 2023-08-20 to 2024-10-20
+* SQLite: 3.45.3 to 3.47.0
+* these bring normal optimisations and bug fixes. I expect no huge problems (although I believe the mpv dll strictly no longer supports Win 7, but that is now moot), but please check and we'll see
+
+### boring code cleanup
+
+* in prep for duplicates auto-resolution, the five variables that go into a potential duplicates search (two file searches, the search type, the pixel dupe requirement, and the max hamming distance) are now bundled into one nice clean object that is simpler to handle and will be easier to update in future. everything that touches this stuff--the page manager, the page UI (there's a whole edit panel for the new class), the filter itself, the Client API, the db search code, all the unit tests, and now the duplicates auto-resolution system--all works on this new thing rather than throwing list of variables around
+
+### duplicates auto-resolution
+
+* I pushed this forward in a bunch of ways. nothing actually works yet, still, but if you poke around in the advanced placeholder UI, you'll see the new potential duplicates search context UI, now with side-by-side file search context panels, for the fleshed-out pixel-perfect jpeg/png default
+
 ## [Version 596](https://github.com/hydrusnetwork/hydrus/releases/tag/v596)
 
 ### misc
@@ -306,100 +462,3 @@ title: Changelog
 * refactored the main `FileSearchContext` object and friends to the new `ClientSearchFileSearchContext`
 * moved some other `ClientSearch` stuff to other places and renamed the original file to `ClientSearchFavourites`; it now just contains the favourite searches manager
 * some misc cleanup around here. some enums had bad names, that sort of thing
-
-## [Version 589](https://github.com/hydrusnetwork/hydrus/releases/tag/v589)
-
-### misc
-
-* the similar-files search maintenance code has an important update that corrects tree rebalancing for a variety of clients that initialised with an unlucky first import file. in the database update, I will check if you were affected here and immediately optimise your tree if so. it might take a couple minutes if you have millions of files
-* tag parent and sibling changes now calculate faster at the database level. a cache that maintains the structure of which pairs need to be synced is now adjusted with every parent/sibling content change, rather than regenerated. for the PTR, I believe this will save about a second of deferred CPU time on an arbitrary parent/sibling change for the price of about 2MB of memory, hooray. fingers crossed, looking at the _tags-&gt;sibling/parent sync-&gt;review_ panel while repository processing is going on will now be a smooth-updating affair, rather than repeated 'refreshing...' wait-flicker
-* the 'the pairs you mean to add seem to connect to some loops' auto-loop-resolution popup in the manage siblings/parents dialogs will now only show when it is relevent to pairs to be added. previously, this thing was spamming during the pre-check of the process of the user actually breaking up loops by removing pairs
-* added an item, 'sync now', to the _tags-&gt;sibling/parent sync_ menu. this is a nice easy way to force 'work hard' on all services that need work. it tells you if there was no work to do
-* reworked the 'new page chooser' mini-dialog and better fixed-in-place the intended static 3x3 button layout
-* showing 'all my files' and 'local files' in the 'new page chooser' mini-dialog is now configurable in _options-&gt;pages_. previously 'local files' was hidden behind advanced mode. 'all my files' will only ever show if you have more than one local files domain
-* when a login script fails with 401 or 403, or indeed any other network error, it now presents a simpler error in UI (previously it could spam the raw html of the response up to UI)
-* generally speaking, the network job status widget will now only show the first line of any status text it is given. if some crazy html document or other long error ends up spammed to this thing, it should now show a better summary
-* the 'filename' and 'first/second/etc.. directory' checkbox-and-text-input controls in the filename tagging panel now auto-check when you type something in
-* the 'review sibling/parent sync' and 'manage where tag siblings and parents apply' dialogs are now plugged into the 'default tag service' system. they open to this tab, and if you are set to update it to the last seen, they save over the value on changes
-
-### default downloaders
-
-* fixed the default safebooru file page parser to stop reading undesired '?' tags for every namespace (they changed their html recently I think)
-* catbox 'collection' pages are now parseable by default
-
-### boring list stuff
-
-* fixed an issue with showing the 'manage export folders' dialog. sorry for the trouble--in my list rewrite, I didn't account for one thing that is special for this list and it somehow slipped through testing. as a side benefit, we are better prepped for a future update that will support column hiding and rearranging
-* optimised about half of the new multi-column lists, as discussed last week. particularly included are file log, gallery log, watcher page, gallery page, and filename tagging panel, which all see a bunch of regular display/sort updates. the calls to get display data or sort data for a row are now separate, so if the display code is CPU expensive, it won't slow a sort
-* in a couple places, url type column is now sorted by actual text, i.e. file url-gallery url-post url-watchable url, rather than the previous conveniently ordered enum. not sure if this is going to be annoying, so we'll see
-* the filename tagging list no longer sorts the tag column by tag contents, instead it just does '#''. this makes this list sort superfast, so let's see if it is super annoying, but since this guy often has 10,000+ items, we may prefer the fast sort/updates for now
-
-### client api
-
-* the `/add_files/add_file` command now has a `delete_after_successful_import` parameter, default false, that does the same as the manual file import's similar checkbox. it only works on commands with a `path` parameter, obviously
-* updated client api help and unit tests to test this
-* client api version is now 70
-
-### more boring cleanup
-
-* I cleaned up a mash of ancient shortcut-processing jank in the tag autocomplete input and fixed some logic. everything is now processed through one event filter, the result flags are no longer topsy-turvy, and the question of which key events are passed from the text input to the results list is now a simple strict whitelist--basically now only up/down/page up/page down/home/end/enter (sometimes)/escape (sometimes) and ctrl+p/n (for legacy reasons) are passed to the results list. this fixes some unhelpful behaviour where you couldn't select text and ctrl+c it _unless_ the results list was empty (since the list was jumping in, after recent updates, and saying 'hey, I can do ctrl+c, bro' and copying the currently selected results)
-* the key event processing in multi-column lists is also cleaned up from the old wx bridge to native Qt handling
-* and some crazy delete handling in the manage urls dialog is cleaned up too
-* the old `EVT_KEY_DOWN` wx bridge is finally cleared out of the program. I also cleared out some other old wx event definitions that have long been replaced. mostly we just have some mouse handling and window state changes to deal with now
-* replaced many of my ancient static inheritance references with python's `super()` gubbins. I disentangled all the program's multiple inheritance into super() and did I think about half of the rest. still like 360 `__init__` lines to do in future
-* a couple of the 'noneable text' widgets that I recently set to have a default text, in the subscription dialogs, now use that text as placeholder rather than actual default. having 'my subscription' or whatever is ok as a guide, but when the user actually wants to edit, having it be real text is IRL a pain
-* refactored the repair file locations dialog and manage options dialog and new page picker mini-dialog to their own python files
-
-## [Version 588](https://github.com/hydrusnetwork/hydrus/releases/tag/v588)
-
-### fast new lists
-
-* tl;dr: big lists faster now. you do not need to do anything
-* every multi-column list in the program (there's about 75 of them) now works on a more sophisticated model (specifically, we are updating from QTreeWidget to QTreeView). instead of the list storing and regenerating display labels for every single row of a table, only the rows that are currently in view are generally consulted. sort events are similarly extremely fast, with off-screen updates virtualised and deferred
-* in my tests, a list with 170,000 rows now sorts in about four seconds. my code is still connected to a non-optimised part of the old system, so I hope to improve gains with background cleanup work in coming months. I believe I can make it work at least twice as fast in places, particularly in initialisation
-* multi-column lists are much better about initialising/migrating the selection 'focus' (the little, usually dotted-line-border box that says where keyboard focus is) through programmatic insertions and deletes and sorts
-* column headers now show the up/down 'sort' arrows using native style. everything is a bit more Qt-native and closer to C++ instead of my old custom garbage
-* none of this changes anything to do with single-column lists across the program, which are still using somewhat jank old code. my taglist in particular is an entirely custom object that is neat in some ways but stuck in place by my brittle design. the above rewrite was tricky in a couple of annoying ways but overall very worth doing, so I expect to replicate it elsewhere. another open choice is rewriting the similarly entirely custom thumbnail canvas to a proper Qt widget with a QLayout and such. we'll see how future work goes
-
-### misc
-
-* fixed the 'show' part of 'pages-&gt;sidebar and preview panels-&gt;show/hide sidebar and preview panel', which was busted last week in the page relayout cleanup
-* I think I fixed the frame of flicker (usually a moment of page-wide autocomplete input) you would sometimes get when clicking a 'show these files' popup message files button
-* fixed the new shimmie parser (by adding a simpler dupe and wangling the example urls around) to correctly parse r34h tags
-* I think I may have fixed some deadlocks and/or mega-pauses in the manage tag parents/siblings dialogs when entering pairs causes a dialog (a yes/no confirmation, or the 'enter a reason' input) to pop up
-* I think I have fixed the 'switch between fullscreen borderless and regular framed window' command when set to the 'media_viewer' shortcut set. some command-processing stuff wasn't wired up fully after I cleared out some old hacks a while ago
-* the manage tag parents dialog has some less janky layout as it is expanded/shrunk
-* if similar files search tree maintenance fails to regenerate a branch, the user is now told to try running the full regen
-* the full similar files search tree regen now filters out nodes with invalid phashes (i.e. due to database damage), deleting those nodes fully and printing all pertinent info to the log, and tells the user what to do next
-* you can now regen the similar files search tree on an empty database without error, lol
-* while I was poking around lists, I fixed a bit of bad error handling when you try to import a broken serialised data png to a multi-column list
-
-### client api
-
-* the `/get_files/search_files` command now supports `include_current_tags` and `include_pending_tags`, mirroring the buttons on the normal search interface (issue #1577)
-* updated the help and unit tests to check these new params
-* client api version is now 69
-
-## [Version 587](https://github.com/hydrusnetwork/hydrus/releases/tag/v587)
-
-### all misc this week
-
-* I made a second stupid typo last week. it raised an error when trying to open the 'manage tag display and search' dialog! it was fixed thanks to a user
-* the current local file domains of a file (e.g. 'my files') are now simply listed in the top-right hover window, above any remote locations or URLs. I think I'm going to make these checkboxes or something in future so we can have one-click file migrations
-* if you set up a _share-&gt;export files_ job and one of the internal files is actually missing, the error message now tells you to go check for missing files using the database file maintenance stuff
-* if an export files job that is set to delete internal files breaks half way through, the routine now makes sure only to delete what was actually successful
-* subscriptions now catch program shutdown signals better. previously, this was being handled as an unknown error and delay times and error texts were being set. it now just closes cleanly, no worries
-* the command palette should now match case-insensitively
-* I _may_ have fixed a false-positive delete-lock report ('could not delete files xyz because of delete lock') that can happen in the duplicate filter. also, the 'unable to delete file' popup that happens in this case now quietly prints the current stack to log, which I would be interested in seeing
-* I believe I have fixed several of the false-positive 'hey it looks like you edited this parser, are you sure you want to cancel?' confirmations in the edit parser dialog
-* the automatic datestring parsing routine should now be more resilient against english datestrings when the locale differs significantly (it seems if the locale requires a 24-hour clock, it may be a problem for AM/PM time strings)
-* cleaned up some ancient-and-terrible sash-sizing code that manages the three resizable panels of each media results page. hopefully I fixed an issue in Docker and other places where the media page could spawn with a 0-pixel-wide thumbnail panel
-* fixed a weird/stupid bug with the new scanbar that would sometimes start giving errors on media transitions because it couldn't find its media parent
-* improved how a core UI job waits on the database to be free. it now uses just a little less CPU/fewer thread switches
-* improved how that same UI job waits on the pubsub system to be free, same deal
-* since they reversed the API click-through requirement, removed the 8chan TOS click-through login script from the defaults. existing users will see it set to non-active. 8chan thread watching should work out the box again
-
-### new list stuff
-
-* I worked on a new multi-column list class that uses a more intelligent data model. I basically finished it, but I will not launch it yet--it needs a bunch more testing and debugging
-* as a side thing, a variety of list display update calls, even on the old list, are now a little faster

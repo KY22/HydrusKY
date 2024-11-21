@@ -267,7 +267,9 @@ class ClientOptions( HydrusSerialisable.SerialisableBase ):
             'disallow_media_drags_on_duration_media' : False,
             'show_all_my_files_on_page_chooser' : True,
             'show_local_files_on_page_chooser' : False,
-            'use_nice_resolution_strings' : True
+            'use_nice_resolution_strings' : True,
+            'use_listbook_for_tag_service_panels' : False,
+            'open_files_to_duplicate_filter_uses_all_my_files' : True
         }
         
         #
@@ -499,7 +501,8 @@ class ClientOptions( HydrusSerialisable.SerialisableBase ):
             'slideshow_short_duration_loop_seconds' : 10,
             'slideshow_short_duration_cutoff_percentage' : 75,
             'slideshow_long_duration_overspill_percentage' : 50,
-            'num_to_show_in_ac_dropdown_children_tab' : 40
+            'num_to_show_in_ac_dropdown_children_tab' : 40,
+            'number_of_unselected_medias_to_present_tags_for' : 4096
         }
         
         #
@@ -730,6 +733,11 @@ class ClientOptions( HydrusSerialisable.SerialisableBase ):
         self._dictionary[ 'frame_locations' ][ 'deeply_nested_dialog' ] = ( False, False, None, None, ( -1, -1 ), 'topleft', False, False )
         self._dictionary[ 'frame_locations' ][ 'regular_center_dialog' ] = ( False, False, None, None, ( -1, -1 ), 'center', False, False )
         self._dictionary[ 'frame_locations' ][ 'file_history_chart' ] = ( True, True, ( 960, 720 ), None, ( -1, -1 ), 'topleft', False, False )
+        self._dictionary[ 'frame_locations' ][ 'mr_bones' ] = ( True, True, None, None, ( -1, -1 ), 'topleft', False, False )
+        self._dictionary[ 'frame_locations' ][ 'manage_urls_dialog' ] = ( True, True, None, None, ( -1, -1 ), 'topleft', False, False )
+        self._dictionary[ 'frame_locations' ][ 'manage_times_dialog' ] = ( True, True, None, None, ( -1, -1 ), 'topleft', False, False )
+        self._dictionary[ 'frame_locations' ][ 'manage_notes_dialog' ] = ( True, True, None, None, ( -1, -1 ), 'topleft', False, False )
+        self._dictionary[ 'frame_locations' ][ 'export_files_frame' ] = ( True, True, None, None, ( -1, -1 ), 'topleft', False, False )
         
         #
         
@@ -790,7 +798,7 @@ class ClientOptions( HydrusSerialisable.SerialisableBase ):
         
         loaded_dictionary = HydrusSerialisable.CreateFromSerialisableTuple( serialisable_info )
         
-        for ( key, value ) in list(loaded_dictionary.items()):
+        for ( key, value ) in loaded_dictionary.items():
             
             if key in self._dictionary and isinstance( self._dictionary[ key ], dict ) and isinstance( value, dict ):
                 
@@ -811,7 +819,7 @@ class ClientOptions( HydrusSerialisable.SerialisableBase ):
             
             if 'media_view' in loaded_dictionary:
                 
-                mimes = list(loaded_dictionary[ 'media_view' ].keys())
+                mimes = list( loaded_dictionary[ 'media_view' ].keys() )
                 
                 for mime in mimes:
                     
@@ -1249,7 +1257,18 @@ class ClientOptions( HydrusSerialisable.SerialisableBase ):
         
         with self._lock:
             
-            return self._dictionary[ 'frame_locations' ][ frame_key ]
+            d = self._dictionary[ 'frame_locations' ]
+            
+            if frame_key in d:
+                
+                return d[ frame_key ]
+                
+            else:
+                
+                HydrusData.Print( f'Could not find {frame_key} in the frame locations options!' )
+                
+                return ( False, False, None, None, ( -1, -1 ), 'topleft', False, False )
+                
             
         
     

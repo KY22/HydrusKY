@@ -5,7 +5,6 @@ from qtpy import QtCore as QC
 from qtpy import QtWidgets as QW
 
 from hydrus.core import HydrusConstants as HC
-from hydrus.core import HydrusData
 from hydrus.core import HydrusExceptions
 from hydrus.core import HydrusNumbers
 
@@ -260,7 +259,9 @@ class SingleStringConversionTestPanel( QW.QWidget ):
             
             try:
                 
-                t = self._example_results.widget( step_index - 1 ).item( 0 ).text()
+                list_widget: ClientGUIListBoxes.BetterQListWidget = self._example_results.widget( step_index - 1 )
+                
+                t = list_widget.item( 0 ).text()
                 
                 if t != NO_RESULTS_TEXT:
                     
@@ -314,7 +315,8 @@ class EditStringConverterPanel( ClientGUIScrolledPanels.EditPanel ):
         
         model = ClientGUIListCtrl.HydrusListItemModel( self, CGLC.COLUMN_LIST_STRING_CONVERTER_CONVERSIONS.ID, self._ConvertConversionToDisplayTuple, self._ConvertConversionToSortTuple )
         
-        self._conversions = ClientGUIListCtrl.BetterListCtrlTreeView( conversions_panel, CGLC.COLUMN_LIST_STRING_CONVERTER_CONVERSIONS.ID, 7, model, delete_key_callback = self._DeleteConversion, activation_callback = self._EditConversion )
+        # TODO: Yo, if I converted the conversion steps to their own serialisable object, this guy could have import/export/duplicate buttons nice and easy
+        self._conversions = ClientGUIListCtrl.BetterListCtrlTreeView( conversions_panel, 7, model, delete_key_callback = self._DeleteConversion, activation_callback = self._EditConversion )
         
         conversions_panel.SetListCtrl( self._conversions )
         
@@ -2168,6 +2170,7 @@ class EditStringProcessorPanel( ClientGUIScrolledPanels.EditPanel ):
         self._controls_panel = ClientGUICommon.StaticBox( self, 'processing steps' )
         
         self._processing_steps = ClientGUIListBoxes.QueueListBox( self, 8, self._ConvertDataToListBoxString, add_callable = self._Add, edit_callable = self._Edit )
+        self._processing_steps.AddImportExportButtons( ( ClientStrings.StringProcessingStep, ) )
         
         #
         

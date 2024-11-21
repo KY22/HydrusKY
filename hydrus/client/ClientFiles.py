@@ -30,8 +30,12 @@ from hydrus.client import ClientGlobals as CG
 from hydrus.client import ClientFilesPhysical
 from hydrus.client import ClientImageHandling
 from hydrus.client import ClientPaths
-from hydrus.client import ClientSVGHandling # important to keep this in, despite not being used, since there's initialisation stuff in here
-from hydrus.client import ClientPDFHandling # important to keep this in, despite not being used, since there's initialisation stuff in here
+
+# noinspection PyUnresolvedReferences
+from hydrus.client import ClientSVGHandling # important to keep this in, even if not being used, since there's initialisation stuff in here
+# noinspection PyUnresolvedReferences
+from hydrus.client import ClientPDFHandling # important to keep this in, even if not being used, since there's initialisation stuff in here
+
 from hydrus.client import ClientThreading
 from hydrus.client import ClientVideoHandling
 from hydrus.client.metadata import ClientContentUpdates
@@ -3061,6 +3065,9 @@ class FilesMaintenanceManager( ClientDaemons.ManagerWithMainLoop ):
         
     
     def ForceMaintenance( self, mandated_job_types = None ):
+        
+        # TODO: When you are feeling good, rework this guy into a set of simpler 'work hard' flags and fold it all into a throttle in the mainloop
+        # we can figure out a popup in that mode, but w/e tbh
         
         if self._serious_error_encountered:
             

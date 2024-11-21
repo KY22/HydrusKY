@@ -1,6 +1,5 @@
 import collections
 import itertools
-import os
 import typing
 
 from qtpy import QtCore as QC
@@ -10,7 +9,6 @@ from qtpy import QtWidgets as QW
 from hydrus.core import HydrusConstants as HC
 from hydrus.core import HydrusData
 from hydrus.core import HydrusExceptions
-from hydrus.core import HydrusGlobals as HG
 from hydrus.core import HydrusLists
 from hydrus.core import HydrusNumbers
 from hydrus.core import HydrusTags
@@ -2430,7 +2428,16 @@ class AutoCompleteDropdownTagsRead( AutoCompleteDropdownTags ):
         
         if self._under_construction_or_predicate is not None and self._text_ctrl.text() == '':
             
-            self._CancelORConstruction()
+            or_preds = self._under_construction_or_predicate.GetValue()
+            
+            if len( or_preds ) > 1:
+                
+                self._RewindORConstruction()
+                
+            else:
+                
+                self._CancelORConstruction()
+                
             
             return True
             

@@ -1,7 +1,6 @@
 import collections
 import hashlib
 import os
-import random
 import sqlite3
 import sys
 import time
@@ -5078,7 +5077,7 @@ class DB( HydrusDB.HydrusDB ):
                             
                             started = HydrusTime.GetNowPrecise()
                             
-                            HydrusDB.VacuumDB( db_path )
+                            HydrusDB.VacuumDBInto( db_path )
                             
                             time_took = HydrusTime.GetNowPrecise() - started
                             

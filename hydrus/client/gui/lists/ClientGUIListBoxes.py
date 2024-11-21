@@ -1,6 +1,5 @@
 import collections
 import itertools
-import os
 import threading
 import typing
 
@@ -163,7 +162,7 @@ class BetterQListWidget( QW.QListWidget ):
         self._DeleteIndices( indices )
         
     
-    def GetData( self, only_selected: bool = False ) -> typing.List[ object ]:
+    def GetData( self, only_selected: bool = False ) -> typing.List[ typing.Any ]:
         
         datas = []
         
@@ -841,6 +840,7 @@ class AddEditDeleteListBox( QW.QWidget ):
         return self.GetData()
         
     
+
 class AddEditDeleteListBoxUniqueNamedObjects( AddEditDeleteListBox ):
     
     def _SetNonDupeName( self, obj ):
@@ -850,6 +850,9 @@ class AddEditDeleteListBoxUniqueNamedObjects( AddEditDeleteListBox ):
         HydrusSerialisable.SetNonDupeName( obj, disallowed_names )
         
     
+
+# TODO: We must be able to unify this guy with AddEditDeleteListBox mate. This is basically just that guy but with (duplicates allowed?) and different sort
+# failing that, we must be able to merge a bunch of this to a base superclass
 class QueueListBox( QW.QWidget ):
     
     listBoxChanged = QC.Signal()
@@ -862,6 +865,8 @@ class QueueListBox( QW.QWidget ):
         
         super().__init__( parent )
         
+        self._permitted_object_types = tuple()
+        
         self._listbox = BetterQListWidget( self )
         self._listbox.setSelectionMode( QW.QListWidget.ExtendedSelection )
         
@@ -873,6 +878,8 @@ class QueueListBox( QW.QWidget ):
         
         self._add_button = ClientGUICommon.BetterButton( self, 'add', self._Add )
         self._edit_button = ClientGUICommon.BetterButton( self, 'edit', self._Edit )
+        
+        self._enabled_only_on_selection_buttons = []
         
         if self._add_callable is None:
             
@@ -899,13 +906,13 @@ class QueueListBox( QW.QWidget ):
         QP.AddToLayout( hbox, self._listbox, CC.FLAGS_EXPAND_BOTH_WAYS )
         QP.AddToLayout( hbox, buttons_vbox, CC.FLAGS_CENTER_PERPENDICULAR )
         
-        buttons_hbox = QP.HBoxLayout()
+        self._buttons_hbox = QP.HBoxLayout()
         
-        QP.AddToLayout( buttons_hbox, self._add_button, CC.FLAGS_EXPAND_BOTH_WAYS )
-        QP.AddToLayout( buttons_hbox, self._edit_button, CC.FLAGS_EXPAND_BOTH_WAYS )
+        QP.AddToLayout( self._buttons_hbox, self._add_button, CC.FLAGS_EXPAND_BOTH_WAYS )
+        QP.AddToLayout( self._buttons_hbox, self._edit_button, CC.FLAGS_EXPAND_BOTH_WAYS )
         
         QP.AddToLayout( vbox, hbox, CC.FLAGS_EXPAND_BOTH_WAYS )
-        QP.AddToLayout( vbox, buttons_hbox, CC.FLAGS_EXPAND_PERPENDICULAR )
+        QP.AddToLayout( vbox, self._buttons_hbox, CC.FLAGS_EXPAND_PERPENDICULAR )
         
         self.setLayout( vbox )
         
@@ -955,6 +962,11 @@ class QueueListBox( QW.QWidget ):
         self._listbox.Append( pretty_data, data )
         
     
+    def _CheckImportObjectCustom( self, obj ):
+        
+        pass
+        
+    
     def _Delete( self ):
         
         num_selected = self._listbox.GetNumSelected()
@@ -983,6 +995,18 @@ class QueueListBox( QW.QWidget ):
         self.listBoxChanged.emit()
         
     
+    def _Duplicate( self ):
+        
+        dupe_data = self._GetExportObject()
+        
+        if dupe_data is not None:
+            
+            dupe_data = dupe_data.Duplicate()
+            
+            self._ImportObject( dupe_data )
+            
+        
+    
     def _Edit( self ):
         
         for list_widget_item in self._listbox.selectedItems():
@@ -1007,6 +1031,242 @@ class QueueListBox( QW.QWidget ):
         self.listBoxChanged.emit()
         
     
+    def _ExportToClipboard( self ):
+        
+        export_object = self._GetExportObject()
+        
+        if export_object is not None:
+            
+            json = export_object.DumpToString()
+            
+            CG.client_controller.pub( 'clipboard', 'text', json )
+            
+        
+    
+    def _ExportToPNG( self ):
+        
+        export_object = self._GetExportObject()
+        
+        if export_object is not None:
+            
+            from hydrus.client.gui import ClientGUITopLevelWindowsPanels
+            from hydrus.client.gui import ClientGUISerialisable
+            
+            with ClientGUITopLevelWindowsPanels.DialogNullipotent( self, 'export to png' ) as dlg:
+                
+                panel = ClientGUISerialisable.PNGExportPanel( dlg, export_object )
+                
+                dlg.SetPanel( panel )
+                
+                dlg.exec()
+                
+            
+        
+    
+    def _ExportToPNGs( self ):
+        
+        export_object = self._GetExportObject()
+        
+        if export_object is None:
+            
+            return
+            
+        
+        if not isinstance( export_object, HydrusSerialisable.SerialisableList ):
+            
+            self._ExportToPNG()
+            
+            return
+            
+        
+        from hydrus.client.gui import ClientGUITopLevelWindowsPanels
+        from hydrus.client.gui import ClientGUISerialisable
+        
+        with ClientGUITopLevelWindowsPanels.DialogNullipotent( self, 'export to pngs' ) as dlg:
+            
+            panel = ClientGUISerialisable.PNGsExportPanel( dlg, export_object )
+            
+            dlg.SetPanel( panel )
+            
+            dlg.exec()
+            
+        
+        
+    
+    def _GetExportObject( self ):
+        
+        to_export = HydrusSerialisable.SerialisableList()
+        
+        for obj in self.GetData( only_selected = True ):
+            
+            to_export.append( obj )
+            
+        
+        if len( to_export ) == 0:
+            
+            return None
+            
+        elif len( to_export ) == 1:
+            
+            return to_export[0]
+            
+        else:
+            
+            return to_export
+            
+        
+    
+    def _ImportFromClipboard( self ):
+        
+        try:
+            
+            raw_text = CG.client_controller.GetClipboardText()
+            
+        except HydrusExceptions.DataMissing as e:
+            
+            HydrusData.PrintException( e )
+            
+            ClientGUIDialogsMessage.ShowCritical( self, 'Problem pasting!', str(e) )
+            
+            return
+            
+        
+        try:
+            
+            obj = HydrusSerialisable.CreateFromString( raw_text )
+            
+            self._ImportObject( obj )
+            
+        except Exception as e:
+            
+            ClientGUIDialogsQuick.PresentClipboardParseError( self, raw_text, 'JSON-serialised Hydrus Object(s)', e )
+            
+        
+    
+    def _ImportFromPNG( self ):
+        
+        with QP.FileDialog( self, 'select the png or pngs with the encoded data', acceptMode = QW.QFileDialog.AcceptOpen, fileMode = QW.QFileDialog.ExistingFiles, wildcard = 'PNG (*.png)|*.png' ) as dlg:
+            
+            if dlg.exec() == QW.QDialog.Accepted:
+                
+                for path in dlg.GetPaths():
+                    
+                    try:
+                        
+                        payload = ClientSerialisable.LoadFromPNG( path )
+                        
+                    except Exception as e:
+                        
+                        HydrusData.PrintException( e )
+                        
+                        ClientGUIDialogsMessage.ShowCritical( self, 'Problem importing!', str(e) )
+                        
+                        return
+                        
+                    
+                    try:
+                        
+                        obj = HydrusSerialisable.CreateFromNetworkBytes( payload )
+                        
+                        self._ImportObject( obj )
+                        
+                    except Exception as e:
+                        
+                        HydrusData.PrintException( e )
+                        
+                        ClientGUIDialogsMessage.ShowCritical( self, 'Problem importing!', 'I could not understand what was encoded in the png!' )
+                        
+                        return
+                        
+                    
+                
+            
+        
+    
+    def _ImportObject( self, obj, can_present_messages = True ):
+        
+        num_added = 0
+        bad_object_type_names = set()
+        other_bad_errors = set()
+        
+        if isinstance( obj, HydrusSerialisable.SerialisableList ):
+            
+            for sub_obj in obj:
+                
+                ( sub_num_added, sub_bad_object_type_names, sub_other_bad_errors ) = self._ImportObject( sub_obj, can_present_messages = False )
+                
+                num_added += sub_num_added
+                bad_object_type_names.update( sub_bad_object_type_names )
+                other_bad_errors.update( sub_other_bad_errors )
+                
+            
+        else:
+            
+            if isinstance( obj, self._permitted_object_types ):
+                
+                import_ok = True
+                
+                try:
+                    
+                    self._CheckImportObjectCustom( obj )
+                    
+                except HydrusExceptions.VetoException as e:
+                    
+                    import_ok = False
+                    
+                    other_bad_errors.add( str( e ) )
+                    
+                
+                if import_ok:
+                    
+                    self._AddData( obj )
+                    
+                    num_added += 1
+                    
+                
+            else:
+                
+                bad_object_type_names.add( HydrusData.GetTypeName( type( obj ) ) )
+                
+            
+        
+        if can_present_messages:
+            
+            if len( bad_object_type_names ) > 0:
+                
+                message = 'The imported objects included these types:'
+                message += '\n' * 2
+                message += '\n'.join( bad_object_type_names )
+                message += '\n' * 2
+                message += 'Whereas this control only allows:'
+                message += '\n' * 2
+                message += '\n'.join( ( HydrusData.GetTypeName( o ) for o in self._permitted_object_types ) )
+                
+                ClientGUIDialogsMessage.ShowWarning( self, message )
+                
+            
+            if len( other_bad_errors ) > 0:
+                
+                message = 'The imported objects were wrong for this control:'
+                message += '\n' * 2
+                message += '\n'.join( other_bad_errors )
+                
+                ClientGUIDialogsMessage.ShowWarning( self, message )
+                
+            
+            if num_added > 0:
+                
+                message = '{} objects added!'.format( HydrusNumbers.ToHumanInt( num_added ) )
+                
+                ClientGUIDialogsMessage.ShowInformation( self, message )
+                
+            
+        
+        self.listBoxChanged.emit()
+        
+        return ( num_added, bad_object_type_names, other_bad_errors )
+        
+    
     def _Up( self ):
         
         self._listbox.MoveSelected( -1 )
@@ -1016,21 +1276,17 @@ class QueueListBox( QW.QWidget ):
     
     def _UpdateButtons( self ):
         
-        if self._listbox.GetNumSelected() == 0:
+        we_have_selection = self._listbox.GetNumSelected() > 0
+        
+        self._up_button.setEnabled( we_have_selection )
+        self._delete_button.setEnabled( we_have_selection )
+        self._down_button.setEnabled( we_have_selection )
+        
+        self._edit_button.setEnabled( we_have_selection )
+        
+        for button in self._enabled_only_on_selection_buttons:
             
-            self._up_button.setEnabled( False )
-            self._delete_button.setEnabled( False )
-            self._down_button.setEnabled( False )
-            
-            self._edit_button.setEnabled( False )
-            
-        else:
-            
-            self._up_button.setEnabled( True )
-            self._delete_button.setEnabled( True )
-            self._down_button.setEnabled( True )
-            
-            self._edit_button.setEnabled( True )
+            button.setEnabled( we_have_selection )
             
         
     
@@ -1042,6 +1298,41 @@ class QueueListBox( QW.QWidget ):
             
         
         self.listBoxChanged.emit()
+        
+    
+    def AddImportExportButtons( self, permitted_object_types ):
+        
+        self._permitted_object_types = tuple( permitted_object_types )
+        
+        export_menu_items = []
+        
+        export_menu_items.append( ( 'normal', 'to clipboard', 'Serialise the selected data and put it on your clipboard.', self._ExportToClipboard ) )
+        export_menu_items.append( ( 'normal', 'to png', 'Serialise the selected data and encode it to an image file you can easily share with other hydrus users.', self._ExportToPNG ) )
+        
+        all_objs_are_named = False not in ( issubclass( o, HydrusSerialisable.SerialisableBaseNamed ) for o in self._permitted_object_types )
+        
+        if all_objs_are_named:
+            
+            export_menu_items.append( ( 'normal', 'to pngs', 'Serialise the selected data and encode it to multiple image files you can easily share with other hydrus users.', self._ExportToPNGs ) )
+            
+        
+        import_menu_items = []
+        
+        import_menu_items.append( ( 'normal', 'from clipboard', 'Load a data from text in your clipboard.', self._ImportFromClipboard ) )
+        import_menu_items.append( ( 'normal', 'from pngs', 'Load a data from an encoded png.', self._ImportFromPNG ) )
+        
+        button = ClientGUIMenuButton.MenuButton( self, 'export', export_menu_items )
+        QP.AddToLayout( self._buttons_hbox, button, CC.FLAGS_EXPAND_BOTH_WAYS )
+        self._enabled_only_on_selection_buttons.append( button )
+        
+        button = ClientGUIMenuButton.MenuButton( self, 'import', import_menu_items )
+        QP.AddToLayout( self._buttons_hbox, button, CC.FLAGS_EXPAND_BOTH_WAYS )
+        
+        button = ClientGUICommon.BetterButton( self, 'duplicate', self._Duplicate )
+        QP.AddToLayout( self._buttons_hbox, button, CC.FLAGS_EXPAND_BOTH_WAYS )
+        self._enabled_only_on_selection_buttons.append( button )
+        
+        self._UpdateButtons()
         
     
     def Clear( self ):
@@ -1069,6 +1360,7 @@ class QueueListBox( QW.QWidget ):
         return self._listbox.PopData( 0 )
         
     
+
 class ListBox( QW.QScrollArea ):
     
     listBoxChanged = QC.Signal()
@@ -1949,6 +2241,10 @@ class ListBox( QW.QScrollArea ):
     
     def _RegenTermsToIndices( self ):
         
+        # TODO: although it is a pain in the neck, it would be best if this just cleared and set a flag for deferred regen
+        # we'll have to go through all references to these variables though and ensure it is all wrapped in 'if dirty, regen' stuff
+        # it mite b cool to also develop 'swap' tech for sort-swapping stuff, which will not change the total rows or indices outside of the range between the two swappers
+        
         self._terms_to_logical_indices = {}
         self._terms_to_positional_indices = {}
         self._positional_indices_to_terms = {}
@@ -2089,6 +2385,11 @@ class ListBox( QW.QScrollArea ):
     
     def keyPressEvent( self, event ):
         
+        if not self.isEnabled():
+            
+            return
+            
+        
         shift = event.modifiers() & QC.Qt.ShiftModifier
         ctrl = event.modifiers() & QC.Qt.ControlModifier
         
@@ -2199,7 +2500,7 @@ class ListBox( QW.QScrollArea ):
             
             # we do the event filter since we need to 'scroll' the click, so we capture the event on the widget, not ourselves
             
-            if watched == self.widget():
+            if watched == self.widget() and self.isEnabled():
                 
                 if event.type() == QC.QEvent.MouseButtonPress:
                     
@@ -2307,7 +2608,7 @@ class ListBox( QW.QScrollArea ):
     
     class _InnerWidget( QW.QWidget ):
         
-        def __init__( self, parent ):
+        def __init__( self, parent: "ListBox" ):
             
             super().__init__( parent )
             
@@ -2371,6 +2672,11 @@ class ListBox( QW.QScrollArea ):
     
     def MoveSelectionDown( self ):
         
+        if not self.isEnabled():
+            
+            return
+            
+        
         if len( self._ordered_terms ) > 1 and self._last_hit_logical_index is not None:
             
             logical_index = ( self._last_hit_logical_index + 1 ) % len( self._ordered_terms )
@@ -2381,6 +2687,11 @@ class ListBox( QW.QScrollArea ):
     
     def MoveSelectionUp( self ):
         
+        if not self.isEnabled():
+            
+            return
+            
+        
         if len( self._ordered_terms ) > 1 and self._last_hit_logical_index is not None:
             
             logical_index = ( self._last_hit_logical_index - 1 ) % len( self._ordered_terms )
@@ -2390,6 +2701,11 @@ class ListBox( QW.QScrollArea ):
         
     
     def SelectTopItem( self ):
+        
+        if not self.isEnabled():
+            
+            return
+            
         
         if len( self._ordered_terms ) > 0:
             
@@ -2404,6 +2720,16 @@ class ListBox( QW.QScrollArea ):
             
             self.widget().update()
             
+        
+    
+    def setEnabled( self, value ):
+        
+        if not value:
+            
+            self._DeselectAll()
+            
+        
+        super().setEnabled( value )
         
     
     def SetExtraParentRowsAllowed( self, value: bool ):
@@ -2471,6 +2797,7 @@ class ListBox( QW.QScrollArea ):
         return size_hint
         
     
+
 COPY_ALL_TAGS = 0
 COPY_ALL_TAGS_WITH_COUNTS = 1
 COPY_SELECTED_TAGS = 2
@@ -2526,7 +2853,7 @@ class ListBoxTags( ListBox ):
         CG.client_controller.sub( self, 'NotifyNewOptions', 'notify_new_options' )
         
     
-    def _GetCopyableTagStrings( self, command ):
+    def _GetCopyableTagStrings( self, command, include_parents = False ):
         
         only_selected = command in ( COPY_SELECTED_TAGS, COPY_SELECTED_TAGS_WITH_COUNTS, COPY_SELECTED_SUBTAGS, COPY_SELECTED_SUBTAGS_WITH_COUNTS )
         with_counts = command in ( COPY_ALL_TAGS_WITH_COUNTS, COPY_ALL_SUBTAGS_WITH_COUNTS, COPY_SELECTED_TAGS_WITH_COUNTS, COPY_SELECTED_SUBTAGS_WITH_COUNTS )
@@ -2550,21 +2877,21 @@ class ListBoxTags( ListBox ):
             terms = self._ordered_terms
             
         
-        copyable_tag_strings = HydrusLists.MassExtend( [ term.GetCopyableTexts( with_counts = with_counts ) for term in terms ] )
+        copyable_tag_strings = HydrusLists.MassExtend( [ term.GetCopyableTexts( with_counts = with_counts, include_parents = include_parents ) for term in terms ] )
         
         if only_subtags:
             
             copyable_tag_strings = [ HydrusTags.SplitTag( tag_string )[1] for tag_string in copyable_tag_strings ]
             
-            if not with_counts:
-                
-                copyable_tag_strings = HydrusData.DedupeList( copyable_tag_strings )
-                
-            
         
         if '' in copyable_tag_strings:
             
             copyable_tag_strings.remove( '' )
+            
+        
+        if not with_counts:
+            
+            copyable_tag_strings = HydrusData.DedupeList( copyable_tag_strings )
             
         
         return copyable_tag_strings
@@ -2688,9 +3015,9 @@ class ListBoxTags( ListBox ):
             
         
     
-    def _ProcessMenuCopyEvent( self, command ):
+    def _ProcessMenuCopyEvent( self, command, include_parents = False ):
         
-        texts = self._GetCopyableTagStrings( command )
+        texts = self._GetCopyableTagStrings( command, include_parents = include_parents )
         
         if len( texts ) > 0:
             
@@ -2838,7 +3165,7 @@ class ListBoxTags( ListBox ):
                                 
                                 if shift_down and or_predicate is not None:
                                     
-                                    predicates = (or_predicate,)
+                                    predicates = ( or_predicate, )
                                     
                                 self._NewSearchPages( [ predicates ] )
                                 
@@ -2893,7 +3220,7 @@ class ListBoxTags( ListBox ):
     
     def ShowMenu( self ):
         
-        if len( self._ordered_terms ) == 0:
+        if len( self._ordered_terms ) == 0 or not self.isEnabled():
             
             return
             
@@ -2942,6 +3269,8 @@ class ListBoxTags( ListBox ):
         selected_copyable_tag_strings = self._GetCopyableTagStrings( COPY_SELECTED_TAGS )
         selected_copyable_subtag_strings = self._GetCopyableTagStrings( COPY_SELECTED_SUBTAGS )
         
+        selected_copyable_tag_strings_with_parents = self._GetCopyableTagStrings( COPY_SELECTED_TAGS, include_parents = True )
+        
         if len( selected_copyable_tag_strings ) > 0:
             
             if len( selected_copyable_tag_strings ) == 1:
@@ -2987,6 +3316,26 @@ class ListBoxTags( ListBox ):
                     
                     ClientGUIMenus.AppendMenuItem( copy_menu, '{} with counts'.format( sub_selection_string ), 'Copy the selected subtags, with their counts, to your clipboard.', self._ProcessMenuCopyEvent, COPY_SELECTED_SUBTAGS_WITH_COUNTS )
                     
+                
+            
+            num_parents = len( selected_copyable_tag_strings_with_parents ) - len( selected_copyable_tag_strings )
+            
+            if num_parents > 0:
+                
+                ClientGUIMenus.AppendSeparator( copy_menu )
+                
+                if len( selected_copyable_tag_strings ) == 1:
+                    
+                    ( selection_string, ) = selected_copyable_tag_strings
+                    
+                else:
+                    
+                    selection_string = '{} selected'.format( HydrusNumbers.ToHumanInt( len( selected_copyable_tag_strings ) ) )
+                    
+                
+                selection_string += f' and {HydrusNumbers.ToHumanInt( num_parents )} parents'
+                
+                ClientGUIMenus.AppendMenuItem( copy_menu, selection_string, 'Copy the selected tags and their (deduplicated) parents to your clipboard.', self._ProcessMenuCopyEvent, COPY_SELECTED_TAGS, include_parents = True )
                 
             
         
@@ -4138,6 +4487,7 @@ class ListBoxTagsStrings( ListBoxTagsDisplayCapable ):
         self._DataHasChanged()
         
     
+
 class ListBoxTagsStringsAddRemove( ListBoxTagsStrings ):
     
     tagsAdded = QC.Signal()
@@ -4390,13 +4740,32 @@ class ListBoxTagsMedia( ListBoxTagsDisplayCapable ):
                 
             
         
-        sort_needed = self._tag_sort.AffectedByCount()
+        sort_needed = False
         
         if len( new_terms ) > 0:
+            
+            # TODO: see about doing an _InsertTerms that will do insort, bisect.insort_left kind of thing, assuming I can get better 'key' tech going in tag sort
             
             self._AppendTerms( new_terms )
             
             sort_needed = True
+            
+        
+        if not sort_needed and self._tag_sort.AffectedByCount():
+            
+            if len( altered_terms ) < len( self._ordered_terms ) / 20:
+                
+                # TODO: for every term we have altered or added or whatever...
+                # calc its new sort count. if the guy above or below have a higher/lower (wrong) count, immediately stop and say sort needed
+                # this gets complicated with namespace grouping and stuff, so we need to have a single key/cmp call tbh
+                
+                sort_needed = True
+                
+            else:
+                
+                # just do it, whatever
+                sort_needed = True
+                
             
         
         for term in previous_selected_terms:

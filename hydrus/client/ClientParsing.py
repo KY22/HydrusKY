@@ -1,4 +1,6 @@
 import base64
+import typing
+
 import bs4
 import collections
 import html
@@ -11,7 +13,6 @@ import warnings
 from hydrus.core import HydrusConstants as HC
 from hydrus.core import HydrusData
 from hydrus.core import HydrusExceptions
-from hydrus.core import HydrusGlobals as HG
 from hydrus.core import HydrusNumbers
 from hydrus.core import HydrusSerialisable
 from hydrus.core import HydrusTags
@@ -272,6 +273,8 @@ def ConvertParsableContentToPrettyString( parsable_content, include_veto = False
         return 'COULD NOT RENDER--probably a broken object!'
         
     
+    pretty_strings = HydrusData.DedupeList( pretty_strings )
+    
     pretty_strings.sort()
     
     if len( pretty_strings ) == 0:
@@ -392,7 +395,7 @@ def GetHTMLTagString( tag: bs4.Tag ):
         
         for sub_tag in tag.descendants:
             
-            if sub_tag.name in ( 'br', 'p' ):
+            if isinstance( sub_tag, bs4.Tag ) and sub_tag.name in ( 'br', 'p' ):
                 
                 all_strings.append( '\n' )
                 
@@ -790,13 +793,19 @@ class ParsingTestData( object ):
 
 class ParseFormula( HydrusSerialisable.SerialisableBase ):
     
-    def __init__( self, string_processor = None ):
+    def __init__( self, name = None, string_processor = None ):
+        
+        if name is None:
+            
+            name = ''
+            
         
         if string_processor is None:
             
             string_processor = ClientStrings.StringProcessor()
             
         
+        self._name = name
         self._string_processor = string_processor
         
     
@@ -818,6 +827,11 @@ class ParseFormula( HydrusSerialisable.SerialisableBase ):
     def _ParseRawTexts( self, parsing_context, parsing_text, collapse_newlines: bool ):
         
         raise NotImplementedError()
+        
+    
+    def GetName( self ):
+        
+        return self._name
         
     
     def GetStringProcessor( self ):
@@ -867,6 +881,11 @@ class ParseFormula( HydrusSerialisable.SerialisableBase ):
         return False
         
     
+    def SetName( self, name: str ):
+        
+        self._name = name
+        
+    
     def SetStringProcessor( self, string_processor: "ClientStrings.StringProcessor" ):
         
         self._string_processor = string_processor
@@ -887,11 +906,11 @@ class ParseFormulaZipper( ParseFormula ):
     
     SERIALISABLE_TYPE = HydrusSerialisable.SERIALISABLE_TYPE_PARSE_FORMULA_ZIPPER
     SERIALISABLE_NAME = 'Zipper Parsing Formula'
-    SERIALISABLE_VERSION = 2
+    SERIALISABLE_VERSION = 3
     
-    def __init__( self, formulae = None, sub_phrase = None, string_processor = None ):
+    def __init__( self, formulae = None, sub_phrase = None, name = None, string_processor = None ):
         
-        super().__init__( string_processor )
+        super().__init__( name = name, string_processor = string_processor )
         
         if formulae is None:
             
@@ -915,12 +934,12 @@ class ParseFormulaZipper( ParseFormula ):
         serialisable_formulae = HydrusSerialisable.SerialisableList( self._formulae ).GetSerialisableTuple()
         serialisable_string_processor = self._string_processor.GetSerialisableTuple()
         
-        return ( serialisable_formulae, self._sub_phrase, serialisable_string_processor )
+        return ( serialisable_formulae, self._sub_phrase, self._name, serialisable_string_processor )
         
     
     def _InitialiseFromSerialisableInfo( self, serialisable_info ):
         
-        ( serialisable_formulae, self._sub_phrase, serialisable_string_processor ) = serialisable_info
+        ( serialisable_formulae, self._sub_phrase, self._name, serialisable_string_processor ) = serialisable_info
         
         self._formulae = HydrusSerialisable.CreateFromSerialisableTuple( serialisable_formulae )
         self._string_processor = HydrusSerialisable.CreateFromSerialisableTuple( serialisable_string_processor )
@@ -1004,6 +1023,17 @@ class ParseFormulaZipper( ParseFormula ):
             return ( 2, new_serialisable_info )
             
         
+        if version == 2:
+            
+            ( serialisable_formulae, sub_phrase, serialisable_string_processor ) = old_serialisable_info
+            
+            name = ''
+            
+            new_serialisable_info = ( serialisable_formulae, sub_phrase, name, serialisable_string_processor )
+            
+            return ( 3, new_serialisable_info )
+            
+        
     
     def GetFormulae( self ):
         
@@ -1017,12 +1047,28 @@ class ParseFormulaZipper( ParseFormula ):
     
     def ToPrettyString( self ):
         
-        return 'ZIPPER with ' + HydrusNumbers.ToHumanInt( len( self._formulae ) ) + ' formulae.'
+        if self._name == '':
+            
+            t = ''
+            
+        else:
+            
+            t = f'{self._name}: '
+            
+        
+        return f'ZIPPER: {t}with {HydrusNumbers.ToHumanInt( len( self._formulae ) )} formulae.'
         
     
     def ToPrettyMultilineString( self ):
         
         s = []
+        
+        header = '--ZIPPER--'
+        
+        if self._name != '':
+            
+            header += '\n' + self._name
+            
         
         for formula in self._formulae:
             
@@ -1033,7 +1079,7 @@ class ParseFormulaZipper( ParseFormula ):
         
         separator = '\n' * 2
         
-        text = '--ZIPPER--' + '\n' * 2 + separator.join( s )
+        text = header + '\n' * 2 + separator.join( s )
         
         return text
         
@@ -1045,11 +1091,11 @@ class ParseFormulaContextVariable( ParseFormula ):
     
     SERIALISABLE_TYPE = HydrusSerialisable.SERIALISABLE_TYPE_PARSE_FORMULA_CONTEXT_VARIABLE
     SERIALISABLE_NAME = 'Context Variable Formula'
-    SERIALISABLE_VERSION = 2
+    SERIALISABLE_VERSION = 3
     
-    def __init__( self, variable_name = None, string_processor = None ):
+    def __init__( self, variable_name = None, name = None, string_processor = None ):
         
-        super().__init__( string_processor )
+        super().__init__( name = name, string_processor = string_processor )
         
         if variable_name is None:
             
@@ -1063,12 +1109,12 @@ class ParseFormulaContextVariable( ParseFormula ):
         
         serialisable_string_processor = self._string_processor.GetSerialisableTuple()
         
-        return ( self._variable_name, serialisable_string_processor )
+        return ( self._variable_name, self._name, serialisable_string_processor )
         
     
     def _InitialiseFromSerialisableInfo( self, serialisable_info ):
         
-        ( self._variable_name, serialisable_string_processor ) = serialisable_info
+        ( self._variable_name, self._name, serialisable_string_processor ) = serialisable_info
         
         self._string_processor = HydrusSerialisable.CreateFromSerialisableTuple( serialisable_string_processor )
         
@@ -1107,6 +1153,17 @@ class ParseFormulaContextVariable( ParseFormula ):
             return ( 2, new_serialisable_info )
             
         
+        if version == 2:
+            
+            ( variable_name, serialisable_string_processor ) = old_serialisable_info
+            
+            name = ''
+            
+            new_serialisable_info = ( variable_name, name, serialisable_string_processor )
+            
+            return ( 3, new_serialisable_info )
+            
+        
     
     def GetVariableName( self ):
         
@@ -1115,18 +1172,34 @@ class ParseFormulaContextVariable( ParseFormula ):
     
     def ToPrettyString( self ):
         
-        return 'CONTEXT VARIABLE: ' + self._variable_name
+        if self._name == '':
+            
+            t = ''
+            
+        else:
+            
+            t = f'{self._name}: '
+            
+        
+        return f'CONTEXT VARIABLE: {t}{self._variable_name}'
         
     
     def ToPrettyMultilineString( self ):
         
         s = []
         
+        header = '--CONTEXT VARIABLE--'
+        
+        if self._name != '':
+            
+            header += '\n' + self._name
+            
+        
         s.append( 'fetch the "' + self._variable_name + '" variable from the parsing context' )
         
         separator = '\n' * 2
         
-        text = '--CONTEXT VARIABLE--' + '\n' * 2 + separator.join( s )
+        text = header + '\n' * 2 + separator.join( s )
         
         return text
         
@@ -1141,11 +1214,11 @@ class ParseFormulaHTML( ParseFormula ):
     
     SERIALISABLE_TYPE = HydrusSerialisable.SERIALISABLE_TYPE_PARSE_FORMULA_HTML
     SERIALISABLE_NAME = 'HTML Parsing Formula'
-    SERIALISABLE_VERSION = 7
+    SERIALISABLE_VERSION = 8
     
-    def __init__( self, tag_rules = None, content_to_fetch = None, attribute_to_fetch = None, string_processor = None ):
+    def __init__( self, tag_rules = None, content_to_fetch = None, attribute_to_fetch = None, name = None, string_processor = None ):
         
-        super().__init__( string_processor )
+        super().__init__( name = name, string_processor = string_processor )
         
         if tag_rules is None:
             
@@ -1273,12 +1346,12 @@ class ParseFormulaHTML( ParseFormula ):
         
         serialisable_string_processor = self._string_processor.GetSerialisableTuple()
         
-        return ( serialisable_tag_rules, self._content_to_fetch, self._attribute_to_fetch, serialisable_string_processor )
+        return ( serialisable_tag_rules, self._content_to_fetch, self._attribute_to_fetch, self._name, serialisable_string_processor )
         
     
     def _InitialiseFromSerialisableInfo( self, serialisable_info ):
         
-        ( serialisable_tag_rules, self._content_to_fetch, self._attribute_to_fetch, serialisable_string_processor ) = serialisable_info
+        ( serialisable_tag_rules, self._content_to_fetch, self._attribute_to_fetch, self._name, serialisable_string_processor ) = serialisable_info
         
         self._tag_rules = HydrusSerialisable.CreateFromSerialisableTuple( serialisable_tag_rules )
         
@@ -1433,6 +1506,17 @@ class ParseFormulaHTML( ParseFormula ):
             return ( 7, new_serialisable_info )
             
         
+        if version == 7:
+            
+            ( serialisable_new_tag_rules, content_to_fetch, attribute_to_fetch, serialisable_string_processor ) = old_serialisable_info
+            
+            name = ''
+            
+            new_serialisable_info = ( serialisable_new_tag_rules, content_to_fetch, attribute_to_fetch, name, serialisable_string_processor )
+            
+            return ( 8, new_serialisable_info )
+            
+        
     
     def GetAttributeToFetch( self ):
         
@@ -1456,12 +1540,30 @@ class ParseFormulaHTML( ParseFormula ):
     
     def ToPrettyString( self ):
         
-        return 'HTML with ' + HydrusNumbers.ToHumanInt( len( self._tag_rules ) ) + ' tag rules.'
+        if self._name == '':
+            
+            t = ''
+            
+        else:
+            
+            t = f'{self._name}: '
+            
+        
+        return f'HTML: {t}with {HydrusNumbers.ToHumanInt( len( self._tag_rules ) )} tag rules.'
         
     
     def ToPrettyMultilineString( self ):
         
-        pretty_strings = [ t_r.ToString() for t_r in self._tag_rules ]
+        pretty_strings = []
+        
+        header = '--HTML--'
+        
+        if self._name != '':
+            
+            header += '\n' + self._name
+            
+        
+        pretty_strings.extend( [ t_r.ToString() for t_r in self._tag_rules ] )
         
         if self._content_to_fetch == HTML_CONTENT_ATTRIBUTE:
             
@@ -1480,7 +1582,7 @@ class ParseFormulaHTML( ParseFormula ):
         
         separator = '\n' + 'and then '
         
-        pretty_multiline_string = '--HTML--' + '\n' + separator.join( pretty_strings )
+        pretty_multiline_string = header + '\n' + separator.join( pretty_strings )
         
         return pretty_multiline_string
         
@@ -1763,11 +1865,11 @@ class ParseFormulaJSON( ParseFormula ):
     
     SERIALISABLE_TYPE = HydrusSerialisable.SERIALISABLE_TYPE_PARSE_FORMULA_JSON
     SERIALISABLE_NAME = 'JSON Parsing Formula'
-    SERIALISABLE_VERSION = 3
+    SERIALISABLE_VERSION = 4
     
-    def __init__( self, parse_rules = None, content_to_fetch = None, string_processor = None ):
+    def __init__( self, parse_rules = None, content_to_fetch = None, name = None, string_processor = None ):
         
-        super().__init__( string_processor )
+        super().__init__( name = name, string_processor = string_processor )
         
         if parse_rules is None:
             
@@ -1988,12 +2090,12 @@ class ParseFormulaJSON( ParseFormula ):
         serialisable_parse_rules = [ ( parse_rule_type, parse_rule.GetSerialisableTuple() ) if parse_rule_type == JSON_PARSE_RULE_TYPE_DICT_KEY else ( parse_rule_type, parse_rule ) for ( parse_rule_type, parse_rule ) in self._parse_rules ]
         serialisable_string_processor = self._string_processor.GetSerialisableTuple()
         
-        return ( serialisable_parse_rules, self._content_to_fetch, serialisable_string_processor )
+        return ( serialisable_parse_rules, self._content_to_fetch, self._name, serialisable_string_processor )
         
     
     def _InitialiseFromSerialisableInfo( self, serialisable_info ):
         
-        ( serialisable_parse_rules, self._content_to_fetch, serialisable_string_processor ) = serialisable_info
+        ( serialisable_parse_rules, self._content_to_fetch, self._name, serialisable_string_processor ) = serialisable_info
         
         self._parse_rules = [ ( parse_rule_type, HydrusSerialisable.CreateFromSerialisableTuple( serialisable_parse_rule ) ) if parse_rule_type == JSON_PARSE_RULE_TYPE_DICT_KEY else ( parse_rule_type, serialisable_parse_rule ) for ( parse_rule_type, serialisable_parse_rule ) in serialisable_parse_rules ]
         self._string_processor = HydrusSerialisable.CreateFromSerialisableTuple( serialisable_string_processor )
@@ -2079,6 +2181,17 @@ class ParseFormulaJSON( ParseFormula ):
             return ( 3, new_serialisable_info )
             
         
+        if version == 3:
+            
+            ( serialisable_parse_rules, content_to_fetch, serialisable_string_processor ) = old_serialisable_info
+            
+            name = ''
+            
+            new_serialisable_info = ( serialisable_parse_rules, content_to_fetch, name, serialisable_string_processor )
+            
+            return ( 4, new_serialisable_info )
+            
+        
     
     def GetContentToFetch( self ):
         
@@ -2097,10 +2210,26 @@ class ParseFormulaJSON( ParseFormula ):
     
     def ToPrettyString( self ):
         
-        return 'JSON with ' + HydrusNumbers.ToHumanInt( len( self._parse_rules ) ) + ' parse rules.'
+        if self._name == '':
+            
+            t = ''
+            
+        else:
+            
+            t = f'{self._name}: '
+            
+        
+        return f'JSON: {t}with {HydrusNumbers.ToHumanInt( len( self._parse_rules ) )} parse rules.'
         
     
     def ToPrettyMultilineString( self ):
+        
+        header = '--JSON--'
+        
+        if self._name != '':
+            
+            header += '\n' + self._name
+            
         
         pretty_strings = [ RenderJSONParseRule( p_r ) for p_r in self._parse_rules ]
         
@@ -2121,7 +2250,7 @@ class ParseFormulaJSON( ParseFormula ):
         
         separator = '\n' + 'and then '
         
-        pretty_multiline_string = '--JSON--' + '\n' + separator.join( pretty_strings )
+        pretty_multiline_string = header + '\n' + separator.join( pretty_strings )
         
         return pretty_multiline_string
         
@@ -2133,11 +2262,11 @@ class ParseFormulaNested( ParseFormula ):
     
     SERIALISABLE_TYPE = HydrusSerialisable.SERIALISABLE_TYPE_PARSE_FORMULA_NESTED
     SERIALISABLE_NAME = 'Nested Parsing Formula'
-    SERIALISABLE_VERSION = 1
+    SERIALISABLE_VERSION = 2
     
-    def __init__( self, main_formula = None, sub_formula = None, string_processor = None ):
+    def __init__( self, main_formula = None, sub_formula = None, name = None, string_processor = None ):
         
-        super().__init__( string_processor )
+        super().__init__( name = name, string_processor = string_processor )
         
         if main_formula is None:
             
@@ -2159,12 +2288,12 @@ class ParseFormulaNested( ParseFormula ):
         serialisable_sub_formula = self._sub_formula.GetSerialisableTuple()
         serialisable_string_processor = self._string_processor.GetSerialisableTuple()
         
-        return ( serialisable_main_formula, serialisable_sub_formula, serialisable_string_processor )
+        return ( serialisable_main_formula, serialisable_sub_formula, self._name, serialisable_string_processor )
         
     
     def _InitialiseFromSerialisableInfo( self, serialisable_info ):
         
-        ( serialisable_main_formula, serialisable_sub_formula, serialisable_string_processor ) = serialisable_info
+        ( serialisable_main_formula, serialisable_sub_formula, self._name, serialisable_string_processor ) = serialisable_info
         
         self._main_formula = HydrusSerialisable.CreateFromSerialisableTuple( serialisable_main_formula )
         self._sub_formula = HydrusSerialisable.CreateFromSerialisableTuple( serialisable_sub_formula )
@@ -2187,6 +2316,20 @@ class ParseFormulaNested( ParseFormula ):
         return all_sub_parsed_texts
         
     
+    def _UpdateSerialisableInfo( self, version, old_serialisable_info ):
+        
+        if version == 1:
+            
+            ( serialisable_main_formula, serialisable_sub_formula, serialisable_string_processor ) = old_serialisable_info
+            
+            name = ''
+            
+            new_serialisable_info = ( serialisable_main_formula, serialisable_sub_formula, name, serialisable_string_processor )
+            
+            return ( 2, new_serialisable_info )
+            
+        
+    
     def GetMainFormula( self ):
         
         return self._main_formula
@@ -2199,12 +2342,28 @@ class ParseFormulaNested( ParseFormula ):
     
     def ToPrettyString( self ):
         
-        return f'NESTED formulae, taking from "{self._main_formula.ToPrettyString()}" and sending to "{self._sub_formula.ToPrettyString()}".'
+        if self._name == '':
+            
+            t = ''
+            
+        else:
+            
+            t = f'{self._name}: '
+            
+        
+        return f'NESTED formulae: {t}taking from "{self._main_formula.ToPrettyString()}" and sending to "{self._sub_formula.ToPrettyString()}".'
         
     
     def ToPrettyMultilineString( self ):
         
-        text = '--NESTED--' + '\n' * 2 + self._main_formula.ToPrettyMultilineString() + '\n->\n' + self._sub_formula.ToPrettyMultilineString()
+        header = '--NESTED--'
+        
+        if self._name != '':
+            
+            header += '\n' + self._name
+            
+        
+        text = header + '\n' * 2 + self._main_formula.ToPrettyMultilineString() + '\n->\n' + self._sub_formula.ToPrettyMultilineString()
         
         return text
         
@@ -2676,7 +2835,7 @@ class PageParser( HydrusSerialisable.SerialisableBaseNamed ):
     
     SERIALISABLE_TYPE = HydrusSerialisable.SERIALISABLE_TYPE_PAGE_PARSER
     SERIALISABLE_NAME = 'Page Parser'
-    SERIALISABLE_VERSION = 2
+    SERIALISABLE_VERSION = 3
     
     def __init__( self, name, parser_key = None, string_converter = None, sub_page_parsers = None, content_parsers = None, example_urls = None, example_parsing_context = None ):
         
@@ -2714,12 +2873,12 @@ class PageParser( HydrusSerialisable.SerialisableBaseNamed ):
         
         super().__init__( name )
         
-        self._parser_key = parser_key
-        self._string_converter = string_converter
-        self._sub_page_parsers = sub_page_parsers
-        self._content_parsers = content_parsers
-        self._example_urls = example_urls
-        self._example_parsing_context = example_parsing_context
+        self._parser_key: bytes = parser_key
+        self._string_converter: ClientStrings.StringConverter = string_converter
+        self._sub_page_parsers: typing.List[ SubsidiaryPageParser ] = sub_page_parsers
+        self._content_parsers: typing.List[ ContentParser ] = content_parsers
+        self._example_urls: typing.Collection[ str ] = example_urls
+        self._example_parsing_context: dict = example_parsing_context
         
     
     def _GetSerialisableInfo( self ):
@@ -2727,9 +2886,9 @@ class PageParser( HydrusSerialisable.SerialisableBaseNamed ):
         serialisable_parser_key = self._parser_key.hex()
         serialisable_string_converter = self._string_converter.GetSerialisableTuple()
         
-        serialisable_sub_page_parsers = [ ( formula.GetSerialisableTuple(), page_parser.GetSerialisableTuple() ) for ( formula, page_parser ) in sorted( self._sub_page_parsers, key = lambda p: p[1].GetName() ) ]
+        serialisable_sub_page_parsers = HydrusSerialisable.SerialisableList( sorted( self._sub_page_parsers, key = lambda spp: spp.GetPageParser().GetName().casefold() ) ).GetSerialisableTuple()
         
-        serialisable_content_parsers = HydrusSerialisable.SerialisableList( sorted( self._content_parsers, key = lambda p: p.GetName() ) ).GetSerialisableTuple()
+        serialisable_content_parsers = HydrusSerialisable.SerialisableList( sorted( self._content_parsers, key = lambda p: p.GetName().casefold() ) ).GetSerialisableTuple()
         
         return ( self._name, serialisable_parser_key, serialisable_string_converter, serialisable_sub_page_parsers, serialisable_content_parsers, self._example_urls, self._example_parsing_context )
         
@@ -2740,7 +2899,7 @@ class PageParser( HydrusSerialisable.SerialisableBaseNamed ):
         
         self._parser_key = bytes.fromhex( serialisable_parser_key )
         self._string_converter = HydrusSerialisable.CreateFromSerialisableTuple( serialisable_string_converter )
-        self._sub_page_parsers = [ ( HydrusSerialisable.CreateFromSerialisableTuple( serialisable_formula ), HydrusSerialisable.CreateFromSerialisableTuple( serialisable_page_parser ) ) for ( serialisable_formula, serialisable_page_parser ) in serialisable_sub_page_parsers ]
+        self._sub_page_parsers = HydrusSerialisable.CreateFromSerialisableTuple( serialisable_sub_page_parsers )
         self._content_parsers = HydrusSerialisable.CreateFromSerialisableTuple( serialisable_content_parsers )
         
     
@@ -2757,6 +2916,21 @@ class PageParser( HydrusSerialisable.SerialisableBaseNamed ):
             new_serialisable_info = ( name, serialisable_parser_key, serialisable_string_converter, serialisable_sub_page_parsers, serialisable_content_parsers, example_urls, example_parsing_context )
             
             return ( 2, new_serialisable_info )
+            
+        
+        if version == 2:
+            
+            ( name, serialisable_parser_key, serialisable_string_converter, serialisable_sub_page_parsers, serialisable_content_parsers, example_urls, example_parsing_context ) = old_serialisable_info
+            
+            old_sub_page_parsers = [ ( HydrusSerialisable.CreateFromSerialisableTuple( serialisable_formula ), HydrusSerialisable.CreateFromSerialisableTuple( serialisable_page_parser ) ) for ( serialisable_formula, serialisable_page_parser ) in serialisable_sub_page_parsers ]
+            
+            sub_page_parsers = HydrusSerialisable.SerialisableList( [ SubsidiaryPageParser( formula = formula, page_parser = page_parser ) for ( formula, page_parser ) in old_sub_page_parsers ] )
+            
+            serialisable_sub_page_parsers = sub_page_parsers.GetSerialisableTuple()
+            
+            new_serialisable_info = ( name, serialisable_parser_key, serialisable_string_converter, serialisable_sub_page_parsers, serialisable_content_parsers, example_urls, example_parsing_context )
+            
+            return ( 3, new_serialisable_info )
             
         
     
@@ -2824,9 +2998,9 @@ class PageParser( HydrusSerialisable.SerialisableBaseNamed ):
         
         parsable_content = set()
         
-        for ( formula, page_parser ) in self._sub_page_parsers:
+        for sub_page_parser in self._sub_page_parsers:
             
-            parsable_content.update( page_parser.GetParsableContent() )
+            parsable_content.update( sub_page_parser.GetPageParser().GetParsableContent() )
             
         
         for content_parser in self._content_parsers:
@@ -2858,9 +3032,9 @@ class PageParser( HydrusSerialisable.SerialisableBaseNamed ):
         
         self._example_parsing_context = {}
         
-        for ( formula, page_parser ) in self._sub_page_parsers:
+        for sub_page_parser in self._sub_page_parsers:
             
-            page_parser.NullifyTestData()
+            sub_page_parser.GetPageParser().NullifyTestData()
             
         
     
@@ -2926,59 +3100,16 @@ class PageParser( HydrusSerialisable.SerialisableBaseNamed ):
             
         else:
             
-            def sort_key( sub_page_parser ):
-                
-                ( formula, page_parser ) = sub_page_parser
-                
-                return page_parser.GetName()
-                
+            # we don't add the basic 'whole page' results to our results here since if we are using sub page parsers, that guy shouldn't have a URL in it; if there's no URL, we don't want it anyway!
+            # he is however getting tacked onto every post parser by the sub page parsers
             
-            sub_page_parsers = list( self._sub_page_parsers )
+            sub_page_parsers = sorted( self._sub_page_parsers, key = lambda spp: spp.GetPageParser().GetName().casefold() )
             
-            sub_page_parsers.sort( key = sort_key )
-            
-            try:
+            for sub_page_parser in sub_page_parsers:
                 
-                for ( formula, page_parser ) in self._sub_page_parsers:
-                    
-                    try:
-                        
-                        collapse_newlines = False
-                        
-                        posts = formula.Parse( parsing_context, converted_parsing_text, collapse_newlines )
-                        
-                    except HydrusExceptions.ParseException:
-                        
-                        continue
-                        
-                    
-                    for ( i, post ) in enumerate( posts ):
-                        
-                        try:
-                            
-                            page_parser_all_parse_results = page_parser.Parse( parsing_context, post )
-                            
-                        except HydrusExceptions.VetoException:
-                            
-                            continue
-                            
-                        
-                        for page_parser_parse_results in page_parser_all_parse_results:
-                            
-                            page_parser_parse_results.extend( whole_page_parse_results )
-                            
-                            all_parse_results.append( page_parser_parse_results )
-                            
-                        
-                    
+                sub_page_parser_parse_results = sub_page_parser.Parse( whole_page_parse_results, parsing_context, converted_parsing_text )
                 
-            except HydrusExceptions.ParseException as e:
-                
-                prefix = 'Page Parser ' + self._name + ': '
-                
-                e = HydrusExceptions.ParseException( prefix + str( e ) )
-                
-                raise e
+                all_parse_results.extend( sub_page_parser_parse_results )
                 
             
         
@@ -3037,7 +3168,117 @@ class PageParser( HydrusSerialisable.SerialisableBaseNamed ):
         self._parser_key = parser_key
         
     
+
 HydrusSerialisable.SERIALISABLE_TYPES_TO_OBJECT_TYPES[ HydrusSerialisable.SERIALISABLE_TYPE_PAGE_PARSER ] = PageParser
+
+class SubsidiaryPageParser( HydrusSerialisable.SerialisableBase ):
+    
+    SERIALISABLE_TYPE = HydrusSerialisable.SERIALISABLE_TYPE_SUBSIDIARY_PAGE_PARSER
+    SERIALISABLE_NAME = 'Subsidiary Page Parser'
+    SERIALISABLE_VERSION = 1
+    
+    def __init__( self, formula = None, page_parser = None ):
+        
+        if formula is None:
+            
+            formula = ParseFormulaHTML( tag_rules = [ ParseRuleHTML( rule_type = HTML_RULE_TYPE_DESCENDING, tag_name = 'div', tag_attributes = { 'class' : 'thumb' } ) ], content_to_fetch = HTML_CONTENT_HTML )
+            
+        
+        if page_parser is None:
+            
+            page_parser = PageParser( 'new sub page parser' )
+            
+        
+        self._formula = formula
+        self._page_parser = page_parser
+        
+    
+    def _GetSerialisableInfo( self ):
+        
+        serialisable_formula = self._formula.GetSerialisableTuple()
+        serialisable_page_parser = self._page_parser.GetSerialisableTuple()
+        
+        return ( serialisable_formula, serialisable_page_parser )
+        
+    
+    def _InitialiseFromSerialisableInfo( self, serialisable_info ):
+        
+        ( serialisable_formula, serialisable_page_parser ) = serialisable_info
+        
+        self._formula = HydrusSerialisable.CreateFromSerialisableTuple( serialisable_formula )
+        self._page_parser = HydrusSerialisable.CreateFromSerialisableTuple( serialisable_page_parser )
+        
+    
+    def GetFormula( self ) -> ParseFormula:
+        
+        return self._formula
+        
+    
+    def GetPageParser( self ) -> PageParser:
+        
+        return self._page_parser
+        
+    
+    def Parse( self, parent_parse_results, parsing_context, parsing_text ):
+        
+        all_parse_results = []
+        
+        try:
+            
+            try:
+                
+                collapse_newlines = False
+                
+                posts = self._formula.Parse( parsing_context, parsing_text, collapse_newlines )
+                
+            except HydrusExceptions.ParseException:
+                
+                return all_parse_results
+                
+            
+            for ( i, post ) in enumerate( posts ):
+                
+                try:
+                    
+                    page_parser_all_parse_results = self._page_parser.Parse( parsing_context, post )
+                    
+                except HydrusExceptions.VetoException:
+                    
+                    continue
+                    
+                
+                for page_parser_parse_results in page_parser_all_parse_results:
+                    
+                    page_parser_parse_results.extend( parent_parse_results )
+                    
+                    all_parse_results.append( page_parser_parse_results )
+                    
+                
+            
+        except HydrusExceptions.ParseException as e:
+            
+            prefix = f'Subsidiary Page Parser {self._page_parser.GetName()}: '
+            
+            e = HydrusExceptions.ParseException( prefix + str( e ) )
+            
+            raise e
+            
+        
+        return all_parse_results
+        
+    
+    def SetFormula( self, formula: ParseFormula ):
+        
+        self._formula = formula
+        
+    
+    def SetPageParser( self, page_parser: PageParser ):
+        
+        self._page_parser = page_parser
+        
+    
+
+HydrusSerialisable.SERIALISABLE_TYPES_TO_OBJECT_TYPES[ HydrusSerialisable.SERIALISABLE_TYPE_SUBSIDIARY_PAGE_PARSER ] = SubsidiaryPageParser
 
 class ParseNodeContentLink( HydrusSerialisable.SerialisableBase ):
     

@@ -29,7 +29,6 @@ from hydrus.client import ClientData
 from hydrus.client import ClientFiles
 from hydrus.client import ClientGlobals as CG
 from hydrus.client import ClientLocation
-from hydrus.client import ClientMigration
 from hydrus.client import ClientParsing
 from hydrus.client import ClientFilesPhysical
 from hydrus.client import ClientRendering
@@ -41,7 +40,6 @@ from hydrus.client.gui import ClientGUIDialogsMessage
 from hydrus.client.gui import ClientGUIDialogsQuick
 from hydrus.client.gui import ClientGUIDragDrop
 from hydrus.client.gui import ClientGUIFunctions
-from hydrus.client.gui import ClientGUITags
 from hydrus.client.gui import ClientGUITopLevelWindowsPanels
 from hydrus.client.gui import QtPorting as QP
 from hydrus.client.gui.importing import ClientGUIImport
@@ -50,7 +48,6 @@ from hydrus.client.gui.lists import ClientGUIListConstants as CGLC
 from hydrus.client.gui.lists import ClientGUIListCtrl
 from hydrus.client.gui.panels import ClientGUIScrolledPanels
 from hydrus.client.gui.search import ClientGUIACDropdown
-from hydrus.client.gui.search import ClientGUILocation
 from hydrus.client.gui.widgets import ClientGUICommon
 from hydrus.client.gui.widgets import ClientGUIBytes
 from hydrus.client.gui.widgets import ClientGUIMenuButton
@@ -169,7 +166,7 @@ class MoveMediaFilesPanel( ClientGUIScrolledPanels.ReviewPanel ):
         
         model = ClientGUIListCtrl.HydrusListItemModelBridge( self, CGLC.COLUMN_LIST_DB_MIGRATION_LOCATIONS.ID, self._ConvertLocationToListCtrlTuples )
         
-        self._current_media_base_locations_listctrl = ClientGUIListCtrl.BetterListCtrlTreeView( current_media_base_locations_listctrl_panel, CGLC.COLUMN_LIST_DB_MIGRATION_LOCATIONS.ID, 8, model, activation_callback = self._SetMaxNumBytes )
+        self._current_media_base_locations_listctrl = ClientGUIListCtrl.BetterListCtrlTreeView( current_media_base_locations_listctrl_panel, 8, model, activation_callback = self._SetMaxNumBytes )
         self._current_media_base_locations_listctrl.setSelectionMode( QW.QAbstractItemView.SingleSelection )
         
         self._current_media_base_locations_listctrl.Sort()
@@ -969,9 +966,12 @@ class ReviewDownloaderImport( ClientGUIScrolledPanels.ReviewPanel ):
         self._repo_link = ClientGUICommon.BetterHyperLink( self, 'get user-made downloaders here', 'https://github.com/CuddleBear92/Hydrus-Presets-and-Scripts/tree/master/Downloaders' )
         
         self._paste_button = ClientGUICommon.BetterBitmapButton( self, CC.global_pixmaps().paste, self._Paste )
-        self._paste_button.setToolTip( ClientGUIFunctions.WrapToolTip( 'Or you can paste bitmaps from clipboard!' ) )
+        self._paste_button.setToolTip( ClientGUIFunctions.WrapToolTip( 'Paste paths/bitmaps/JSON from clipboard!' ) )
         
-        st = ClientGUICommon.BetterStaticText( self, label = 'Drop downloader-encoded pngs onto Lain to import.' )
+        st = ClientGUICommon.BetterStaticText( self, label = 'To import, drag-and-drop hydrus\'s special downloader-encoded pngs onto Lain. Or click her to open a file selection dialog, or copy the png bitmap, file path, or raw downloader JSON to your clipboard and hit the paste button.' )
+        
+        st.setWordWrap( True )
+        st.setAlignment( QC.Qt.AlignCenter )
         
         lain_path = os.path.join( HC.STATIC_DIR, 'lain.jpg' )
         
@@ -982,6 +982,7 @@ class ReviewDownloaderImport( ClientGUIScrolledPanels.ReviewPanel ):
         win.setCursor( QG.QCursor( QC.Qt.PointingHandCursor ) )
         
         self._select_from_list = QW.QCheckBox( self )
+        self._select_from_list.setToolTip( ClientGUIFunctions.WrapToolTip( 'If the payload includes multiple objects (most do), select what you want to import.' ) )
         
         if CG.client_controller.new_options.GetBoolean( 'advanced_mode' ):
             
@@ -990,7 +991,7 @@ class ReviewDownloaderImport( ClientGUIScrolledPanels.ReviewPanel ):
         
         QP.AddToLayout( vbox, help_hbox, CC.FLAGS_ON_RIGHT )
         QP.AddToLayout( vbox, self._repo_link, CC.FLAGS_CENTER )
-        QP.AddToLayout( vbox, st, CC.FLAGS_CENTER )
+        QP.AddToLayout( vbox, st, CC.FLAGS_EXPAND_PERPENDICULAR )
         QP.AddToLayout( vbox, self._paste_button, CC.FLAGS_ON_RIGHT )
         QP.AddToLayout( vbox, win, CC.FLAGS_CENTER )
         QP.AddToLayout( vbox, ClientGUICommon.WrapInText( self._select_from_list, self, 'select objects from list' ), CC.FLAGS_EXPAND_SIZER_PERPENDICULAR )
@@ -1434,6 +1435,23 @@ class ReviewDownloaderImport( ClientGUIScrolledPanels.ReviewPanel ):
                 return
                 
             
+        elif CG.client_controller.ClipboardHasLocalPaths():
+            
+            try:
+                
+                paths = CG.client_controller.GetClipboardLocalPaths()
+                
+                self._ImportPaths( paths )
+                
+                return
+                
+            except HydrusExceptions.DataMissing as e:
+                
+                ClientGUIDialogsMessage.ShowCritical( self, 'Problem pasting paths!', f'Sorry, seemed to be a problem: {e}' )
+                
+                return
+                
+            
         else:
             
             try:
@@ -1487,7 +1505,7 @@ class ReviewFileEmbeddedMetadata( ClientGUIScrolledPanels.ReviewPanel ):
         
         model = ClientGUIListCtrl.HydrusListItemModelBridge( self, CGLC.COLUMN_LIST_EXIF_DATA.ID, self._ConvertEXIFToListCtrlTuples )
         
-        self._exif_listctrl = ClientGUIListCtrl.BetterListCtrlTreeView( exif_panel, CGLC.COLUMN_LIST_EXIF_DATA.ID, 16, model, activation_callback = self._CopyRow )
+        self._exif_listctrl = ClientGUIListCtrl.BetterListCtrlTreeView( exif_panel, 16, model, activation_callback = self._CopyRow )
         
         label = 'Double-click a row to copy its value to clipboard.'
         
@@ -1845,7 +1863,7 @@ class ReviewFileMaintenance( ClientGUIScrolledPanels.ReviewPanel ):
         
         model = ClientGUIListCtrl.HydrusListItemModelBridge( self, CGLC.COLUMN_LIST_FILE_MAINTENANCE_JOBS.ID, self._ConvertJobTypeToListCtrlTuples )
         
-        self._jobs_listctrl = ClientGUIListCtrl.BetterListCtrlTreeView( jobs_listctrl_panel, CGLC.COLUMN_LIST_FILE_MAINTENANCE_JOBS.ID, 8, model )
+        self._jobs_listctrl = ClientGUIListCtrl.BetterListCtrlTreeView( jobs_listctrl_panel, 8, model )
         
         jobs_listctrl_panel.SetListCtrl( self._jobs_listctrl )
         
@@ -2811,7 +2829,7 @@ class ReviewLocalFileImports( ClientGUIScrolledPanels.ReviewPanel ):
         
         model = ClientGUIListCtrl.HydrusListItemModelBridge( self, CGLC.COLUMN_LIST_INPUT_LOCAL_FILES.ID, self._ConvertListCtrlDataToTuple )
         
-        self._paths_list = ClientGUIListCtrl.BetterListCtrlTreeView( listctrl_panel, CGLC.COLUMN_LIST_INPUT_LOCAL_FILES.ID, 12, model, delete_key_callback = self.RemovePaths )
+        self._paths_list = ClientGUIListCtrl.BetterListCtrlTreeView( listctrl_panel, 12, model, delete_key_callback = self.RemovePaths )
         
         listctrl_panel.SetListCtrl( self._paths_list )
         
@@ -3419,7 +3437,7 @@ class JobSchedulerPanel( QW.QWidget ):
         
         model = ClientGUIListCtrl.HydrusListItemModelBridge( self, CGLC.COLUMN_LIST_JOB_SCHEDULER_REVIEW.ID, self._ConvertDataToListCtrlTuples )
         
-        self._list_ctrl = ClientGUIListCtrl.BetterListCtrlTreeView( self._list_ctrl_panel, CGLC.COLUMN_LIST_JOB_SCHEDULER_REVIEW.ID, 20, model )
+        self._list_ctrl = ClientGUIListCtrl.BetterListCtrlTreeView( self._list_ctrl_panel, 20, model )
         
         self._list_ctrl_panel.SetListCtrl( self._list_ctrl )
         
@@ -3477,7 +3495,7 @@ class ThreadsPanel( QW.QWidget ):
         
         model = ClientGUIListCtrl.HydrusListItemModelBridge( self, CGLC.COLUMN_LIST_THREADS_REVIEW.ID, self._ConvertDataToListCtrlTuples )
         
-        self._list_ctrl = ClientGUIListCtrl.BetterListCtrlTreeView( self._list_ctrl_panel, CGLC.COLUMN_LIST_THREADS_REVIEW.ID, 20, model )
+        self._list_ctrl = ClientGUIListCtrl.BetterListCtrlTreeView( self._list_ctrl_panel, 20, model )
         
         self._list_ctrl_panel.SetListCtrl( self._list_ctrl )
         
@@ -3546,7 +3564,7 @@ class ReviewDeferredDeleteTableData( ClientGUIScrolledPanels.ReviewPanel ):
         
         model = ClientGUIListCtrl.HydrusListItemModelBridge( self, CGLC.COLUMN_LIST_DEFERRED_DELETE_TABLE_DATA.ID, self._ConvertRowToListCtrlTuples )
         
-        self._deferred_delete_listctrl = ClientGUIListCtrl.BetterListCtrlTreeView( deferred_delete_listctrl_panel, CGLC.COLUMN_LIST_DEFERRED_DELETE_TABLE_DATA.ID, 24, model )
+        self._deferred_delete_listctrl = ClientGUIListCtrl.BetterListCtrlTreeView( deferred_delete_listctrl_panel, 24, model )
         
         deferred_delete_listctrl_panel.SetListCtrl( self._deferred_delete_listctrl )
         
@@ -3729,7 +3747,7 @@ class ReviewVacuumData( ClientGUIScrolledPanels.ReviewPanel ):
 
 Because the new database is tightly packed, it will generally be smaller than the original file. This is currently the only way to truncate a hydrus database file.
 
-Vacuuming is an expensive operation. It requires lots of free space on your drive(s) as it creates one (temporary) copy of the database file in your temp directory and another copy in your db dir. Hydrus cannot operate while it is going on, and it tends to run quite slow, about 1-40MB/s. The main benefit is in truncating the database files after you delete a lot of data, so I recommend you only do it after you delete the PTR or similar. If the db file is more than 2GB and has less than 5% free pages, it probably is not worth doing.'''
+Vacuuming is an expensive operation. It creates one (temporary) copy of the database file in your db dir. Hydrus cannot operate while it is going on, and it tends to run quite slow, about 10-50MB/s. The main benefit is in truncating the database files after you delete a lot of data, so I recommend you only do it after you delete the PTR or similar. If the db file is more than 2GB and has less than 5% free pages, it is probably not worth doing.'''
         
         st = ClientGUICommon.BetterStaticText( self, label = info_message )
         
@@ -3739,7 +3757,7 @@ Vacuuming is an expensive operation. It requires lots of free space on your driv
         
         model = ClientGUIListCtrl.HydrusListItemModelBridge( self, CGLC.COLUMN_LIST_VACUUM_DATA.ID, self._ConvertNameToListCtrlTuples )
         
-        self._vacuum_listctrl = ClientGUIListCtrl.BetterListCtrlTreeView( vacuum_listctrl_panel, CGLC.COLUMN_LIST_VACUUM_DATA.ID, 6, model )
+        self._vacuum_listctrl = ClientGUIListCtrl.BetterListCtrlTreeView( vacuum_listctrl_panel, 6, model )
         
         vacuum_listctrl_panel.SetListCtrl( self._vacuum_listctrl )
         
@@ -3774,7 +3792,7 @@ Vacuuming is an expensive operation. It requires lots of free space on your driv
             page_count = vacuum_dict[ 'page_count' ]
             freelist_count = vacuum_dict[ 'freelist_count' ]
             
-            HydrusDB.CheckCanVacuumData( path, page_size, page_count, freelist_count )
+            HydrusDB.CheckCanVacuumIntoData( path, page_size, page_count, freelist_count )
             
         except Exception as e:
             
@@ -3855,9 +3873,9 @@ Vacuuming is an expensive operation. It requires lots of free space on your driv
         
         from hydrus.core import HydrusDB
         
-        vacuum_time_estimate = HydrusDB.GetApproxVacuumDuration( db_size )
+        vacuum_time_estimate = HydrusDB.GetApproxVacuumIntoDuration( db_size )
         
-        pretty_vacuum_time_estimate = '{} to {}'.format( HydrusTime.TimeDeltaToPrettyTimeDelta( vacuum_time_estimate / 40 ), HydrusTime.TimeDeltaToPrettyTimeDelta( vacuum_time_estimate ) )
+        pretty_vacuum_time_estimate = '{} to {}'.format( HydrusTime.TimeDeltaToPrettyTimeDelta( vacuum_time_estimate / 20 ), HydrusTime.TimeDeltaToPrettyTimeDelta( vacuum_time_estimate ) )
         
         return ( vacuum_time_estimate, pretty_vacuum_time_estimate )
         

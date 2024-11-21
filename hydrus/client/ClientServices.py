@@ -1,6 +1,5 @@
 import hashlib
 import json
-import os
 import random
 import threading
 import time
@@ -26,7 +25,6 @@ from hydrus.client import ClientConstants as CC
 from hydrus.client import ClientGlobals as CG
 from hydrus.client import ClientFiles
 from hydrus.client import ClientThreading
-from hydrus.client import ClientTime
 from hydrus.client.gui import QtPorting as QP
 from hydrus.client.importing import ClientImporting
 from hydrus.client.metadata import ClientContentUpdates
@@ -849,7 +847,7 @@ class ServiceRemote( Service ):
         
         if not HydrusTime.TimeHasPassed( self._no_requests_until ):
             
-            raise HydrusExceptions.InsufficientCredentialsException( self._no_requests_reason + ' - next request ' + ClientTime.TimestampToPrettyTimeDelta( self._no_requests_until ) )
+            raise HydrusExceptions.InsufficientCredentialsException( self._no_requests_reason + ' - next request ' + HydrusTime.TimestampToPrettyTimeDelta( self._no_requests_until ) )
             
         
         if including_bandwidth:
@@ -1124,7 +1122,7 @@ class ServiceRestricted( ServiceRemote ):
             
         else:
             
-            s = ClientTime.TimestampToPrettyTimeDelta( self._next_account_sync )
+            s = HydrusTime.TimestampToPrettyTimeDelta( self._next_account_sync )
             
         
         return 'next account sync ' + s

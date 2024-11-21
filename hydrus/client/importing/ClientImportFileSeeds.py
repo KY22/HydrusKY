@@ -133,6 +133,8 @@ class FileSeed( HydrusSerialisable.SerialisableBase ):
     SERIALISABLE_NAME = 'File Import'
     SERIALISABLE_VERSION = 8
     
+    top_wew_default = 'https://big-guys.4u/monica_lewinsky_hott.tiff.exe.vbs'
+    
     def __init__( self, file_seed_type: int = None, file_seed_data: str = None ):
         
         if file_seed_type is None:
@@ -140,11 +142,9 @@ class FileSeed( HydrusSerialisable.SerialisableBase ):
             file_seed_type = FILE_SEED_TYPE_URL
             
         
-        top_wew_default = 'https://big-guys.4u/monica_lewinsky_hott.tiff.exe.vbs'
-        
         if file_seed_data is None:
             
-            file_seed_data = top_wew_default
+            file_seed_data = self.top_wew_default
             
         
         super().__init__()
@@ -153,7 +153,7 @@ class FileSeed( HydrusSerialisable.SerialisableBase ):
         self.file_seed_data = file_seed_data
         self.file_seed_data_for_comparison = file_seed_data
         
-        if self.file_seed_data != top_wew_default:
+        if self.file_seed_data != self.top_wew_default:
             
             self.Normalise() # this fixes the comparison file seed data and fails safely
             
@@ -190,6 +190,11 @@ class FileSeed( HydrusSerialisable.SerialisableBase ):
         
     
     def __hash__( self ):
+        
+        if self.file_seed_data_for_comparison is None:
+            
+            self.file_seed_data_for_comparison = self.file_seed_data
+            
         
         return ( self.file_seed_type, self.file_seed_data_for_comparison ).__hash__()
         
@@ -327,6 +332,12 @@ class FileSeed( HydrusSerialisable.SerialisableBase ):
         
         self._external_filterable_tags = set( serialisable_external_filterable_tags )
         self._external_additional_service_keys_to_tags = HydrusSerialisable.CreateFromSerialisableTuple( serialisable_external_additional_service_keys_to_tags )
+        
+        # fixing a problem when updating to v8 of this object, originally I accidentally reset this to None for local path guys
+        if self.file_seed_data_for_comparison is None:
+            
+            self.file_seed_data_for_comparison = self.file_seed_data
+            
         
         self._primary_urls = set( serialisable_primary_urls )
         self._source_urls = set( serialisable_source_urls )
@@ -592,6 +603,10 @@ class FileSeed( HydrusSerialisable.SerialisableBase ):
                     
                     pass
                     
+                
+            else:
+                
+                file_seed_data_for_comparison = file_seed_data
                 
             
             new_serialisable_info = (
@@ -2370,6 +2385,18 @@ class FileSeedCache( HydrusSerialisable.SerialisableBase ):
             
             self._file_seeds_to_indices = { file_seed : index for ( index, file_seed ) in enumerate( self._file_seeds ) }
             
+            if len( self._file_seeds_to_indices ) != len( self._file_seeds ):
+                
+                # woah, we have some dupes! maybe url classes changed and renormalisation happened, maybe hydev fixed some bad dupe file paths or something
+                # let's correct ourselves now we have the chance; this guy simply cannot handle dupes atm
+                
+                self._file_seeds = HydrusSerialisable.SerialisableList( HydrusData.DedupeList( self._file_seeds ) )
+                
+                self._file_seeds_to_indices = { file_seed : index for ( index, file_seed ) in enumerate( self._file_seeds ) }
+                
+                self._statuses_to_file_seeds_dirty = True
+                
+            
             self._file_seeds_to_indices_dirty = False
             
         
@@ -2445,6 +2472,11 @@ class FileSeedCache( HydrusSerialisable.SerialisableBase ):
         
     
     def _GetSerialisableInfo( self ):
+        
+        if not isinstance( self._file_seeds, HydrusSerialisable.SerialisableList ):
+            
+            self._file_seeds = HydrusSerialisable.SerialisableList( self._file_seeds )
+            
         
         return self._file_seeds.GetSerialisableTuple()
         

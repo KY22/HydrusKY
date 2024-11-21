@@ -2,7 +2,6 @@ import datetime
 import typing
 
 from hydrus.core import HydrusConstants as HC
-from hydrus.core import HydrusGlobals as HG
 from hydrus.core import HydrusSerialisable
 
 from hydrus.client import ClientConstants as CC
@@ -126,20 +125,6 @@ def TimestampIsSensible( timestamp: typing.Optional[ int ] ) -> bool:
     
     return True
     
-
-def TimestampToPrettyTimeDelta( timestamp, just_now_string = 'just now', just_now_threshold = 3, history_suffix = ' ago', show_seconds = True, no_prefix = False ):
-    
-    if CG.client_controller.new_options.GetBoolean( 'always_show_iso_time' ):
-        
-        return HydrusTime.TimestampToPrettyTime( timestamp )
-        
-    else:
-        
-        return HydrusTime.BaseTimestampToPrettyTimeDelta( timestamp, just_now_string = just_now_string, just_now_threshold = just_now_threshold, history_suffix = history_suffix, show_seconds = show_seconds, no_prefix = no_prefix )
-        
-    
-
-HydrusTime.TimestampToPrettyTimeDelta = TimestampToPrettyTimeDelta
 
 REAL_SIMPLE_TIMESTAMP_TYPES = {
     HC.TIMESTAMP_TYPE_ARCHIVED,

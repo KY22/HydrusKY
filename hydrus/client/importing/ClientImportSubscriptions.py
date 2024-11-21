@@ -1,4 +1,3 @@
-import os
 import random
 import threading
 import time
@@ -18,7 +17,6 @@ from hydrus.client import ClientConstants as CC
 from hydrus.client import ClientDaemons
 from hydrus.client import ClientGlobals as CG
 from hydrus.client import ClientThreading
-from hydrus.client import ClientTime
 from hydrus.client.importing import ClientImporting
 from hydrus.client.importing import ClientImportGallerySeeds
 from hydrus.client.importing import ClientImportSubscriptionQuery
@@ -1467,22 +1465,6 @@ class Subscription( HydrusSerialisable.SerialisableBaseNamed ):
             
         
     
-    def RetryFailed( self ):
-        
-        for query_header in self._query_headers:
-            
-            query_header.RetryFailed()
-            
-        
-    
-    def RetryIgnored( self, ignored_regex = None ):
-        
-        for query_header in self._query_headers:
-            
-            query_header.RetryIgnored( ignored_regex = ignored_regex )
-            
-        
-    
     def Separate( self, base_name, only_these_query_headers = None ):
         
         if only_these_query_headers is None:
@@ -2100,7 +2082,7 @@ class SubscriptionsManager( ClientDaemons.ManagerWithMainLoop ):
             message += '\n' * 2
             message += '{} not runnable: {}'.format( HydrusNumbers.ToHumanInt( len( self._names_that_cannot_run ) ), ', '.join( cannot_run ) )
             message += '\n' * 2
-            message += '{} next times: {}'.format( HydrusNumbers.ToHumanInt( len( self._names_to_next_work_time ) ), ', '.join( ( '{}: {}'.format( name, ClientTime.TimestampToPrettyTimeDelta( next_work_time ) ) for ( name, next_work_time ) in next_times ) ) )
+            message += '{} next times: {}'.format( HydrusNumbers.ToHumanInt( len( self._names_to_next_work_time ) ), ', '.join( ( '{}: {}'.format( name, HydrusTime.TimestampToPrettyTimeDelta( next_work_time ) ) for ( name, next_work_time ) in next_times ) ) )
             
             HydrusData.ShowText( message )
             
