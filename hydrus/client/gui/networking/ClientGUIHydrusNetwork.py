@@ -257,7 +257,7 @@ class EditAccountTypesPanel( ClientGUIScrolledPanels.EditPanel ):
             
             dlg_edit.SetPanel( panel )
             
-            if dlg_edit.exec() == QW.QDialog.Accepted:
+            if dlg_edit.exec() == QW.QDialog.DialogCode.Accepted:
                 
                 new_account_type = panel.GetValue()
                 
@@ -285,7 +285,7 @@ class EditAccountTypesPanel( ClientGUIScrolledPanels.EditPanel ):
         
         result = ClientGUIDialogsQuick.GetYesNo( self, 'Remove all selected?' )
         
-        if result == QW.QDialog.Accepted:
+        if result == QW.QDialog.DialogCode.Accepted:
             
             account_types_about_to_delete = self._account_types_listctrl.GetData( only_selected = True )
             
@@ -363,7 +363,7 @@ class EditAccountTypesPanel( ClientGUIScrolledPanels.EditPanel ):
             
             dlg_edit.SetPanel( panel )
             
-            if dlg_edit.exec() == QW.QDialog.Accepted:
+            if dlg_edit.exec() == QW.QDialog.DialogCode.Accepted:
                 
                 edited_account_type = panel.GetValue()
                 
@@ -421,7 +421,7 @@ class ListAccountsPanel( ClientGUIScrolledPanels.ReviewPanel ):
         self._accounts_box = ClientGUICommon.StaticBox( self, 'accounts' )
         
         self._account_list = ClientGUIListBoxes.BetterQListWidget( self._accounts_box )
-        self._account_list.setSelectionMode( QW.QListWidget.ExtendedSelection )
+        self._account_list.setSelectionMode( QW.QAbstractItemView.SelectionMode.ExtendedSelection )
         
         ( min_width, min_height ) = ClientGUIFunctions.ConvertTextToPixels( self._account_list, ( 74, 16 ) )
         
@@ -450,7 +450,7 @@ class ListAccountsPanel( ClientGUIScrolledPanels.ReviewPanel ):
             
             item.setText( text )
             
-            item.setData( QC.Qt.UserRole, account )
+            item.setData( QC.Qt.ItemDataRole.UserRole, account )
             
             self._account_list.addItem( item )
             
@@ -510,7 +510,7 @@ class ReviewAccountsPanel( QW.QWidget ):
         self._status_st = ClientGUICommon.BetterStaticText( self._accounts_box )
         
         self._account_list = ClientGUICommon.BetterCheckBoxList( self._accounts_box )
-        self._account_list.setSelectionMode( QW.QAbstractItemView.SingleSelection )
+        self._account_list.setSelectionMode( QW.QAbstractItemView.SelectionMode.SingleSelection )
         
         ( min_width, min_height ) = ClientGUIFunctions.ConvertTextToPixels( self._account_list, ( 74, 6 ) )
         
@@ -553,7 +553,7 @@ class ReviewAccountsPanel( QW.QWidget ):
             
             account_info_components = []
             
-            account_key = item.data( QC.Qt.UserRole )
+            account_key = item.data( QC.Qt.ItemDataRole.UserRole )
             
             my_admin_account = self._service.GetAccount()
             
@@ -637,7 +637,7 @@ class ReviewAccountsPanel( QW.QWidget ):
         account_identifiers = self._account_identifiers
         service = self._service
         
-        pre_refresh_selected_account_keys = { item.data( QC.Qt.UserRole ) for item in self._account_list.selectedItems() }
+        pre_refresh_selected_account_keys = { item.data( QC.Qt.ItemDataRole.UserRole ) for item in self._account_list.selectedItems() }
         
         checked_account_keys = self.GetCheckedAccountKeys()
         
@@ -727,7 +727,7 @@ class ReviewAccountsPanel( QW.QWidget ):
                 
                 item = QW.QListWidgetItem()
                 
-                item.setFlags( item.flags() | QC.Qt.ItemIsUserCheckable )
+                item.setFlags( item.flags() | QC.Qt.ItemFlag.ItemIsUserCheckable )
                 
                 account = self._account_keys_to_accounts[ account_key ]
                 
@@ -742,14 +742,14 @@ class ReviewAccountsPanel( QW.QWidget ):
                 
                 if not self._done_first_fetch or account_key in checked_account_keys:
                     
-                    item.setCheckState( QC.Qt.Checked )
+                    item.setCheckState( QC.Qt.CheckState.Checked )
                     
                 else:
                     
-                    item.setCheckState( QC.Qt.Unchecked )
+                    item.setCheckState( QC.Qt.CheckState.Unchecked )
                     
                 
-                item.setData( QC.Qt.UserRole, account_key )
+                item.setData( QC.Qt.ItemDataRole.UserRole, account_key )
                 
                 self._account_list.addItem( item )
                 
@@ -812,9 +812,9 @@ class ReviewAccountsPanel( QW.QWidget ):
             
             item = self._account_list.item( i )
             
-            if item.checkState() == QC.Qt.Checked:
+            if item.checkState() == QC.Qt.CheckState.Checked:
                 
-                account_keys.add( item.data( QC.Qt.UserRole ) )
+                account_keys.add( item.data( QC.Qt.ItemDataRole.UserRole ) )
                 
             
         
@@ -839,11 +839,11 @@ class ReviewAccountsPanel( QW.QWidget ):
             
             item = self._account_list.item( i )
             
-            checked_account_key = item.data( QC.Qt.UserRole )
+            checked_account_key = item.data( QC.Qt.ItemDataRole.UserRole )
             
             if checked_account_key == account_key:
                 
-                item.setCheckState( QC.Qt.Unchecked )
+                item.setCheckState( QC.Qt.CheckState.Unchecked )
                 
                 return
                 
@@ -856,13 +856,13 @@ class ReviewAccountsPanel( QW.QWidget ):
             
             item = self._account_list.item( i )
             
-            account_key = item.data( QC.Qt.UserRole )
+            account_key = item.data( QC.Qt.ItemDataRole.UserRole )
             
             account = self._account_keys_to_accounts[ account_key ]
             
             if account.IsNullAccount():
                 
-                item.setCheckState( QC.Qt.Unchecked )
+                item.setCheckState( QC.Qt.CheckState.Unchecked )
                 
                 return
                 
@@ -1058,7 +1058,7 @@ class ModifyAccountsPanel( ClientGUIScrolledPanels.ReviewPanel ):
         
         result = ClientGUIDialogsQuick.GetYesNo( self, message )
         
-        if result != QW.QDialog.Accepted:
+        if result != QW.QDialog.DialogCode.Accepted:
             
             return
             
@@ -1105,7 +1105,7 @@ class ModifyAccountsPanel( ClientGUIScrolledPanels.ReviewPanel ):
         
         result = ClientGUIDialogsQuick.GetYesNo( self, message )
         
-        if result != QW.QDialog.Accepted:
+        if result != QW.QDialog.DialogCode.Accepted:
             
             return
             
@@ -1157,7 +1157,7 @@ class ModifyAccountsPanel( ClientGUIScrolledPanels.ReviewPanel ):
             
             result = ClientGUIDialogsQuick.GetYesNo( self, message )
             
-            if result != QW.QDialog.Accepted:
+            if result != QW.QDialog.DialogCode.Accepted:
                 
                 return
                 
@@ -1178,7 +1178,7 @@ class ModifyAccountsPanel( ClientGUIScrolledPanels.ReviewPanel ):
         
         result = ClientGUIDialogsQuick.GetYesNo( self, message )
         
-        if result != QW.QDialog.Accepted:
+        if result != QW.QDialog.DialogCode.Accepted:
             
             return
             
@@ -1241,7 +1241,7 @@ class ModifyAccountsPanel( ClientGUIScrolledPanels.ReviewPanel ):
         
         result = ClientGUIDialogsQuick.GetYesNo( self, message )
         
-        if result != QW.QDialog.Accepted:
+        if result != QW.QDialog.DialogCode.Accepted:
             
             return
             
@@ -1354,7 +1354,7 @@ class ModifyAccountsPanel( ClientGUIScrolledPanels.ReviewPanel ):
         
         result = ClientGUIDialogsQuick.GetYesNo( self, yn_message )
         
-        if result != QW.QDialog.Accepted:
+        if result != QW.QDialog.DialogCode.Accepted:
             
             return
             
@@ -1415,7 +1415,7 @@ class ModifyAccountsPanel( ClientGUIScrolledPanels.ReviewPanel ):
         
         result = ClientGUIDialogsQuick.GetYesNo( self, message )
         
-        if result != QW.QDialog.Accepted:
+        if result != QW.QDialog.DialogCode.Accepted:
             
             return
             
@@ -1520,7 +1520,7 @@ class ModifyAccountsPanel( ClientGUIScrolledPanels.ReviewPanel ):
         
         result = ClientGUIDialogsQuick.GetYesNo( self, message )
         
-        if result != QW.QDialog.Accepted:
+        if result != QW.QDialog.DialogCode.Accepted:
             
             return
             

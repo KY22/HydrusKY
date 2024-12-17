@@ -39,8 +39,8 @@ class DialogPageChooser( ClientGUIDialogs.Dialog ):
         self._button_3 = QW.QPushButton( '', self )
         
         size_policy = self._button_1.sizePolicy()
-        size_policy.setVerticalPolicy( QW.QSizePolicy.Expanding )
-        size_policy.setHorizontalPolicy( QW.QSizePolicy.Expanding )
+        size_policy.setVerticalPolicy( QW.QSizePolicy.Policy.Expanding )
+        size_policy.setHorizontalPolicy( QW.QSizePolicy.Policy.Expanding )
         size_policy.setRetainSizeWhenHidden( True )
         
         self._button_7.setSizePolicy( size_policy )
@@ -64,15 +64,15 @@ class DialogPageChooser( ClientGUIDialogs.Dialog ):
         self._button_3.setObjectName('3')
         
         # this ensures these buttons won't get focus and receive key events, letting dialog handle arrow/number shortcuts
-        self._button_7.setFocusPolicy( QC.Qt.NoFocus )
-        self._button_8.setFocusPolicy( QC.Qt.NoFocus )
-        self._button_9.setFocusPolicy( QC.Qt.NoFocus )
-        self._button_4.setFocusPolicy( QC.Qt.NoFocus )
-        self._button_5.setFocusPolicy( QC.Qt.NoFocus )
-        self._button_6.setFocusPolicy( QC.Qt.NoFocus )
-        self._button_1.setFocusPolicy( QC.Qt.NoFocus )
-        self._button_2.setFocusPolicy( QC.Qt.NoFocus )
-        self._button_3.setFocusPolicy( QC.Qt.NoFocus )
+        self._button_7.setFocusPolicy( QC.Qt.FocusPolicy.NoFocus )
+        self._button_8.setFocusPolicy( QC.Qt.FocusPolicy.NoFocus )
+        self._button_9.setFocusPolicy( QC.Qt.FocusPolicy.NoFocus )
+        self._button_4.setFocusPolicy( QC.Qt.FocusPolicy.NoFocus )
+        self._button_5.setFocusPolicy( QC.Qt.FocusPolicy.NoFocus )
+        self._button_6.setFocusPolicy( QC.Qt.FocusPolicy.NoFocus )
+        self._button_1.setFocusPolicy( QC.Qt.FocusPolicy.NoFocus )
+        self._button_2.setFocusPolicy( QC.Qt.FocusPolicy.NoFocus )
+        self._button_3.setFocusPolicy( QC.Qt.FocusPolicy.NoFocus )
         
         gridbox = QP.GridLayout( cols = 3 )
         
@@ -225,7 +225,7 @@ class DialogPageChooser( ClientGUIDialogs.Dialog ):
                 
                 self._action_picked = True
                 
-                self.done( QW.QDialog.Accepted )
+                self.done( QW.QDialog.DialogCode.Accepted )
                 
             
         
@@ -326,9 +326,9 @@ class DialogPageChooser( ClientGUIDialogs.Dialog ):
     
     def event( self, event ):
         
-        if event.type() == QC.QEvent.WindowDeactivate and not self._action_picked:
+        if event.type() == QC.QEvent.Type.WindowDeactivate and not self._action_picked:
             
-            self.done( QW.QDialog.Rejected )
+            self.done( QW.QDialog.DialogCode.Rejected )
             
             return True
             
@@ -344,20 +344,20 @@ class DialogPageChooser( ClientGUIDialogs.Dialog ):
         
         ( modifier, key ) = ClientGUIShortcuts.ConvertKeyEventToSimpleTuple( event )
         
-        if key == QC.Qt.Key_Up: button_id = 8
-        elif key == QC.Qt.Key_Left: button_id = 4
-        elif key == QC.Qt.Key_Right: button_id = 6
-        elif key == QC.Qt.Key_Down: button_id = 2
-        elif key == QC.Qt.Key_1 and modifier == QC.Qt.KeypadModifier: button_id = 1
-        elif key == QC.Qt.Key_2 and modifier == QC.Qt.KeypadModifier: button_id = 2
-        elif key == QC.Qt.Key_3 and modifier == QC.Qt.KeypadModifier: button_id = 3
-        elif key == QC.Qt.Key_4 and modifier == QC.Qt.KeypadModifier: button_id = 4
-        elif key == QC.Qt.Key_5 and modifier == QC.Qt.KeypadModifier: button_id = 5
-        elif key == QC.Qt.Key_6 and modifier == QC.Qt.KeypadModifier: button_id = 6
-        elif key == QC.Qt.Key_7 and modifier == QC.Qt.KeypadModifier: button_id = 7
-        elif key == QC.Qt.Key_8 and modifier == QC.Qt.KeypadModifier: button_id = 8
-        elif key == QC.Qt.Key_9 and modifier == QC.Qt.KeypadModifier: button_id = 9
-        elif key in ( QC.Qt.Key_Enter, QC.Qt.Key_Return ):
+        if key == QC.Qt.Key.Key_Up: button_id = 8
+        elif key == QC.Qt.Key.Key_Left: button_id = 4
+        elif key == QC.Qt.Key.Key_Right: button_id = 6
+        elif key == QC.Qt.Key.Key_Down: button_id = 2
+        elif key == QC.Qt.Key.Key_1 and modifier == QC.Qt.KeyboardModifier.KeypadModifier: button_id = 1
+        elif key == QC.Qt.Key.Key_2 and modifier == QC.Qt.KeyboardModifier.KeypadModifier: button_id = 2
+        elif key == QC.Qt.Key.Key_3 and modifier == QC.Qt.KeyboardModifier.KeypadModifier: button_id = 3
+        elif key == QC.Qt.Key.Key_4 and modifier == QC.Qt.KeyboardModifier.KeypadModifier: button_id = 4
+        elif key == QC.Qt.Key.Key_5 and modifier == QC.Qt.KeyboardModifier.KeypadModifier: button_id = 5
+        elif key == QC.Qt.Key.Key_6 and modifier == QC.Qt.KeyboardModifier.KeypadModifier: button_id = 6
+        elif key == QC.Qt.Key.Key_7 and modifier == QC.Qt.KeyboardModifier.KeypadModifier: button_id = 7
+        elif key == QC.Qt.Key.Key_8 and modifier == QC.Qt.KeyboardModifier.KeypadModifier: button_id = 8
+        elif key == QC.Qt.Key.Key_9 and modifier == QC.Qt.KeyboardModifier.KeypadModifier: button_id = 9
+        elif key in ( QC.Qt.Key.Key_Enter, QC.Qt.Key.Key_Return ):
             
             # get the 'first', scanning from top-left
             
@@ -371,9 +371,9 @@ class DialogPageChooser( ClientGUIDialogs.Dialog ):
                     
                 
             
-        elif key == QC.Qt.Key_Escape:
+        elif key == QC.Qt.Key.Key_Escape:
             
-            self.done( QW.QDialog.Rejected )
+            self.done( QW.QDialog.DialogCode.Rejected )
             
             return
             

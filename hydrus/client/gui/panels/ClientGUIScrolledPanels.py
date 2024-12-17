@@ -17,7 +17,7 @@ class ResizingEventFilter( QC.QObject ):
         
         try:
             
-            if event.type() == QC.QEvent.Resize:
+            if event.type() == QC.QEvent.Type.Resize:
                 
                 parent = self.parent()
                 
@@ -233,7 +233,7 @@ class EditSingleCtrlPanel( CAC.ApplicationCommandProcessorMixin, EditPanel ):
         
         self.widget().setLayout( self._vbox )
         
-        self._my_shortcuts_handler = ClientGUIShortcuts.ShortcutsHandler( self, [ 'media' ] )
+        self._my_shortcuts_handler = ClientGUIShortcuts.ShortcutsHandler( self, self, [ 'media' ] )
         
     
     def GetValue( self ):

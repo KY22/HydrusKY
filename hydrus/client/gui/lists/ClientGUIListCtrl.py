@@ -118,14 +118,14 @@ class HydrusListItemModel( QC.QAbstractItemModel ):
         return self._column_list_status.GetColumnCount()
         
     
-    def data( self, index: QC.QModelIndex, role = QC.Qt.DisplayRole ):
+    def data( self, index: QC.QModelIndex, role = QC.Qt.ItemDataRole.DisplayRole ):
         
         if not index.isValid():
             
             return None
             
         
-        if role in ( QC.Qt.DisplayRole, QC.Qt.ToolTipRole ):
+        if role in ( QC.Qt.ItemDataRole.DisplayRole, QC.Qt.ItemDataRole.ToolTipRole ):
             
             column_type = self._ConvertCurrentColumnIntToColumnType( index.column() )
             
@@ -135,7 +135,7 @@ class HydrusListItemModel( QC.QAbstractItemModel ):
                 
                 display_tuple = self._data_to_display_tuple_func( data )
                 
-                display_tuple = tuple( ( HydrusText.GetFirstLine( t ) for t in display_tuple ) )
+                display_tuple = tuple( ( HydrusText.GetFirstLineSummary( t ) for t in display_tuple ) )
                 
                 self._data_to_display_tuples[ data ] = display_tuple
                 
@@ -144,7 +144,8 @@ class HydrusListItemModel( QC.QAbstractItemModel ):
             
             text = self._data_to_display_tuples[ data ][ column_logical_position ]
             
-            if role == QC.Qt.ToolTipRole:
+            # TODO: might be nice to maintain an optional tooltip dict for when the getfirstlinesummary differs, so we can tooltip the whole contents
+            if role == QC.Qt.ItemDataRole.ToolTipRole:
                 
                 return ClientGUIFunctions.WrapToolTip( text )
                 
@@ -154,7 +155,7 @@ class HydrusListItemModel( QC.QAbstractItemModel ):
                 
             
             
-        elif role == QC.Qt.UserRole:
+        elif role == QC.Qt.ItemDataRole.UserRole:
             
             return self._indices_to_data[ index.row() ] # same data no matter the column in this system!
             
@@ -208,10 +209,10 @@ class HydrusListItemModel( QC.QAbstractItemModel ):
         
         if not index.isValid():
             
-            return QC.Qt.NoItemFlags
+            return QC.Qt.ItemFlag.NoItemFlags
             
         
-        return QC.Qt.ItemIsEnabled | QC.Qt.ItemIsSelectable | QC.Qt.ItemNeverHasChildren
+        return QC.Qt.ItemFlag.ItemIsEnabled | QC.Qt.ItemFlag.ItemIsSelectable | QC.Qt.ItemFlag.ItemNeverHasChildren
         
     
     def GetColumnListType( self ) -> int:
@@ -266,7 +267,7 @@ class HydrusListItemModel( QC.QAbstractItemModel ):
         return data in self._data_to_indices
         
     
-    def headerData( self, section: int, orientation: QC.Qt.Orientation, role = QC.Qt.DisplayRole ):
+    def headerData( self, section: int, orientation: QC.Qt.Orientation, role = QC.Qt.ItemDataRole.DisplayRole ):
         
         if orientation != QC.Qt.Orientation.Horizontal:
             
@@ -275,7 +276,7 @@ class HydrusListItemModel( QC.QAbstractItemModel ):
         
         column_type = self._ConvertCurrentColumnIntToColumnType( section )
         
-        if role in ( QC.Qt.DisplayRole, QC.Qt.ToolTipRole ):
+        if role in ( QC.Qt.ItemDataRole.DisplayRole, QC.Qt.ItemDataRole.ToolTipRole ):
             
             if column_type in self._column_types_to_name_overrides:
                 
@@ -288,7 +289,7 @@ class HydrusListItemModel( QC.QAbstractItemModel ):
             
             return name
             
-        elif role == QC.Qt.UserRole:
+        elif role == QC.Qt.ItemDataRole.UserRole:
             
             return column_type
             
@@ -349,7 +350,7 @@ class HydrusListItemModel( QC.QAbstractItemModel ):
             
         
     
-    def sort( self, column_logical_position: int, order: QC.Qt.SortOrder = QC.Qt.AscendingOrder ):
+    def sort( self, column_logical_position: int, order: QC.Qt.SortOrder = QC.Qt.SortOrder.AscendingOrder ):
         
         self.layoutAboutToBeChanged.emit()
         
@@ -358,9 +359,9 @@ class HydrusListItemModel( QC.QAbstractItemModel ):
         # it would also allow quick filtering
         # note, important, however, that you need to be careful in the view or whatever to do mapFromSource and mapToSource when handling indices since they'll jump around via the proxy's sort/filtering
         
-        self._sort_column_type = self.headerData( column_logical_position, QC.Qt.Orientation.Horizontal, QC.Qt.UserRole )
+        self._sort_column_type = self.headerData( column_logical_position, QC.Qt.Orientation.Horizontal, QC.Qt.ItemDataRole.UserRole )
         
-        asc = order == QC.Qt.AscendingOrder
+        asc = order == QC.Qt.SortOrder.AscendingOrder
         
         # anything with busted None sort data gets appended to the end
         no_sort_data_magic_reverso_index_failure = 1 if asc else -1
@@ -488,7 +489,7 @@ class HydrusListItemModel( QC.QAbstractItemModel ):
             top_left = self.index( index, 0 )
             bottom_right = self.index( index, self.columnCount() - 1 )
             
-            self.dataChanged.emit( top_left, bottom_right, [ QC.Qt.DisplayRole, QC.Qt.ToolTipRole ] )
+            self.dataChanged.emit( top_left, bottom_right, [ QC.Qt.ItemDataRole.DisplayRole, QC.Qt.ItemDataRole.ToolTipRole ] )
             
         
         return sort_data_has_changed
@@ -544,10 +545,10 @@ class BetterListCtrlTreeView( QW.QTreeView ):
         self.setUniformRowHeights( True )
         self.setAlternatingRowColors( True )
         self.setSortingEnabled( True )
-        self.setSelectionMode( QW.QAbstractItemView.ExtendedSelection )
-        self.setSelectionBehavior( QW.QTreeView.SelectRows )
+        self.setSelectionMode( QW.QAbstractItemView.SelectionMode.ExtendedSelection )
+        self.setSelectionBehavior( QW.QAbstractItemView.SelectionBehavior.SelectRows )
         self.setRootIsDecorated( False )
-        self.setEditTriggers( QW.QTreeView.NoEditTriggers )
+        self.setEditTriggers( QW.QAbstractItemView.EditTrigger.NoEditTriggers )
         
         self._initial_height_num_chars = height_num_chars
         self._forced_height_num_chars = None
@@ -627,7 +628,7 @@ class BetterListCtrlTreeView( QW.QTreeView ):
         self.model().rowsInserted.connect( self._PreserveSelectionRestore )
         self.model().rowsRemoved.connect( self._PreserveSelectionRestore )
         
-        self.header().setContextMenuPolicy( QC.Qt.CustomContextMenu )
+        self.header().setContextMenuPolicy( QC.Qt.ContextMenuPolicy.CustomContextMenu )
         self.header().customContextMenuRequested.connect( self._ShowHeaderMenu )
         
         CG.client_controller.CallAfterQtSafe( self, 'initialising multi-column list widths', self._InitialiseColumnWidths )
@@ -703,7 +704,7 @@ class BetterListCtrlTreeView( QW.QTreeView ):
             
             logical_index = header.logicalIndex( visual_index )
             
-            column_type = self.model().headerData( logical_index, QC.Qt.Orientation.Horizontal, QC.Qt.UserRole )
+            column_type = self.model().headerData( logical_index, QC.Qt.Orientation.Horizontal, QC.Qt.ItemDataRole.UserRole )
             
             width_pixels = header.sectionSize( logical_index )
             shown = not header.isSectionHidden( logical_index )
@@ -737,7 +738,7 @@ class BetterListCtrlTreeView( QW.QTreeView ):
         order = self.header().sortIndicatorOrder()
         
         sort_column_type = status.GetColumnTypeFromIndex( sort_column )
-        sort_asc = order == QC.Qt.AscendingOrder
+        sort_asc = order == QC.Qt.SortOrder.AscendingOrder
         
         status.SetSort( sort_column_type, sort_asc )
         
@@ -857,7 +858,7 @@ class BetterListCtrlTreeView( QW.QTreeView ):
         
         self._rows_menu_callable = menu_callable
         
-        self.setContextMenuPolicy( QC.Qt.CustomContextMenu )
+        self.setContextMenuPolicy( QC.Qt.ContextMenuPolicy.CustomContextMenu )
         self.customContextMenuRequested.connect( self.EventShowMenu )
         
     
@@ -891,19 +892,19 @@ class BetterListCtrlTreeView( QW.QTreeView ):
             
             event_processed = True
             
-        elif key in ( QC.Qt.Key_Enter, QC.Qt.Key_Return ):
+        elif key in ( QC.Qt.Key.Key_Enter, QC.Qt.Key.Key_Return ):
             
             self.ProcessActivateAction()
             
             event_processed = True
             
-        elif key in ( ord( 'A' ), ord( 'a' ) ) and modifier == QC.Qt.ControlModifier:
+        elif key in ( ord( 'A' ), ord( 'a' ) ) and modifier == QC.Qt.KeyboardModifier.ControlModifier:
             
             self.selectAll()
             
             event_processed = True
             
-        elif key in ( ord( 'C' ), ord( 'c' ) ) and modifier == QC.Qt.ControlModifier:
+        elif key in ( ord( 'C' ), ord( 'c' ) ) and modifier == QC.Qt.KeyboardModifier.ControlModifier:
             
             if self._copy_rows_callable is not None:
                 
@@ -1043,7 +1044,7 @@ class BetterListCtrlTreeView( QW.QTreeView ):
     
     def mouseDoubleClickEvent( self, event: QG.QMouseEvent ):
         
-        if event.button() == QC.Qt.LeftButton:
+        if event.button() == QC.Qt.MouseButton.LeftButton:
             
             index = self.indexAt(event.pos())  # Get the index of the item clicked
             
@@ -1255,7 +1256,7 @@ class BetterListCtrlTreeView( QW.QTreeView ):
             
             self.scrollTo( model_index, hint = QW.QAbstractItemView.ScrollHint.PositionAtCenter )
             
-            self.setFocus( QC.Qt.OtherFocusReason )
+            self.setFocus( QC.Qt.FocusReason.OtherFocusReason )
             
         
     
@@ -1276,7 +1277,7 @@ class BetterListCtrlTreeView( QW.QTreeView ):
                 
                 model_index = model.GetModelIndexFromData( data )
                 
-                selection_model.select( model_index, QC.QItemSelectionModel.Deselect | QC.QItemSelectionModel.Rows )
+                selection_model.select( model_index, QC.QItemSelectionModel.SelectionFlag.Deselect | QC.QItemSelectionModel.SelectionFlag.Rows )
                 
             
         
@@ -1286,7 +1287,7 @@ class BetterListCtrlTreeView( QW.QTreeView ):
             
             model_index = model.GetModelIndexFromData( data )
             
-            selection_model.select( model_index, QC.QItemSelectionModel.Select | QC.QItemSelectionModel.Rows )
+            selection_model.select( model_index, QC.QItemSelectionModel.SelectionFlag.Select | QC.QItemSelectionModel.SelectionFlag.Rows )
             
         
         if len( selectee_datas ) > 0:
@@ -1295,7 +1296,7 @@ class BetterListCtrlTreeView( QW.QTreeView ):
             
             model_index = model.GetModelIndexFromData( data )
             
-            selection_model.setCurrentIndex( model_index, QC.QItemSelectionModel.Current )
+            selection_model.setCurrentIndex( model_index, QC.QItemSelectionModel.SelectionFlag.Current )
             
         
     
@@ -1328,7 +1329,7 @@ class BetterListCtrlTreeView( QW.QTreeView ):
         
         result = ClientGUIDialogsQuick.GetYesNo( self, 'Remove all selected?' )
         
-        if result == QW.QDialog.Accepted:
+        if result == QW.QDialog.DialogCode.Accepted:
             
             self.DeleteSelected()
             
@@ -1353,7 +1354,7 @@ class BetterListCtrlTreeView( QW.QTreeView ):
             # TODO: this may want to be column_list_column_type_logical_position_lookup rather than the status lookup, depending on how we implement column order memory
             # or it may simply need to navigate that question carefully if we have multiple lists open with different orders or whatever
             column = self._column_list_status.GetColumnIndexFromType( sort_column_type )
-            ord = QC.Qt.AscendingOrder if sort_asc else QC.Qt.DescendingOrder
+            ord = QC.Qt.SortOrder.AscendingOrder if sort_asc else QC.Qt.SortOrder.DescendingOrder
             
             # do not call model().sort directly, it does not update the header arrow gubbins
             self.sortByColumn( column, ord )
@@ -1513,9 +1514,9 @@ class BetterListCtrlPanel( QW.QWidget ):
             
             json = export_object.DumpToString()
             
-            with QP.FileDialog( self, 'select where to save the json file', default_filename = 'export.json', wildcard = 'JSON (*.json)', acceptMode = QW.QFileDialog.AcceptSave, fileMode = QW.QFileDialog.AnyFile ) as f_dlg:
+            with QP.FileDialog( self, 'select where to save the json file', default_filename = 'export.json', wildcard = 'JSON (*.json)', acceptMode = QW.QFileDialog.AcceptMode.AcceptSave, fileMode = QW.QFileDialog.FileMode.AnyFile ) as f_dlg:
                 
-                if f_dlg.exec() == QW.QDialog.Accepted:
+                if f_dlg.exec() == QW.QDialog.DialogCode.Accepted:
                     
                     path = f_dlg.GetPath()
                     
@@ -1527,7 +1528,7 @@ class BetterListCtrlPanel( QW.QWidget ):
                         
                         result = ClientGUIDialogsQuick.GetYesNo( self, message )
                         
-                        if result != QW.QDialog.Accepted:
+                        if result != QW.QDialog.DialogCode.Accepted:
                             
                             return
                             
@@ -1665,6 +1666,8 @@ class BetterListCtrlPanel( QW.QWidget ):
                 return
                 
             
+            # TODO: add a thing here that checks for local paths and eats up PNG or JSON files depending obviously on file content
+            
         else:
             
             try:
@@ -1704,9 +1707,9 @@ class BetterListCtrlPanel( QW.QWidget ):
     
     def _ImportFromJSON( self ):
         
-        with QP.FileDialog( self, 'select the json or jsons with the serialised data', acceptMode = QW.QFileDialog.AcceptOpen, fileMode = QW.QFileDialog.ExistingFiles, wildcard = 'JSON (*.json)|*.json' ) as dlg:
+        with QP.FileDialog( self, 'select the json or jsons with the serialised data', acceptMode = QW.QFileDialog.AcceptMode.AcceptOpen, fileMode = QW.QFileDialog.FileMode.ExistingFiles, wildcard = 'JSON (*.json)|*.json' ) as dlg:
             
-            if dlg.exec() == QW.QDialog.Accepted:
+            if dlg.exec() == QW.QDialog.DialogCode.Accepted:
                 
                 paths = dlg.GetPaths()
                 
@@ -1719,9 +1722,9 @@ class BetterListCtrlPanel( QW.QWidget ):
     
     def _ImportFromPNG( self ):
         
-        with QP.FileDialog( self, 'select the png or pngs with the encoded data', acceptMode = QW.QFileDialog.AcceptOpen, fileMode = QW.QFileDialog.ExistingFiles, wildcard = 'PNG (*.png)|*.png' ) as dlg:
+        with QP.FileDialog( self, 'select the png or pngs with the encoded data', acceptMode = QW.QFileDialog.AcceptMode.AcceptOpen, fileMode = QW.QFileDialog.FileMode.ExistingFiles, wildcard = 'PNG (*.png)|*.png' ) as dlg:
             
-            if dlg.exec() == QW.QDialog.Accepted:
+            if dlg.exec() == QW.QDialog.DialogCode.Accepted:
                 
                 paths = dlg.GetPaths()
                 
@@ -2067,7 +2070,7 @@ class BetterListCtrlPanel( QW.QWidget ):
         
         result = ClientGUIDialogsQuick.GetYesNo( self, message )
         
-        if result == QW.QDialog.Accepted:
+        if result == QW.QDialog.DialogCode.Accepted:
             
             ( jsons, pngs ) = HydrusData.PartitionIteratorIntoLists( lambda path: path.endswith( '.png' ), paths )
             

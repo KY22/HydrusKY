@@ -25,7 +25,7 @@ class NetworkJobControl( QW.QFrame ):
         
         super().__init__( parent )
         
-        self.setFrameStyle( QW.QFrame.Box | QW.QFrame.Raised )
+        self.setFrameStyle( QW.QFrame.Shape.Box | QW.QFrame.Shadow.Raised )
         
         self._should_update_freely = False
         
@@ -35,7 +35,7 @@ class NetworkJobControl( QW.QFrame ):
         
         self._left_text = ClientGUICommon.BetterStaticText( self, ellipsize_end = True )
         self._right_text = ClientGUICommon.BetterStaticText( self )
-        self._right_text.setAlignment( QC.Qt.AlignRight | QC.Qt.AlignVCenter )
+        self._right_text.setAlignment( QC.Qt.AlignmentFlag.AlignRight | QC.Qt.AlignmentFlag.AlignVCenter )
         
         self._last_right_min_width = 0
         
@@ -89,7 +89,7 @@ class NetworkJobControl( QW.QFrame ):
             
             dlg.SetPanel( panel )
             
-            if dlg.exec() == QW.QDialog.Accepted:
+            if dlg.exec() == QW.QDialog.DialogCode.Accepted:
                 
                 bandwidth_rules = panel.GetValue()
                 

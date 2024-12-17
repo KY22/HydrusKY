@@ -43,7 +43,7 @@ class EditSelectFromListPanel( ClientGUIScrolledPanels.EditPanel ):
             
             item = QW.QListWidgetItem()
             item.setText( label )
-            item.setData( QC.Qt.UserRole, value )
+            item.setData( QC.Qt.ItemDataRole.UserRole, value )
             self._list.addItem( item )
             
         
@@ -157,6 +157,61 @@ class EditSelectFromListButtonsPanel( ClientGUIScrolledPanels.EditPanel ):
     def GetValue( self ):
         
         return self._data
+        
+    
+
+class ReviewSelectFromListButtonsPanel( ClientGUIScrolledPanels.ReviewPanel ):
+    
+    def __init__( self, parent: QW.QWidget, choices, message = '' ):
+        
+        super().__init__( parent )
+        
+        vbox = QP.VBoxLayout()
+        
+        if message != '':
+            
+            st = ClientGUICommon.BetterStaticText( self, label = message )
+            
+            st.setWordWrap( True )
+            
+            QP.AddToLayout( vbox, st, CC.FLAGS_EXPAND_PERPENDICULAR )
+            
+        
+        first_focused = False
+        
+        for ( text, call, tt ) in choices:
+            
+            button = ClientGUICommon.BetterButton( self, text, call )
+            
+            button.SetCall( self._DoButton, button, call )
+            
+            button.setMinimumWidth( ClientGUIFunctions.ConvertTextToPixelWidth( button, 20 ) )
+            
+            button.setToolTip( ClientGUIFunctions.WrapToolTip( tt ) )
+            
+            QP.AddToLayout( vbox, button, CC.FLAGS_EXPAND_BOTH_WAYS )
+            
+            if not first_focused:
+                
+                ClientGUIFunctions.SetFocusLater( button )
+                
+                first_focused = True
+                
+            
+        
+        self.widget().setLayout( vbox )
+        
+    
+    def _DoButton( self, button: ClientGUICommon.BetterButton, call ):
+        
+        try:
+            
+            call()
+            
+        except HydrusExceptions.VetoException:
+            
+            button.setEnabled( False )
+            
         
     
 

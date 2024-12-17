@@ -46,6 +46,7 @@ from hydrus.client.gui.importing import ClientGUIImport
 from hydrus.client.gui.importing import ClientGUIImportOptions
 from hydrus.client.gui.lists import ClientGUIListConstants as CGLC
 from hydrus.client.gui.lists import ClientGUIListCtrl
+from hydrus.client.gui.metadata import ClientGUITime
 from hydrus.client.gui.panels import ClientGUIScrolledPanels
 from hydrus.client.gui.search import ClientGUIACDropdown
 from hydrus.client.gui.widgets import ClientGUICommon
@@ -83,19 +84,19 @@ class AboutPanel( ClientGUIScrolledPanels.ReviewPanel ):
         #
         
         desc_label = ClientGUICommon.BetterStaticText( self, description_versions )
-        desc_label.setAlignment( QC.Qt.AlignHCenter | QC.Qt.AlignVCenter )
+        desc_label.setAlignment( QC.Qt.AlignmentFlag.AlignHCenter | QC.Qt.AlignmentFlag.AlignVCenter )
         
         #
         
         availability_label = ClientGUICommon.BetterStaticText( self, description_availability )
-        availability_label.setAlignment( QC.Qt.AlignHCenter | QC.Qt.AlignVCenter )
+        availability_label.setAlignment( QC.Qt.AlignmentFlag.AlignHCenter | QC.Qt.AlignmentFlag.AlignVCenter )
         
         #
         
         credits = QW.QTextEdit( self )
         credits.setPlainText( 'Created by ' + ', '.join( developers ) )
         credits.setReadOnly( True )
-        credits.setAlignment( QC.Qt.AlignHCenter )
+        credits.setAlignment( QC.Qt.AlignmentFlag.AlignHCenter )
         
         license_textedit = QW.QTextEdit( self )
         license_textedit.setPlainText( license_text )
@@ -167,7 +168,7 @@ class MoveMediaFilesPanel( ClientGUIScrolledPanels.ReviewPanel ):
         model = ClientGUIListCtrl.HydrusListItemModelBridge( self, CGLC.COLUMN_LIST_DB_MIGRATION_LOCATIONS.ID, self._ConvertLocationToListCtrlTuples )
         
         self._current_media_base_locations_listctrl = ClientGUIListCtrl.BetterListCtrlTreeView( current_media_base_locations_listctrl_panel, 8, model, activation_callback = self._SetMaxNumBytes )
-        self._current_media_base_locations_listctrl.setSelectionMode( QW.QAbstractItemView.SingleSelection )
+        self._current_media_base_locations_listctrl.setSelectionMode( QW.QAbstractItemView.SelectionMode.SingleSelection )
         
         self._current_media_base_locations_listctrl.Sort()
         
@@ -187,7 +188,7 @@ class MoveMediaFilesPanel( ClientGUIScrolledPanels.ReviewPanel ):
         self._thumbnails_location_clear = ClientGUICommon.BetterButton( file_locations_panel, 'clear', self._ClearThumbnailLocation )
         
         self._rebalance_status_st = ClientGUICommon.BetterStaticText( file_locations_panel )
-        self._rebalance_status_st.setAlignment( QC.Qt.AlignRight | QC.Qt.AlignVCenter )
+        self._rebalance_status_st.setAlignment( QC.Qt.AlignmentFlag.AlignRight | QC.Qt.AlignmentFlag.AlignVCenter )
         
         self._rebalance_button = ClientGUICommon.BetterButton( file_locations_panel, 'move files now', self._Rebalance )
         
@@ -399,7 +400,7 @@ class MoveMediaFilesPanel( ClientGUIScrolledPanels.ReviewPanel ):
         
         result = ClientGUIDialogsQuick.GetYesNo( self, message )
         
-        if result != QW.QDialog.Accepted:
+        if result != QW.QDialog.DialogCode.Accepted:
             
             return
             
@@ -689,6 +690,7 @@ class MoveMediaFilesPanel( ClientGUIScrolledPanels.ReviewPanel ):
         yes_tuples.append( ( 'run for 10 minutes', 600 ) )
         yes_tuples.append( ( 'run for 30 minutes', 1800 ) )
         yes_tuples.append( ( 'run for 1 hour', 3600 ) )
+        yes_tuples.append( ( 'run for custom time', -1 ) )
         yes_tuples.append( ( 'run indefinitely', None ) )
         
         try:
@@ -705,6 +707,31 @@ class MoveMediaFilesPanel( ClientGUIScrolledPanels.ReviewPanel ):
             stop_time = None
             
         else:
+            
+            if result == -1:
+                
+                with ClientGUITopLevelWindowsPanels.DialogEdit( self, 'set time to run' ) as dlg:
+                    
+                    panel = ClientGUIScrolledPanels.EditSingleCtrlPanel( dlg )
+                    
+                    control = ClientGUITime.TimeDeltaCtrl( self, min = 60, days = False, hours = True, minutes = True )
+                    
+                    control.SetValue( 7200 )
+                    
+                    panel.SetControl( control, perpendicular = True )
+                    
+                    dlg.SetPanel( panel )
+                    
+                    if dlg.exec() == QW.QDialog.DialogCode.Accepted:
+                        
+                        result = int( control.GetValue() )
+                        
+                    else:
+                        
+                        return
+                        
+                    
+                
             
             stop_time = HydrusTime.GetNow() + result
             
@@ -759,7 +786,7 @@ class MoveMediaFilesPanel( ClientGUIScrolledPanels.ReviewPanel ):
         
         result = ClientGUIDialogsQuick.GetYesNo( self, message )
         
-        if result == QW.QDialog.Accepted:
+        if result == QW.QDialog.DialogCode.Accepted:
             
             self._media_base_locations.remove( base_location )
             
@@ -792,7 +819,7 @@ class MoveMediaFilesPanel( ClientGUIScrolledPanels.ReviewPanel ):
         
         with QP.DirDialog( self, 'Select location' ) as dlg:
             
-            if dlg.exec() == QW.QDialog.Accepted:
+            if dlg.exec() == QW.QDialog.DialogCode.Accepted:
                 
                 path = dlg.GetPath()
                 
@@ -838,7 +865,7 @@ class MoveMediaFilesPanel( ClientGUIScrolledPanels.ReviewPanel ):
                     
                     dlg.SetPanel( panel )
                     
-                    if dlg.exec() == QW.QDialog.Accepted:
+                    if dlg.exec() == QW.QDialog.DialogCode.Accepted:
                         
                         max_num_bytes = control.GetValue()
                         
@@ -860,7 +887,7 @@ class MoveMediaFilesPanel( ClientGUIScrolledPanels.ReviewPanel ):
                 dlg.setDirectory( self._ideal_thumbnails_base_location_override.path )
                 
             
-            if dlg.exec() == QW.QDialog.Accepted:
+            if dlg.exec() == QW.QDialog.DialogCode.Accepted:
                 
                 path = dlg.GetPath()
                 
@@ -971,7 +998,7 @@ class ReviewDownloaderImport( ClientGUIScrolledPanels.ReviewPanel ):
         st = ClientGUICommon.BetterStaticText( self, label = 'To import, drag-and-drop hydrus\'s special downloader-encoded pngs onto Lain. Or click her to open a file selection dialog, or copy the png bitmap, file path, or raw downloader JSON to your clipboard and hit the paste button.' )
         
         st.setWordWrap( True )
-        st.setAlignment( QC.Qt.AlignCenter )
+        st.setAlignment( QC.Qt.AlignmentFlag.AlignCenter )
         
         lain_path = os.path.join( HC.STATIC_DIR, 'lain.jpg' )
         
@@ -979,7 +1006,7 @@ class ReviewDownloaderImport( ClientGUIScrolledPanels.ReviewPanel ):
         
         win = ClientGUICommon.BufferedWindowIcon( self, lain_qt_pixmap )
         
-        win.setCursor( QG.QCursor( QC.Qt.PointingHandCursor ) )
+        win.setCursor( QG.QCursor( QC.Qt.CursorShape.PointingHandCursor ) )
         
         self._select_from_list = QW.QCheckBox( self )
         self._select_from_list.setToolTip( ClientGUIFunctions.WrapToolTip( 'If the payload includes multiple objects (most do), select what you want to import.' ) )
@@ -1381,7 +1408,7 @@ class ReviewDownloaderImport( ClientGUIScrolledPanels.ReviewPanel ):
         
         result = ClientGUIDialogsQuick.GetYesNo( self, message )
         
-        if result != QW.QDialog.Accepted:
+        if result != QW.QDialog.DialogCode.Accepted:
             
             return
             
@@ -1476,9 +1503,9 @@ class ReviewDownloaderImport( ClientGUIScrolledPanels.ReviewPanel ):
     
     def EventLainClick( self, event ):
         
-        with QP.FileDialog( self, 'Select the pngs to add.', acceptMode = QW.QFileDialog.AcceptOpen, fileMode = QW.QFileDialog.ExistingFiles ) as dlg:
+        with QP.FileDialog( self, 'Select the pngs to add.', acceptMode = QW.QFileDialog.AcceptMode.AcceptOpen, fileMode = QW.QFileDialog.FileMode.ExistingFiles ) as dlg:
             
-            if dlg.exec() == QW.QDialog.Accepted:
+            if dlg.exec() == QW.QDialog.DialogCode.Accepted:
                 
                 paths = dlg.GetPaths()
                 
@@ -1518,7 +1545,7 @@ class ReviewFileEmbeddedMetadata( ClientGUIScrolledPanels.ReviewPanel ):
         st = ClientGUICommon.BetterStaticText( exif_panel, label = label )
         
         st.setWordWrap( True )
-        st.setAlignment( QC.Qt.AlignCenter )
+        st.setAlignment( QC.Qt.AlignmentFlag.AlignCenter )
         
         exif_panel.Add( st, CC.FLAGS_EXPAND_PERPENDICULAR )
         exif_panel.Add( self._exif_listctrl, CC.FLAGS_EXPAND_BOTH_WAYS )
@@ -1692,7 +1719,7 @@ class ReviewFileHistory( ClientGUIScrolledPanels.ReviewPanel ):
         )
         
         self._loading_text = ClientGUICommon.BetterStaticText( self._search_panel )
-        self._loading_text.setAlignment( QC.Qt.AlignVCenter | QC.Qt.AlignRight )
+        self._loading_text.setAlignment( QC.Qt.AlignmentFlag.AlignVCenter | QC.Qt.AlignmentFlag.AlignRight )
         
         self._cancel_button = ClientGUICommon.BetterBitmapButton( self._search_panel, CC.global_pixmaps().stop, self._CancelCurrentSearch )
         self._refresh_button = ClientGUICommon.BetterBitmapButton( self._search_panel, CC.global_pixmaps().refresh, self._RefreshSearch )
@@ -2001,7 +2028,7 @@ class ReviewFileMaintenance( ClientGUIScrolledPanels.ReviewPanel ):
             
             result = ClientGUIDialogsQuick.GetYesNo( self, message, yes_label = 'do it', no_label = 'forget it' )
             
-            if result != QW.QDialog.Accepted:
+            if result != QW.QDialog.DialogCode.Accepted:
                 
                 return
                 
@@ -2065,7 +2092,7 @@ class ReviewFileMaintenance( ClientGUIScrolledPanels.ReviewPanel ):
         
         result = ClientGUIDialogsQuick.GetYesNo( self, message )
         
-        if result != QW.QDialog.Accepted:
+        if result != QW.QDialog.DialogCode.Accepted:
             
             return
             
@@ -2372,7 +2399,7 @@ class ReviewHowBonedAmI( ClientGUIScrolledPanels.ReviewPanel ):
         )
         
         self._loading_text = ClientGUICommon.BetterStaticText( self._search_panel )
-        self._loading_text.setAlignment( QC.Qt.AlignVCenter | QC.Qt.AlignRight )
+        self._loading_text.setAlignment( QC.Qt.AlignmentFlag.AlignVCenter | QC.Qt.AlignmentFlag.AlignRight )
         
         self._cancel_button = ClientGUICommon.BetterBitmapButton( self._search_panel, CC.global_pixmaps().stop, self._CancelCurrentSearch )
         self._refresh_button = ClientGUICommon.BetterBitmapButton( self._search_panel, CC.global_pixmaps().refresh, self._RefreshSearch )
@@ -2864,7 +2891,7 @@ class ReviewLocalFileImports( ClientGUIScrolledPanels.ReviewPanel ):
         self._cog_button = ClientGUIMenuButton.MenuBitmapButton( self, CC.global_pixmaps().cog, menu_items )
         
         self._delete_after_success_st = ClientGUICommon.BetterStaticText( self )
-        self._delete_after_success_st.setAlignment( QC.Qt.AlignRight | QC.Qt.AlignVCenter )
+        self._delete_after_success_st.setAlignment( QC.Qt.AlignmentFlag.AlignRight | QC.Qt.AlignmentFlag.AlignVCenter )
         self._delete_after_success_st.setObjectName( 'HydrusWarning' )
         
         self._delete_after_success = QW.QCheckBox( 'delete original files after successful import', self )
@@ -2966,7 +2993,7 @@ class ReviewLocalFileImports( ClientGUIScrolledPanels.ReviewPanel ):
                 
                 dlg.SetPanel( panel )
                 
-                if dlg.exec() == QW.QDialog.Accepted:
+                if dlg.exec() == QW.QDialog.DialogCode.Accepted:
                     
                     ( metadata_routers, paths_to_additional_service_keys_to_tags ) = panel.GetValue()
                     
@@ -3022,7 +3049,7 @@ class ReviewLocalFileImports( ClientGUIScrolledPanels.ReviewPanel ):
         
         with QP.DirDialog( self, 'Select a folder to add.' ) as dlg:
             
-            if dlg.exec() == QW.QDialog.Accepted:
+            if dlg.exec() == QW.QDialog.DialogCode.Accepted:
                 
                 path = dlg.GetPath()
                 
@@ -3033,9 +3060,9 @@ class ReviewLocalFileImports( ClientGUIScrolledPanels.ReviewPanel ):
     
     def AddPaths( self ):
         
-        with QP.FileDialog( self, 'Select the files to add.', fileMode = QW.QFileDialog.ExistingFiles ) as dlg:
+        with QP.FileDialog( self, 'Select the files to add.', fileMode = QW.QFileDialog.FileMode.ExistingFiles ) as dlg:
             
-            if dlg.exec() == QW.QDialog.Accepted:
+            if dlg.exec() == QW.QDialog.DialogCode.Accepted:
                 
                 paths = dlg.GetPaths()
                 
@@ -3086,7 +3113,7 @@ class ReviewLocalFileImports( ClientGUIScrolledPanels.ReviewPanel ):
         
         result = ClientGUIDialogsQuick.GetYesNo( self, text )
         
-        if result == QW.QDialog.Accepted:
+        if result == QW.QDialog.DialogCode.Accepted:
             
             paths_to_delete = self._paths_list.GetData( only_selected = True )
             
@@ -3894,7 +3921,7 @@ Vacuuming is an expensive operation. It creates one (temporary) copy of the data
             
             result = ClientGUIDialogsQuick.GetYesNo( self, message, yes_label = 'do it', no_label = 'forget it' )
             
-            if result == QW.QDialog.Accepted:
+            if result == QW.QDialog.DialogCode.Accepted:
                 
                 self._controller.Write( 'vacuum', names )
                 

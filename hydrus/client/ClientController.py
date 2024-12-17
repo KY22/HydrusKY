@@ -576,7 +576,7 @@ class Controller( HydrusController.HydrusController ):
                 
                 result = ClientGUIDialogsQuick.GetYesNo( self._splash, message, title = 'The client is already running.', yes_label = 'wait a bit, then try again', no_label = 'forget it' )
                 
-                if result != QW.QDialog.Accepted:
+                if result != QW.QDialog.DialogCode.Accepted:
                     
                     raise HydrusExceptions.ShutdownException()
                     
@@ -1127,7 +1127,7 @@ class Controller( HydrusController.HydrusController ):
                 
                 dlg.SetPanel( panel )
                 
-                if dlg.exec() == QW.QDialog.Accepted:
+                if dlg.exec() == QW.QDialog.DialogCode.Accepted:
                     
                     self.client_files_manager = ClientFiles.ClientFilesManager( self )
                     
@@ -1232,6 +1232,13 @@ class Controller( HydrusController.HydrusController ):
         #
         
         self.frame_splash_status.SetSubtext( 'network' )
+        
+        if self.new_options.GetBoolean( 'set_requests_ca_bundle_env' ):
+            
+            from hydrus.client import ClientEnvironment
+            
+            ClientEnvironment.SetRequestsCABundleEnv()
+            
         
         if self.new_options.GetBoolean( 'boot_with_network_traffic_paused' ):
             
@@ -1414,7 +1421,7 @@ class Controller( HydrusController.HydrusController ):
                     
                     with ClientGUIDialogs.DialogTextEntry( self._splash, 'Enter your password.', allow_blank = False, password_entry = True, min_char_width = 24 ) as dlg:
                         
-                        if dlg.exec() == QW.QDialog.Accepted:
+                        if dlg.exec() == QW.QDialog.DialogCode.Accepted:
                             
                             password_bytes = bytes( dlg.GetValue(), 'utf-8' )
                             
@@ -1866,7 +1873,7 @@ class Controller( HydrusController.HydrusController ):
         
         with QP.DirDialog( self.gui, 'Select backup location.' ) as dlg:
             
-            if dlg.exec() == QW.QDialog.Accepted:
+            if dlg.exec() == QW.QDialog.DialogCode.Accepted:
                 
                 path = dlg.GetPath()
                 
@@ -1878,7 +1885,7 @@ class Controller( HydrusController.HydrusController ):
                 
                 result = ClientGUIDialogsQuick.GetYesNo( self.gui, text )
                 
-                if result == QW.QDialog.Accepted:
+                if result == QW.QDialog.DialogCode.Accepted:
                     
                     self._restore_backup_path = path
                     self._doing_fast_exit = False

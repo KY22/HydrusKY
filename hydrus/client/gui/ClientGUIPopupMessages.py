@@ -36,7 +36,7 @@ class PopupWindow( QW.QFrame ):
         
         super().__init__( parent )
         
-        self.setFrameStyle( QW.QFrame.Box | QW.QFrame.Plain )
+        self.setFrameStyle( QW.QFrame.Shape.Box | QW.QFrame.Shadow.Plain )
         
         self._widget_event_filter = QP.WidgetEventFilter( self )
         self._widget_event_filter.EVT_RIGHT_DOWN( self.EventDismiss )
@@ -68,7 +68,7 @@ class PopupMessage( PopupWindow ):
         vbox = QP.VBoxLayout( vbox_margin )
         
         self._title = ClientGUICommon.BetterStaticText( self )
-        self._title.setAlignment( QC.Qt.AlignHCenter | QC.Qt.AlignVCenter )
+        self._title.setAlignment( QC.Qt.AlignmentFlag.AlignHCenter | QC.Qt.AlignmentFlag.AlignVCenter )
         
         font = self._title.font()
         font.setBold( True )
@@ -808,7 +808,7 @@ class PopupMessageManager( QW.QFrame ):
         
         super().__init__( parent )
         
-        self.setFrameStyle( QW.QFrame.Panel | QW.QFrame.Raised )
+        self.setFrameStyle( QW.QFrame.Shape.Panel | QW.QFrame.Shadow.Raised )
         self.setLineWidth( 1 )
         
         # We need this, or else if the QSS does not define a Widget background color (the default), these 'raised' windows are transparent lmao
@@ -1227,7 +1227,7 @@ class PopupMessageManager( QW.QFrame ):
             
             if watched == self.parentWidget():
                 
-                if event.type() in ( QC.QEvent.Resize, QC.QEvent.Move, QC.QEvent.WindowStateChange ):
+                if event.type() in ( QC.QEvent.Type.Resize, QC.QEvent.Type.Move, QC.QEvent.Type.WindowStateChange ):
                     
                     if self._OKToAlterUI():
                         
@@ -1423,7 +1423,7 @@ class PopupMessageDialogPanel( QW.QWidget ):
                 self._yesno_open = False
                 
             
-            if result == QW.QDialog.Accepted:
+            if result == QW.QDialog.DialogCode.Accepted:
                 
                 self._job_status.Cancel()
                 
@@ -1482,7 +1482,7 @@ class PopupMessageSummaryBar( QW.QFrame ):
         
         super().__init__( parent )
         
-        self.setFrameStyle( QW.QFrame.Box | QW.QFrame.Plain )
+        self.setFrameStyle( QW.QFrame.Shape.Box | QW.QFrame.Shadow.Plain )
         
         hbox = QP.HBoxLayout()
         

@@ -216,8 +216,8 @@ class MPVWidget( CAC.ApplicationCommandProcessorMixin, QW.QWidget ):
             LOCALE_IS_SET = True
             
         
-        self.setAttribute( QC.Qt.WA_DontCreateNativeAncestors )
-        self.setAttribute( QC.Qt.WA_NativeWindow )
+        self.setAttribute( QC.Qt.WidgetAttribute.WA_DontCreateNativeAncestors )
+        self.setAttribute( QC.Qt.WidgetAttribute.WA_NativeWindow )
         
         # loglevels: fatal, error, debug
         loglevel = 'debug' if HG.mpv_report_mode else 'error'
@@ -250,7 +250,7 @@ class MPVWidget( CAC.ApplicationCommandProcessorMixin, QW.QWidget ):
         
         # pass up un-button-pressed mouse moves to parent, which wants to do cursor show/hide
         self.setMouseTracking( True )
-        #self.setFocusPolicy(QC.Qt.StrongFocus)#Needed to get key events
+        #self.setFocusPolicy(QC.Qt.FocusPolicy.StrongFocus)#Needed to get key events
         self._player.input_cursor = False#Disable mpv mouse move/click event capture
         self._player.input_vo_keyboard = False#Disable mpv key event capture, might also need to set input_x11_keyboard
         
@@ -275,7 +275,7 @@ class MPVWidget( CAC.ApplicationCommandProcessorMixin, QW.QWidget ):
         
         self.installEventFilter( self )
         
-        self._my_shortcut_handler = ClientGUIShortcuts.ShortcutsHandler( self, [], catch_mouse = True )
+        self._my_shortcut_handler = ClientGUIShortcuts.ShortcutsHandler( self, self, [], catch_mouse = True )
         
         try:
             

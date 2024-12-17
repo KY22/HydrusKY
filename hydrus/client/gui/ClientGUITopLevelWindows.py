@@ -427,7 +427,7 @@ class NewDialog( QP.Dialog ):
         
         if do_not_activate:
             
-            self.setAttribute( QC.Qt.WA_ShowWithoutActivating )
+            self.setAttribute( QC.Qt.WidgetAttribute.WA_ShowWithoutActivating )
             
         
         self.setWindowTitle( title )
@@ -473,11 +473,11 @@ class NewDialog( QP.Dialog ):
             return False
             
         
-        if value == QW.QDialog.Rejected:
+        if value == QW.QDialog.DialogCode.Rejected:
             
             self.SetCancelled( True )
             
-        elif value == QW.QDialog.Accepted:
+        elif value == QW.QDialog.DialogCode.Accepted:
             
             self._SaveOKPosition()
             
@@ -534,7 +534,7 @@ class NewDialog( QP.Dialog ):
     
     def DoOK( self ):
         
-        self._TryEndModal( QW.QDialog.Accepted )
+        self._TryEndModal( QW.QDialog.DialogCode.Accepted )
         
     
     def closeEvent( self, event ):
@@ -544,7 +544,7 @@ class NewDialog( QP.Dialog ):
             return
             
         
-        was_ended = self._TryEndModal( QW.QDialog.Rejected )
+        was_ended = self._TryEndModal( QW.QDialog.DialogCode.Rejected )
         
         if was_ended:
             
@@ -575,7 +575,7 @@ class NewDialog( QP.Dialog ):
                 
             
         
-        self._TryEndModal( QW.QDialog.Accepted )
+        self._TryEndModal( QW.QDialog.DialogCode.Accepted )
         
 
     def EventDialogButtonCancel( self ):
@@ -597,7 +597,7 @@ class NewDialog( QP.Dialog ):
                 
             
 
-        self._TryEndModal( QW.QDialog.Rejected )
+        self._TryEndModal( QW.QDialog.DialogCode.Rejected )
         
     
     def keyPressEvent( self, event ):
@@ -613,7 +613,7 @@ class NewDialog( QP.Dialog ):
         
         if event_from_us and ( shortcut == escape_shortcut or ( HC.PLATFORM_MACOS and shortcut == command_w_shortcut ) ):
             
-            self._TryEndModal( QW.QDialog.Rejected )
+            self._TryEndModal( QW.QDialog.DialogCode.Rejected )
             
         else:
             
@@ -643,10 +643,10 @@ class Frame( QW.QWidget ):
         
         self.setWindowTitle( title )
         
-        self.setWindowFlags( QC.Qt.Window )
-        self.setWindowFlag( QC.Qt.WindowContextHelpButtonHint, on = False )
+        self.setWindowFlags( QC.Qt.WindowType.Window )
+        self.setWindowFlag( QC.Qt.WindowType.WindowContextHelpButtonHint, on = False )
         
-        self.setAttribute( QC.Qt.WA_DeleteOnClose )
+        self.setAttribute( QC.Qt.WidgetAttribute.WA_DeleteOnClose )
         
         self._new_options = CG.client_controller.new_options
         

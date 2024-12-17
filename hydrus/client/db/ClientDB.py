@@ -4997,6 +4997,11 @@ class DB( HydrusDB.HydrusDB ):
                     HydrusData.ShowText( 'File import job archiving new file' )
                     
                 
+                if hash_id not in self.modules_files_inbox.inbox_hash_ids:
+                    
+                    self.modules_files_inbox.InboxFiles( ( hash_id, ) )
+                    
+                
                 self.modules_files_inbox.ArchiveFiles( ( hash_id, ) )
                 
                 content_update = ClientContentUpdates.ContentUpdate( HC.CONTENT_TYPE_FILES, HC.CONTENT_UPDATE_ARCHIVE, ( hash, ) )
@@ -5128,6 +5133,8 @@ class DB( HydrusDB.HydrusDB ):
                 'ideal_client_files_locations' : self.modules_files_physical_storage.GetIdealClientFilesLocations,
                 'last_shutdown_work_time' : self.modules_db_maintenance.GetLastShutdownWorkTime,
                 'media_predicates' : self.modules_tag_display.GetMediaPredicates,
+                'missing_archive_timestamps_import_test' : self.modules_files_inbox.WeHaveMissingImportArchiveTimestamps,
+                'missing_archive_timestamps_legacy_test' : self.modules_files_inbox.WeHaveMissingLegacyArchiveTimestamps,
                 'missing_repository_update_hashes' : self.modules_repositories.GetRepositoryUpdateHashesIDoNotHave,
                 'num_deferred_file_deletes' : self.modules_files_storage.GetDeferredPhysicalDeleteCounts,
                 'recent_tags' : self.modules_recent_tags.GetRecentTags,
@@ -5226,6 +5233,8 @@ class DB( HydrusDB.HydrusDB ):
                 'ideal_client_files_locations' : self.modules_files_physical_storage.SetIdealClientFilesLocations,
                 'maintain_hashed_serialisables' : self.modules_serialisable.MaintainHashedStorage,
                 'maintain_similar_files_tree' : self.modules_similar_files.MaintainTree,
+                'missing_archive_timestamps_import_fillin' : self.modules_files_inbox.FillInMissingImportArchiveTimestamps,
+                'missing_archive_timestamps_legacy_fillin' : self.modules_files_inbox.FillInMissingLegacyArchiveTimestamps,
                 'process_repository_definitions' : self.modules_repositories.ProcessRepositoryDefinitions,
                 'push_recent_tags' : self.modules_recent_tags.PushRecentTags,
                 'regenerate_similar_files' : self.modules_similar_files.RegenerateTree,
@@ -5359,7 +5368,7 @@ class DB( HydrusDB.HydrusDB ):
         
         #
         
-        self.modules_files_inbox = ClientDBFilesInbox.ClientDBFilesInbox( self._c, self.modules_files_storage, self.modules_files_timestamps )
+        self.modules_files_inbox = ClientDBFilesInbox.ClientDBFilesInbox( self._c, self.modules_services, self.modules_files_storage, self.modules_files_timestamps )
         
         self._modules.append( self.modules_files_inbox )
         
@@ -5995,7 +6004,7 @@ class DB( HydrusDB.HydrusDB ):
         group_of_hash_ids = self._STL( self._Execute( 'SELECT hash_id FROM shape_search_cache WHERE searched_distance IS NULL or searched_distance < ?;', ( search_distance, ) ).fetchmany( 10 ) )
         
         while len( group_of_hash_ids ) > 0:
-        
+            
             text = 'searching potential duplicates: {}'.format( HydrusNumbers.ToHumanInt( num_done ) )
             
             CG.client_controller.frame_splash_status.SetSubtext( text )
@@ -9052,7 +9061,7 @@ class DB( HydrusDB.HydrusDB ):
                 
                 result = ClientGUIDialogsQuick.GetYesNo( None, message, title = 'Scan PNGs?', yes_label = 'do it', no_label = 'do not do it' )
                 
-                return result == QW.QDialog.Accepted
+                return result == QW.QDialog.DialogCode.Accepted
                 
             
             try:
@@ -9701,7 +9710,7 @@ class DB( HydrusDB.HydrusDB ):
                         
                         result = ClientGUIDialogsQuick.GetYesNo( None, message, title = 'Regen animation thumbnails?', auto_yes_time = 600 )
                         
-                        return result == QW.QDialog.Accepted
+                        return result == QW.QDialog.DialogCode.Accepted
                         
                     
                     do_thumb_regen = self._controller.CallBlockingToQt( None, ask_what_to_do_thumb_regen )
@@ -10118,7 +10127,7 @@ class DB( HydrusDB.HydrusDB ):
                     
                     result = ClientGUIDialogsQuick.GetYesNo( None, message, title = 'Fix broken URLs?', yes_label = 'do it', no_label = 'do not do it, I intentionally store whitespace-separated URLs in my URL store!', auto_yes_time = 600 )
                     
-                    return result == QW.QDialog.Accepted
+                    return result == QW.QDialog.DialogCode.Accepted
                     
                 
                 do_url_fix = self._controller.CallBlockingToQt( None, ask_what_to_do_concatenated_urls )
@@ -10164,7 +10173,7 @@ class DB( HydrusDB.HydrusDB ):
                             
                             result = ClientGUIDialogsQuick.GetYesNo( None, message, title = 'Delete broken URLs?', yes_label = 'do it', no_label = 'no, that sounds like way way way too many, I will talk to hydev', auto_yes_time = 600 )
                             
-                            return result == QW.QDialog.Accepted
+                            return result == QW.QDialog.DialogCode.Accepted
                             
                         
                         do_url_delete = self._controller.CallBlockingToQt( None, ask_what_to_do_delete_urls )
@@ -10203,7 +10212,7 @@ class DB( HydrusDB.HydrusDB ):
                 
                 result = ClientGUIDialogsQuick.GetYesNo( None, message, title = 'Find docx?', yes_label = 'yes, I might have imported some', no_label = 'no, I would not have imported anything like that', auto_yes_time = 600 )
                 
-                return result == QW.QDialog.Accepted
+                return result == QW.QDialog.DialogCode.Accepted
                 
             
             do_docx_scan = self._controller.CallBlockingToQt( None, ask_what_to_do_zip_docx_scan )
@@ -11139,7 +11148,7 @@ class DB( HydrusDB.HydrusDB ):
                     
                     result = ClientGUIDialogsQuick.GetYesNo( None, message, title = 'Re-do permissions update?', yes_label = 'yes, re-run the update', no_label = 'no, I checked everything in "review services" already' )
                     
-                    return result == QW.QDialog.Accepted
+                    return result == QW.QDialog.DialogCode.Accepted
                     
                 
                 client_api_manager = self.modules_serialisable.GetJSONDump( HydrusSerialisable.SERIALISABLE_TYPE_CLIENT_API_MANAGER )
@@ -11294,7 +11303,7 @@ class DB( HydrusDB.HydrusDB ):
                         
                         result = ClientGUIDialogsQuick.GetYesNo( None, message, title = 'Reset modified dates?', yes_label = 'do it', no_label = 'do not do it' )
                         
-                        return result == QW.QDialog.Accepted
+                        return result == QW.QDialog.DialogCode.Accepted
                         
                     
                     do_it = self._controller.CallBlockingToQt( None, ask_what_to_do_false_positive_modified_dates )
@@ -11387,6 +11396,40 @@ class DB( HydrusDB.HydrusDB ):
                 HydrusData.PrintException( e )
                 
                 message = 'Trying to update some downloader objects failed! Please let hydrus dev know!'
+                
+                self.pub_initial_message( message )
+                
+            
+        
+        if version == 601:
+            
+            try:
+                
+                self._controller.frame_splash_status.SetText( f'scanning for missing import archive timestamps' )
+                
+                we_have_missing_import_archive_timestamps = self.modules_files_inbox.WeHaveMissingImportArchiveTimestamps()
+                
+                if not we_have_missing_import_archive_timestamps:
+                    
+                    self._controller.frame_splash_status.SetText( f'scanning for missing legacy archive timestamps' )
+                    
+                    we_have_missing_legacy_archive_timestamps = self.modules_files_inbox.WeHaveMissingLegacyArchiveTimestamps()
+                    
+                else:
+                    
+                    we_have_missing_legacy_archive_timestamps = False
+                    
+                
+                if we_have_missing_import_archive_timestamps or we_have_missing_legacy_archive_timestamps:
+                    
+                    self.pub_initial_message( 'Hey, I discovered you have some missing file archived times, which we can now fill in with synthetic values. Hit up the new "database->file maintenance->fix missing file archived times" job to review your options!' )
+                    
+                
+            except Exception as e:
+                
+                HydrusData.PrintException( e )
+                
+                message = 'Trying to check for archived time gaps failed! Please let hydrus dev know!'
                 
                 self.pub_initial_message( message )
                 
@@ -11890,7 +11933,7 @@ class DB( HydrusDB.HydrusDB ):
     
     def publish_status_update( self ):
         
-        self._controller.pub( 'set_status_bar_dirty' )
+        self._controller.pub( 'set_status_bar_db_dirty' )
         
     
     def GetInitialMessages( self ):

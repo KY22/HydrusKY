@@ -17,7 +17,7 @@ class ListBook( QW.QWidget ):
         super().__init__( parent )
         
         self._page_list = ClientGUIListBoxes.BetterQListWidget( self )
-        self._page_list.setSelectionMode( QW.QListWidget.SingleSelection )
+        self._page_list.setSelectionMode( QW.QAbstractItemView.SelectionMode.SingleSelection )
         
         self._page_list.setFixedWidth( ClientGUIFunctions.ConvertTextToPixelWidth( self._page_list, list_chars_width ) )
         
@@ -135,7 +135,7 @@ class ListBook( QW.QWidget ):
         
         for list_item in [ self._page_list.item( i ) for i in range( self._page_list.count() ) ]:
             
-            if list_item.data( QC.Qt.UserRole ) == page:
+            if list_item.data( QC.Qt.ItemDataRole.UserRole ) == page:
                 
                 self._page_list.setCurrentItem( list_item )
                 
@@ -163,6 +163,6 @@ class ListBook( QW.QWidget ):
     
     def widget( self, index: int ):
         
-        return self._page_list.item( index ).data( QC.Qt.UserRole )
+        return self._page_list.item( index ).data( QC.Qt.ItemDataRole.UserRole )
         
     
