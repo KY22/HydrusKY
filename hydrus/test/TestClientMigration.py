@@ -197,7 +197,7 @@ class TestMigration( unittest.TestCase ):
         self._hashes_to_pending_tags = {}
         self._hashes_to_deleted_tags = {}
         
-        ( size, mime, width, height, duration, num_frames, has_audio, num_words ) = ( 65535, HC.IMAGE_JPEG, 640, 480, None, None, False, None )
+        ( size, mime, width, height, duration_ms, num_frames, has_audio, num_words ) = ( 65535, HC.IMAGE_JPEG, 640, 480, None, None, False, None )
         
         file_import_options = FileImportOptions.FileImportOptions()
         file_import_options.SetIsDefault( True )
@@ -222,7 +222,7 @@ class TestMigration( unittest.TestCase ):
                 fake_file_import_job = ClientImportFiles.FileImportJob( 'fake path', file_import_options )
                 
                 fake_file_import_job._pre_import_file_status = ClientImportFiles.FileImportStatus( CC.STATUS_UNKNOWN, hash )
-                fake_file_import_job._file_info = ( size, mime, width, height, duration, num_frames, has_audio, num_words )
+                fake_file_import_job._file_info = ( size, mime, width, height, duration_ms, num_frames, has_audio, num_words )
                 fake_file_import_job._extra_hashes = ( md5, sha1, sha512 )
                 fake_file_import_job._perceptual_hashes = [ os.urandom( 8 ) ]
                 
@@ -625,7 +625,7 @@ class TestMigration( unittest.TestCase ):
             
             job.Run()
             
-            self._db._weakref_media_result_cache = ClientMediaResultCache.MediaResultCache()
+            self._db.modules_media_results._weakref_media_result_cache = ClientMediaResultCache.MediaResultCache()
             
             hashes_to_media_results = { media_result.GetHash() : media_result for media_result in self.Read( 'media_results', list( self._hashes_to_current_tags.keys() ) ) }
             

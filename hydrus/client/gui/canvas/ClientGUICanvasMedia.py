@@ -337,7 +337,7 @@ class Animation( CAC.ApplicationCommandProcessorMixin, QW.QWidget ):
         
         self._num_frames = 1
         
-        self._frame_durations = None
+        self._frame_durations_ms = None
         
         self._stop_for_slideshow = False
         
@@ -414,7 +414,7 @@ class Animation( CAC.ApplicationCommandProcessorMixin, QW.QWidget ):
                         
                         self._video_container.Stop()
                         
-                        self._video_container = ClientRendering.RasterContainerVideo( self._media, ( target_width, target_height ), init_position = self._current_frame_index, frame_durations = self._frame_durations )
+                        self._video_container = ClientRendering.RasterContainerVideo( self._media, ( target_width, target_height ), init_position = self._current_frame_index, frame_durations_ms = self._frame_durations_ms )
                         
                     
                 elif we_just_zoomed_out:
@@ -423,7 +423,7 @@ class Animation( CAC.ApplicationCommandProcessorMixin, QW.QWidget ):
                         
                         self._video_container.Stop()
                         
-                        self._video_container = ClientRendering.RasterContainerVideo( self._media, ( my_raw_width, my_raw_height ), init_position = self._current_frame_index, frame_durations = self._frame_durations )
+                        self._video_container = ClientRendering.RasterContainerVideo( self._media, ( my_raw_width, my_raw_height ), init_position = self._current_frame_index, frame_durations_ms = self._frame_durations_ms )
                         
                     
                 
@@ -439,7 +439,7 @@ class Animation( CAC.ApplicationCommandProcessorMixin, QW.QWidget ):
         
         if self._video_container is None:
             
-            self._video_container = ClientRendering.RasterContainerVideo( self._media, ( my_raw_width, my_raw_height ), init_position = self._current_frame_index, frame_durations = self._frame_durations )
+            self._video_container = ClientRendering.RasterContainerVideo( self._media, ( my_raw_width, my_raw_height ), init_position = self._current_frame_index, frame_durations_ms = self._frame_durations_ms )
             
         
         if not self._video_container.HasFrame( self._current_frame_index ):
@@ -463,20 +463,20 @@ class Animation( CAC.ApplicationCommandProcessorMixin, QW.QWidget ):
         
         current_frame_image = current_frame.GetQtImage()
         
-        painter.setRenderHint( QG.QPainter.SmoothPixmapTransform, True )
+        painter.setRenderHint( QG.QPainter.RenderHint.SmoothPixmapTransform, True )
 
         # note we draw to self.rect(), which is in DPR coordinates. the pixmap needs to be DPR'd by here mate, this caught us up before
         painter.drawImage( self.rect(), current_frame_image )
         
         self._current_frame_drawn = True
         
-        next_frame_time_s = self._video_container.GetDurationMS( self._current_frame_index ) / 1000.0
+        next_frame_duration_s = HydrusTime.SecondiseMSFloat( self._video_container.GetDurationMS( self._current_frame_index ) )
         
-        next_frame_ideally_due = self._next_frame_due_at + next_frame_time_s
+        next_frame_ideally_due = self._next_frame_due_at + next_frame_duration_s
         
         if HydrusTime.TimeHasPassedPrecise( next_frame_ideally_due ):
             
-            self._next_frame_due_at = HydrusTime.GetNowPrecise() + next_frame_time_s
+            self._next_frame_due_at = HydrusTime.GetNowPrecise() + next_frame_duration_s
             
         else:
             
@@ -781,8 +781,8 @@ class Animation( CAC.ApplicationCommandProcessorMixin, QW.QWidget ):
         
         self._video_container = None
         
-        self._frame_durations = None
-        self._duration = None
+        self._frame_durations_ms = None
+        self._duration_ms = None
         
         if self._media is None:
             
@@ -794,16 +794,16 @@ class Animation( CAC.ApplicationCommandProcessorMixin, QW.QWidget ):
             
             self._num_frames = self._media.GetNumFrames()
             
-            self._duration = self._media.GetDurationMS()
+            self._duration_ms = self._media.GetDurationMS()
             
             if self._media.GetMime() == HC.ANIMATION_UGOIRA:
                 
-                self._frame_durations = ClientUgoiraHandling.GetFrameDurationsUgoira( media.GetMediaResult() )
+                self._frame_durations_ms = ClientUgoiraHandling.GetFrameDurationsMSUgoira( media.GetMediaResult() )
                 
             
-            if self._duration is None and self._frame_durations is not None:
+            if self._duration_ms is None and self._frame_durations_ms is not None:
                 
-                self._duration = sum( self._frame_durations )
+                self._duration_ms = sum( self._frame_durations_ms )
                 
             
             CG.client_controller.gui.RegisterAnimationUpdateWindow( self )
@@ -812,9 +812,9 @@ class Animation( CAC.ApplicationCommandProcessorMixin, QW.QWidget ):
             
         
         
-    def GetDuration( self ):
+    def GetDurationMS( self ):
         
-        return self._duration
+        return self._duration_ms
         
     
     def GetNumFrames( self ):
@@ -1281,14 +1281,14 @@ class AnimationBar( QW.QWidget ):
             
             self._num_frames = max( num_frames, 1 )
         
-        duration = media.GetDurationMS()
+        duration_ms = media.GetDurationMS()
         
-        if duration is None and isinstance(media_window, Animation):
+        if duration_ms is None and isinstance(media_window, Animation):
             
-            duration = media_window.GetDuration()
+            duration_ms = media_window.GetDurationMS()
             
         
-        self._duration_ms = max( duration, 1 )
+        self._duration_ms = max( duration_ms, 1 )
         
         self._currently_in_a_drag = False
         self._it_was_playing_before_drag = False
@@ -2776,11 +2776,11 @@ class EmbedButton( QW.QWidget ):
             painter.setTransform( QG.QTransform().scale( 1.0, 1.0 ) )
             
         
-        painter.setBrush( QG.QBrush( QG.QPalette().color( QG.QPalette.Button ) ) )
+        painter.setBrush( QG.QBrush( QG.QPalette().color( QG.QPalette.ColorRole.Button ) ) )
         
         painter.drawEllipse( QC.QPointF( center_x, center_y ), radius, radius )
         
-        painter.setBrush( QG.QBrush( QG.QPalette().color( QG.QPalette.Window ) ) )
+        painter.setBrush( QG.QBrush( QG.QPalette().color( QG.QPalette.ColorRole.Window ) ) )
         
         # play symbol is a an equilateral triangle
         
@@ -2804,7 +2804,7 @@ class EmbedButton( QW.QWidget ):
         
         #
         
-        painter.setPen( QG.QPen( QG.QPalette().color( QG.QPalette.Shadow ) ) )
+        painter.setPen( QG.QPen( QG.QPalette().color( QG.QPalette.ColorRole.Shadow ) ) )
 
         painter.setBrush( QC.Qt.BrushStyle.NoBrush )
         

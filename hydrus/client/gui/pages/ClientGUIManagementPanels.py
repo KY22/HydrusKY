@@ -36,6 +36,7 @@ from hydrus.client.gui import QtPorting as QP
 from hydrus.client.gui.canvas import ClientGUICanvas
 from hydrus.client.gui.canvas import ClientGUICanvasFrame
 from hydrus.client.gui.duplicates import ClientGUIDuplicatesAutoResolution
+from hydrus.client.gui.duplicates import ClientGUIDuplicatesContentMergeOptions
 from hydrus.client.gui.duplicates import ClientGUIPotentialDuplicatesSearchContext
 from hydrus.client.gui.importing import ClientGUIFileSeedCache
 from hydrus.client.gui.importing import ClientGUIGallerySeedLog
@@ -52,7 +53,6 @@ from hydrus.client.gui.pages import ClientGUIMediaResultsPanelLoading
 from hydrus.client.gui.pages import ClientGUIMediaResultsPanelThumbnails
 from hydrus.client.gui.pages import ClientGUIMediaResultsPanelSortCollect
 from hydrus.client.gui.panels import ClientGUIScrolledPanels
-from hydrus.client.gui.panels import ClientGUIScrolledPanelsEdit
 from hydrus.client.gui.parsing import ClientGUIParsingFormulae
 from hydrus.client.gui.search import ClientGUIACDropdown
 from hydrus.client.gui.widgets import ClientGUICommon
@@ -649,7 +649,7 @@ class ManagementPanelDuplicateFilter( ManagementPanel ):
         
         QP.AddToLayout( vbox, hbox, CC.FLAGS_EXPAND_PERPENDICULAR )
         QP.AddToLayout( vbox, self._searching_panel, CC.FLAGS_EXPAND_PERPENDICULAR )
-        vbox.addStretch( 1 )
+        vbox.addStretch( 0 )
         
         self._main_left_panel.setLayout( vbox )
         
@@ -702,13 +702,17 @@ class ManagementPanelDuplicateFilter( ManagementPanel ):
         
         with ClientGUITopLevelWindowsPanels.DialogEdit( self, 'edit duplicate merge options' ) as dlg:
             
-            panel = ClientGUIScrolledPanelsEdit.EditDuplicateContentMergeOptionsPanel( dlg, duplicate_type, duplicate_content_merge_options )
+            panel = ClientGUIScrolledPanels.EditSingleCtrlPanel( dlg )
+            
+            ctrl = ClientGUIDuplicatesContentMergeOptions.EditDuplicateContentMergeOptionsWidget( panel, duplicate_type, duplicate_content_merge_options )
+            
+            panel.SetControl( ctrl )
             
             dlg.SetPanel( panel )
             
             if dlg.exec() == QW.QDialog.DialogCode.Accepted:
                 
-                duplicate_content_merge_options = panel.GetValue()
+                duplicate_content_merge_options = ctrl.GetValue()
                 
                 new_options.SetDuplicateContentMergeOptions( duplicate_type, duplicate_content_merge_options )
                 
@@ -2163,7 +2167,7 @@ class ManagementPanelImporterMultipleGallery( ManagementPanelImporter ):
             
             num_items = len( self._gallery_importers_listctrl.GetData() )
             
-            min_time = CG.client_controller.new_options.GetInteger( 'gallery_page_status_update_time_minimum_ms' ) / 1000
+            min_time = HydrusTime.SecondiseMSFloat( CG.client_controller.new_options.GetInteger( 'gallery_page_status_update_time_minimum_ms' ) )
             denominator = CG.client_controller.new_options.GetInteger( 'gallery_page_status_update_time_ratio_denominator' )
             
             try:
@@ -3324,7 +3328,7 @@ class ManagementPanelImporterMultipleWatcher( ManagementPanelImporter ):
             
             num_items = len( self._watchers_listctrl.GetData() )
             
-            min_time = CG.client_controller.new_options.GetInteger( 'watcher_page_status_update_time_minimum_ms' ) / 1000
+            min_time = HydrusTime.SecondiseMSFloat( CG.client_controller.new_options.GetInteger( 'watcher_page_status_update_time_minimum_ms' ) )
             denominator = CG.client_controller.new_options.GetInteger( 'watcher_page_status_update_time_ratio_denominator' )
             
             try:

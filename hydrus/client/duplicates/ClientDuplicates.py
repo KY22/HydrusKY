@@ -43,22 +43,17 @@ SYNC_ARCHIVE_DO_BOTH_REGARDLESS = 2
 
 hashes_to_jpeg_quality = {}
 
-def GetDuplicateComparisonScore( shown_media, comparison_media ):
+def GetDuplicateComparisonScore( shown_media_result: ClientMediaResult.MediaResult, comparison_media_result: ClientMediaResult.MediaResult ):
     
-    statements_and_scores = GetDuplicateComparisonStatements( shown_media, comparison_media )
+    statements_and_scores = GetDuplicateComparisonStatements( shown_media_result, comparison_media_result )
     
     total_score = sum( ( score for ( statement, score ) in statements_and_scores.values() ) )
     
     return total_score
     
 
-# TODO: ok, let's make an enum here at some point and a DuplicateComparisonSetting serialisable object
-# Then we can attach 'show/hide' boolean and allow editable scores and whatnot in a nice class that will one day evolve the enum to an editable MetadataConditional/MetadataComparison object
-# also have banding so we can have 'at this filesize difference, score 10, at this, score 15'
-# show it in a listctrl or whatever in the options, ditch the hardcoding
-# metadatacomparison needs to handle 'if one is a png and one is a jpeg', and then orient to A/B and give it a score
-
-def GetDuplicateComparisonStatements( shown_media, comparison_media ):
+# TODO: All this will be replaced by tools being developed for the duplicates auto-resolution system
+def GetDuplicateComparisonStatements( shown_media_result: ClientMediaResult.MediaResult, comparison_media_result: ClientMediaResult.MediaResult ):
     
     new_options = CG.client_controller.new_options
     
@@ -77,23 +72,23 @@ def GetDuplicateComparisonStatements( shown_media, comparison_media ):
     
     statements_and_scores = {}
     
-    s_hash = shown_media.GetHash()
-    c_hash = comparison_media.GetHash()
+    s_hash = shown_media_result.GetHash()
+    c_hash = comparison_media_result.GetHash()
     
-    s_mime = shown_media.GetMime()
-    c_mime = comparison_media.GetMime()
+    s_mime = shown_media_result.GetMime()
+    c_mime = comparison_media_result.GetMime()
     
     # size
     
-    s_size = shown_media.GetSize()
-    c_size = comparison_media.GetSize()
+    s_size = shown_media_result.GetSize()
+    c_size = comparison_media_result.GetSize()
     
     is_a_pixel_dupe = False
     
-    if s_mime in HC.FILES_THAT_CAN_HAVE_PIXEL_HASH and c_mime in HC.FILES_THAT_CAN_HAVE_PIXEL_HASH and shown_media.GetResolution() == comparison_media.GetResolution():
+    if s_mime in HC.FILES_THAT_CAN_HAVE_PIXEL_HASH and c_mime in HC.FILES_THAT_CAN_HAVE_PIXEL_HASH and shown_media_result.GetResolution() == comparison_media_result.GetResolution():
         
-        s_pixel_hash = shown_media.GetFileInfoManager().pixel_hash
-        c_pixel_hash = comparison_media.GetFileInfoManager().pixel_hash
+        s_pixel_hash = shown_media_result.GetFileInfoManager().pixel_hash
+        c_pixel_hash = comparison_media_result.GetFileInfoManager().pixel_hash
         
         if s_pixel_hash is None or c_pixel_hash is None:
             
@@ -201,8 +196,8 @@ def GetDuplicateComparisonStatements( shown_media, comparison_media ):
     
     # higher/same res
     
-    s_resolution = shown_media.GetResolution()
-    c_resolution = comparison_media.GetResolution()
+    s_resolution = shown_media_result.GetResolution()
+    c_resolution = comparison_media_result.GetResolution()
     
     if s_resolution != c_resolution:
         
@@ -337,20 +332,21 @@ def GetDuplicateComparisonStatements( shown_media, comparison_media ):
     
     # audio/no audio
     
-    s_has_audio = shown_media.GetMediaResult().HasAudio()
-    c_has_audio = comparison_media.GetMediaResult().HasAudio()
+    s_has_audio = shown_media_result.HasAudio()
+    c_has_audio = comparison_media_result.HasAudio()
     
     if s_has_audio != c_has_audio:
         
         if s_has_audio:
-
+            
             audio_statement = 'this has audio, the other does not'
             score = duplicate_comparison_score_has_audio
-
+            
         else:
             
             audio_statement = 'the other has audio, this does not'
-            score = 0
+            score = - duplicate_comparison_score_has_audio
+            
         
         statement = '{} vs {}'.format( s_has_audio, c_has_audio )
 
@@ -359,8 +355,8 @@ def GetDuplicateComparisonStatements( shown_media, comparison_media ):
 
     # more tags
     
-    s_num_tags = len( shown_media.GetTagsManager().GetCurrentAndPending( CC.COMBINED_TAG_SERVICE_KEY, ClientTags.TAG_DISPLAY_DISPLAY_ACTUAL ) )
-    c_num_tags = len( comparison_media.GetTagsManager().GetCurrentAndPending( CC.COMBINED_TAG_SERVICE_KEY, ClientTags.TAG_DISPLAY_DISPLAY_ACTUAL ) )
+    s_num_tags = len( shown_media_result.GetTagsManager().GetCurrentAndPending( CC.COMBINED_TAG_SERVICE_KEY, ClientTags.TAG_DISPLAY_DISPLAY_ACTUAL ) )
+    c_num_tags = len( comparison_media_result.GetTagsManager().GetCurrentAndPending( CC.COMBINED_TAG_SERVICE_KEY, ClientTags.TAG_DISPLAY_DISPLAY_ACTUAL ) )
     
     if s_num_tags != c_num_tags:
         
@@ -395,8 +391,8 @@ def GetDuplicateComparisonStatements( shown_media, comparison_media ):
     
     # older
     
-    s_import_timestamp = HydrusTime.SecondiseMS( shown_media.GetLocationsManager().GetTimesManager().GetImportedTimestampMS( CC.COMBINED_LOCAL_FILE_SERVICE_KEY ) )
-    c_import_timestamp = HydrusTime.SecondiseMS( comparison_media.GetLocationsManager().GetTimesManager().GetImportedTimestampMS( CC.COMBINED_LOCAL_FILE_SERVICE_KEY ) )
+    s_import_timestamp = HydrusTime.SecondiseMS( shown_media_result.GetLocationsManager().GetTimesManager().GetImportedTimestampMS( CC.COMBINED_LOCAL_FILE_SERVICE_KEY ) )
+    c_import_timestamp = HydrusTime.SecondiseMS( comparison_media_result.GetLocationsManager().GetTimesManager().GetImportedTimestampMS( CC.COMBINED_LOCAL_FILE_SERVICE_KEY ) )
     
     one_month = 86400 * 30
     
@@ -488,8 +484,8 @@ def GetDuplicateComparisonStatements( shown_media, comparison_media ):
             
         
     
-    s_has_transparency = shown_media.GetFileInfoManager().has_transparency
-    c_has_transparency = comparison_media.GetFileInfoManager().has_transparency
+    s_has_transparency = shown_media_result.GetFileInfoManager().has_transparency
+    c_has_transparency = comparison_media_result.GetFileInfoManager().has_transparency
     
     if s_has_transparency ^ c_has_transparency:
         
@@ -505,8 +501,8 @@ def GetDuplicateComparisonStatements( shown_media, comparison_media ):
         statements_and_scores[ 'has_transparency' ] = ( transparency_statement, 0 )
         
     
-    s_has_exif = shown_media.GetFileInfoManager().has_exif
-    c_has_exif = comparison_media.GetFileInfoManager().has_exif
+    s_has_exif = shown_media_result.GetFileInfoManager().has_exif
+    c_has_exif = comparison_media_result.GetFileInfoManager().has_exif
     
     if s_has_exif ^ c_has_exif:
         
@@ -522,8 +518,8 @@ def GetDuplicateComparisonStatements( shown_media, comparison_media ):
         statements_and_scores[ 'exif_data' ] = ( exif_statement, 0 )
         
     
-    s_has_human_readable_embedded_metadata = shown_media.GetFileInfoManager().has_human_readable_embedded_metadata
-    c_has_human_readable_embedded_metadata = comparison_media.GetFileInfoManager().has_human_readable_embedded_metadata
+    s_has_human_readable_embedded_metadata = shown_media_result.GetFileInfoManager().has_human_readable_embedded_metadata
+    c_has_human_readable_embedded_metadata = comparison_media_result.GetFileInfoManager().has_human_readable_embedded_metadata
     
     if s_has_human_readable_embedded_metadata ^ c_has_human_readable_embedded_metadata:
         
@@ -539,8 +535,8 @@ def GetDuplicateComparisonStatements( shown_media, comparison_media ):
         statements_and_scores[ 'embedded_metadata' ] = ( embedded_metadata_statement, 0 )
         
     
-    s_has_icc = shown_media.GetMediaResult().GetFileInfoManager().has_icc_profile
-    c_has_icc = comparison_media.GetMediaResult().GetFileInfoManager().has_icc_profile
+    s_has_icc = shown_media_result.GetFileInfoManager().has_icc_profile
+    c_has_icc = comparison_media_result.GetFileInfoManager().has_icc_profile
     
     if s_has_icc ^ c_has_icc:
         
@@ -554,6 +550,53 @@ def GetDuplicateComparisonStatements( shown_media, comparison_media ):
             
         
         statements_and_scores[ 'icc_profile' ] = ( icc_statement, 0 )
+        
+    
+    # hacky, for vid dedupe
+    
+    s_has_duration = shown_media_result.HasDuration()
+    c_has_duration = comparison_media_result.HasDuration()
+    
+    if s_has_duration or c_has_duration:
+        
+        s_duration_s = shown_media_result.GetDurationS()
+        c_duration_s = comparison_media_result.GetDurationS()
+        
+        if s_has_duration and c_has_duration:
+            
+            if s_duration_s == c_duration_s:
+                
+                statement = 'same duration'
+                score = 0
+                
+            else:
+                
+                if s_duration_s > c_duration_s:
+                    
+                    operator = '>'
+                    score = 50
+                    
+                else:
+                    
+                    operator = '<'
+                    score = -50
+                    
+                
+                statement = f'{HydrusTime.TimeDeltaToPrettyTimeDelta( s_duration_s )} {operator} {HydrusTime.TimeDeltaToPrettyTimeDelta( c_duration_s )}'
+                
+            
+        elif s_has_duration:
+            
+            statement = f'this has duration ({HydrusTime.TimeDeltaToPrettyTimeDelta( s_duration_s )}), the other does not'
+            score = 0
+            
+        else:
+            
+            statement = f'the other has duration ({HydrusTime.TimeDeltaToPrettyTimeDelta( c_duration_s )}), the other does not'
+            score = 0
+            
+        
+        statements_and_scores[ 'duration' ] = ( statement, score )
         
     
     return statements_and_scores
@@ -716,7 +759,7 @@ class DuplicatesManager( object ):
                 
                 work_time_ms = CG.client_controller.new_options.GetInteger( 'potential_duplicates_search_work_time_ms' )
                 
-                work_time = work_time_ms / 1000
+                work_time = HydrusTime.SecondiseMSFloat( work_time_ms )
                 
                 ( still_work_to_do, num_done ) = CG.client_controller.WriteSynchronous( 'maintain_similar_files_search_for_potential_duplicates', search_distance, maintenance_mode = HC.MAINTENANCE_FORCED, job_status = job_status, work_time_float = work_time )
                 
@@ -1079,7 +1122,10 @@ class DuplicateContentMergeOptions( HydrusSerialisable.SerialisableBase ):
         self._sync_urls_action = sync_urls_action
         
     
-    def ProcessPairIntoContentUpdatePackage( self, first_media_result: ClientMediaResult.MediaResult, second_media_result: ClientMediaResult.MediaResult, delete_first = False, delete_second = False, file_deletion_reason = None, do_not_do_deletes = False ) -> ClientContentUpdates.ContentUpdatePackage:
+    def ProcessPairIntoContentUpdatePackage( self, media_result_a: ClientMediaResult.MediaResult, media_result_b: ClientMediaResult.MediaResult, delete_a = False, delete_b = False, file_deletion_reason = None, do_not_do_deletes = False ) -> ClientContentUpdates.ContentUpdatePackage:
+        
+        # small note here, if we have BETTER/WORSE distinctions in any of the settings, A is better, B is worse. if we have HC.DUPLICATE_WORSE anywhere, which sets B as better, it must be flipped beforehand to BETTER and BA -> AB
+        # TODO: since this is a crazy situation, maybe this guy should just take the duplicate action, and then it can convert to media_result_better as needed
         
         if file_deletion_reason is None:
             
@@ -1088,10 +1134,10 @@ class DuplicateContentMergeOptions( HydrusSerialisable.SerialisableBase ):
         
         content_update_package = ClientContentUpdates.ContentUpdatePackage()
         
-        first_hash = first_media_result.GetHash()
-        second_hash = second_media_result.GetHash()
-        first_hashes = { first_hash }
-        second_hashes = { second_hash }
+        hash_a = media_result_a.GetHash()
+        hash_b = media_result_b.GetHash()
+        hash_a_set = { hash_a }
+        hash_b_set = { hash_b }
         
         #
         
@@ -1125,8 +1171,8 @@ class DuplicateContentMergeOptions( HydrusSerialisable.SerialisableBase ):
                 continue
                 
             
-            first_tags = first_media_result.GetTagsManager().GetCurrentAndPending( service_key, ClientTags.TAG_DISPLAY_STORAGE )
-            second_tags = second_media_result.GetTagsManager().GetCurrentAndPending( service_key, ClientTags.TAG_DISPLAY_STORAGE )
+            first_tags = media_result_a.GetTagsManager().GetCurrentAndPending( service_key, ClientTags.TAG_DISPLAY_STORAGE )
+            second_tags = media_result_b.GetTagsManager().GetCurrentAndPending( service_key, ClientTags.TAG_DISPLAY_STORAGE )
             
             first_tags = tag_filter.Filter( first_tags )
             second_tags = tag_filter.Filter( second_tags )
@@ -1136,21 +1182,21 @@ class DuplicateContentMergeOptions( HydrusSerialisable.SerialisableBase ):
                 first_needs = second_tags.difference( first_tags )
                 second_needs = first_tags.difference( second_tags )
                 
-                content_updates.extend( ( ClientContentUpdates.ContentUpdate( HC.CONTENT_TYPE_MAPPINGS, add_content_action, ( tag, first_hashes ) ) for tag in first_needs ) )
-                content_updates.extend( ( ClientContentUpdates.ContentUpdate( HC.CONTENT_TYPE_MAPPINGS, add_content_action, ( tag, second_hashes ) ) for tag in second_needs ) )
+                content_updates.extend( ( ClientContentUpdates.ContentUpdate( HC.CONTENT_TYPE_MAPPINGS, add_content_action, ( tag, hash_a_set ) ) for tag in first_needs ) )
+                content_updates.extend( ( ClientContentUpdates.ContentUpdate( HC.CONTENT_TYPE_MAPPINGS, add_content_action, ( tag, hash_b_set ) ) for tag in second_needs ) )
                 
             elif action == HC.CONTENT_MERGE_ACTION_COPY:
                 
                 first_needs = second_tags.difference( first_tags )
                 
-                content_updates.extend( ( ClientContentUpdates.ContentUpdate( HC.CONTENT_TYPE_MAPPINGS, add_content_action, ( tag, first_hashes ) ) for tag in first_needs ) )
+                content_updates.extend( ( ClientContentUpdates.ContentUpdate( HC.CONTENT_TYPE_MAPPINGS, add_content_action, ( tag, hash_a_set ) ) for tag in first_needs ) )
                 
             elif service_type == HC.LOCAL_TAG and action == HC.CONTENT_MERGE_ACTION_MOVE:
                 
                 first_needs = second_tags.difference( first_tags )
                 
-                content_updates.extend( ( ClientContentUpdates.ContentUpdate( HC.CONTENT_TYPE_MAPPINGS, add_content_action, ( tag, first_hashes ) ) for tag in first_needs ) )
-                content_updates.extend( ( ClientContentUpdates.ContentUpdate( HC.CONTENT_TYPE_MAPPINGS, HC.CONTENT_UPDATE_DELETE, ( tag, second_hashes ) ) for tag in second_tags ) )
+                content_updates.extend( ( ClientContentUpdates.ContentUpdate( HC.CONTENT_TYPE_MAPPINGS, add_content_action, ( tag, hash_a_set ) ) for tag in first_needs ) )
+                content_updates.extend( ( ClientContentUpdates.ContentUpdate( HC.CONTENT_TYPE_MAPPINGS, HC.CONTENT_UPDATE_DELETE, ( tag, hash_b_set ) ) for tag in second_tags ) )
                 
             
             content_update_package.AddContentUpdates( service_key, content_updates )
@@ -1182,8 +1228,8 @@ class DuplicateContentMergeOptions( HydrusSerialisable.SerialisableBase ):
                 continue
                 
             
-            first_current_value = first_media_result.GetRatingsManager().GetRating( service_key )
-            second_current_value = second_media_result.GetRatingsManager().GetRating( service_key )
+            first_current_value = media_result_a.GetRatingsManager().GetRating( service_key )
+            second_current_value = media_result_b.GetRatingsManager().GetRating( service_key )
             
             service_type = service.GetServiceType()
             
@@ -1193,18 +1239,18 @@ class DuplicateContentMergeOptions( HydrusSerialisable.SerialisableBase ):
                     
                     if worth_updating_rating( first_current_value, second_current_value ):
                         
-                        content_updates.append( ClientContentUpdates.ContentUpdate( HC.CONTENT_TYPE_RATINGS, HC.CONTENT_UPDATE_ADD, ( first_current_value, second_hashes ) ) )
+                        content_updates.append( ClientContentUpdates.ContentUpdate( HC.CONTENT_TYPE_RATINGS, HC.CONTENT_UPDATE_ADD, ( first_current_value, hash_b_set ) ) )
                         
                     elif worth_updating_rating( second_current_value, first_current_value ):
                         
-                        content_updates.append( ClientContentUpdates.ContentUpdate( HC.CONTENT_TYPE_RATINGS, HC.CONTENT_UPDATE_ADD, ( second_current_value, first_hashes ) ) )
+                        content_updates.append( ClientContentUpdates.ContentUpdate( HC.CONTENT_TYPE_RATINGS, HC.CONTENT_UPDATE_ADD, ( second_current_value, hash_a_set ) ) )
                         
                     
                 elif action == HC.CONTENT_MERGE_ACTION_COPY:
                     
                     if worth_updating_rating( second_current_value, first_current_value ):
                         
-                        content_updates.append( ClientContentUpdates.ContentUpdate( HC.CONTENT_TYPE_RATINGS, HC.CONTENT_UPDATE_ADD, ( second_current_value, first_hashes ) ) )
+                        content_updates.append( ClientContentUpdates.ContentUpdate( HC.CONTENT_TYPE_RATINGS, HC.CONTENT_UPDATE_ADD, ( second_current_value, hash_a_set ) ) )
                         
                     
                 elif action == HC.CONTENT_MERGE_ACTION_MOVE:
@@ -1213,10 +1259,10 @@ class DuplicateContentMergeOptions( HydrusSerialisable.SerialisableBase ):
                         
                         if worth_updating_rating( second_current_value, first_current_value ):
                             
-                            content_updates.append( ClientContentUpdates.ContentUpdate( HC.CONTENT_TYPE_RATINGS, HC.CONTENT_UPDATE_ADD, ( second_current_value, first_hashes ) ) )
+                            content_updates.append( ClientContentUpdates.ContentUpdate( HC.CONTENT_TYPE_RATINGS, HC.CONTENT_UPDATE_ADD, ( second_current_value, hash_a_set ) ) )
                             
                         
-                        content_updates.append( ClientContentUpdates.ContentUpdate( HC.CONTENT_TYPE_RATINGS, HC.CONTENT_UPDATE_ADD, ( None, second_hashes ) ) )
+                        content_updates.append( ClientContentUpdates.ContentUpdate( HC.CONTENT_TYPE_RATINGS, HC.CONTENT_UPDATE_ADD, ( None, hash_b_set ) ) )
                         
                     
                 
@@ -1228,27 +1274,27 @@ class DuplicateContentMergeOptions( HydrusSerialisable.SerialisableBase ):
                     
                     if second_current_value > 0:
                         
-                        content_updates.append( ClientContentUpdates.ContentUpdate( HC.CONTENT_TYPE_RATINGS, HC.CONTENT_UPDATE_ADD, ( sum_value, first_hashes ) ) )
+                        content_updates.append( ClientContentUpdates.ContentUpdate( HC.CONTENT_TYPE_RATINGS, HC.CONTENT_UPDATE_ADD, ( sum_value, hash_a_set ) ) )
                         
                     
                     if first_current_value > 0:
                         
-                        content_updates.append( ClientContentUpdates.ContentUpdate( HC.CONTENT_TYPE_RATINGS, HC.CONTENT_UPDATE_ADD, ( sum_value, second_hashes ) ) )
+                        content_updates.append( ClientContentUpdates.ContentUpdate( HC.CONTENT_TYPE_RATINGS, HC.CONTENT_UPDATE_ADD, ( sum_value, hash_b_set ) ) )
                         
                     
                 elif action == HC.CONTENT_MERGE_ACTION_COPY:
                     
                     if second_current_value > 0:
                         
-                        content_updates.append( ClientContentUpdates.ContentUpdate( HC.CONTENT_TYPE_RATINGS, HC.CONTENT_UPDATE_ADD, ( sum_value, first_hashes ) ) )
+                        content_updates.append( ClientContentUpdates.ContentUpdate( HC.CONTENT_TYPE_RATINGS, HC.CONTENT_UPDATE_ADD, ( sum_value, hash_a_set ) ) )
                         
                     
                 elif action == HC.CONTENT_MERGE_ACTION_MOVE:
                     
                     if second_current_value > 0:
                         
-                        content_updates.append( ClientContentUpdates.ContentUpdate( HC.CONTENT_TYPE_RATINGS, HC.CONTENT_UPDATE_ADD, ( sum_value, first_hashes ) ) )
-                        content_updates.append( ClientContentUpdates.ContentUpdate( HC.CONTENT_TYPE_RATINGS, HC.CONTENT_UPDATE_ADD, ( 0, second_hashes ) ) )
+                        content_updates.append( ClientContentUpdates.ContentUpdate( HC.CONTENT_TYPE_RATINGS, HC.CONTENT_UPDATE_ADD, ( sum_value, hash_a_set ) ) )
+                        content_updates.append( ClientContentUpdates.ContentUpdate( HC.CONTENT_TYPE_RATINGS, HC.CONTENT_UPDATE_ADD, ( 0, hash_b_set ) ) )
                         
                     
                 
@@ -1264,32 +1310,32 @@ class DuplicateContentMergeOptions( HydrusSerialisable.SerialisableBase ):
         
         if self._sync_notes_action != HC.CONTENT_MERGE_ACTION_NONE:
             
-            first_names_and_notes = list( first_media_result.GetNotesManager().GetNamesToNotes().items() )
-            second_names_and_notes = list( second_media_result.GetNotesManager().GetNamesToNotes().items() )
+            first_names_and_notes = list( media_result_a.GetNotesManager().GetNamesToNotes().items() )
+            second_names_and_notes = list( media_result_b.GetNotesManager().GetNamesToNotes().items() )
             
             # TODO: rework this to UpdateeNamesToNotes
             
             if self._sync_notes_action == HC.CONTENT_MERGE_ACTION_TWO_WAY_MERGE:
                 
-                first_content_update_package = self._sync_note_import_options.GetContentUpdatePackage( first_media_result, second_names_and_notes )
-                second_content_update_package = self._sync_note_import_options.GetContentUpdatePackage( second_media_result, first_names_and_notes )
+                first_content_update_package = self._sync_note_import_options.GetContentUpdatePackage( media_result_a, second_names_and_notes )
+                second_content_update_package = self._sync_note_import_options.GetContentUpdatePackage( media_result_b, first_names_and_notes )
                 
                 content_update_package.AddContentUpdatePackage( first_content_update_package )
                 content_update_package.AddContentUpdatePackage( second_content_update_package )
                 
             elif self._sync_notes_action == HC.CONTENT_MERGE_ACTION_COPY:
                 
-                first_content_update_package = self._sync_note_import_options.GetContentUpdatePackage( first_media_result, second_names_and_notes )
+                first_content_update_package = self._sync_note_import_options.GetContentUpdatePackage( media_result_a, second_names_and_notes )
                 
                 content_update_package.AddContentUpdatePackage( first_content_update_package )
                 
             elif self._sync_notes_action == HC.CONTENT_MERGE_ACTION_MOVE:
                 
-                first_content_update_package = self._sync_note_import_options.GetContentUpdatePackage( first_media_result, second_names_and_notes )
+                first_content_update_package = self._sync_note_import_options.GetContentUpdatePackage( media_result_a, second_names_and_notes )
                 
                 content_update_package.AddContentUpdatePackage( first_content_update_package )
                 
-                content_updates = [ ClientContentUpdates.ContentUpdate( HC.CONTENT_TYPE_NOTES, HC.CONTENT_UPDATE_DELETE, ( second_hash, name ) ) for ( name, note ) in second_names_and_notes ]
+                content_updates = [ ClientContentUpdates.ContentUpdate( HC.CONTENT_TYPE_NOTES, HC.CONTENT_UPDATE_DELETE, ( hash_b, name ) ) for ( name, note ) in second_names_and_notes ]
                 
                 content_update_package.AddContentUpdates( CC.LOCAL_NOTES_SERVICE_KEY, content_updates )
                 
@@ -1297,34 +1343,34 @@ class DuplicateContentMergeOptions( HydrusSerialisable.SerialisableBase ):
         
         #
         
-        content_update_archive_first = ClientContentUpdates.ContentUpdate( HC.CONTENT_TYPE_FILES, HC.CONTENT_UPDATE_ARCHIVE, first_hashes )
-        content_update_archive_second = ClientContentUpdates.ContentUpdate( HC.CONTENT_TYPE_FILES, HC.CONTENT_UPDATE_ARCHIVE, second_hashes )
+        content_update_archive_first = ClientContentUpdates.ContentUpdate( HC.CONTENT_TYPE_FILES, HC.CONTENT_UPDATE_ARCHIVE, hash_a_set )
+        content_update_archive_second = ClientContentUpdates.ContentUpdate( HC.CONTENT_TYPE_FILES, HC.CONTENT_UPDATE_ARCHIVE, hash_b_set )
         
-        # and not delete_first gubbins here to help out the delete lock lmao. don't want to archive and then try to delete
+        # and not delete_a gubbins here to help out the delete lock lmao. don't want to archive and then try to delete
         # TODO: this is obviously a bad solution, so better to refactor this function to return a list of content_update_packages and stick the delete command right up top, tested for locks on current info
         
-        first_locations_manager = first_media_result.GetLocationsManager()
-        second_locations_manager = second_media_result.GetLocationsManager()
+        first_locations_manager = media_result_a.GetLocationsManager()
+        second_locations_manager = media_result_b.GetLocationsManager()
         
         if self._sync_archive_action == SYNC_ARCHIVE_IF_ONE_DO_BOTH:
             
-            if first_locations_manager.inbox and not second_locations_manager.inbox and not delete_first:
+            if first_locations_manager.inbox and not second_locations_manager.inbox and not delete_a:
                 
                 content_update_package.AddContentUpdate( CC.COMBINED_LOCAL_FILE_SERVICE_KEY, content_update_archive_first )
                 
-            elif not first_locations_manager.inbox and second_locations_manager.inbox and not delete_second:
+            elif not first_locations_manager.inbox and second_locations_manager.inbox and not delete_b:
                 
                 content_update_package.AddContentUpdate( CC.COMBINED_LOCAL_FILE_SERVICE_KEY, content_update_archive_second )
                 
             
         elif self._sync_archive_action == SYNC_ARCHIVE_DO_BOTH_REGARDLESS:
             
-            if first_locations_manager.inbox and not delete_first:
+            if first_locations_manager.inbox and not delete_a:
                 
                 content_update_package.AddContentUpdate( CC.COMBINED_LOCAL_FILE_SERVICE_KEY, content_update_archive_first )
                 
             
-            if second_locations_manager.inbox and not delete_second:
+            if second_locations_manager.inbox and not delete_b:
                 
                 content_update_package.AddContentUpdate( CC.COMBINED_LOCAL_FILE_SERVICE_KEY, content_update_archive_second )
                 
@@ -1334,25 +1380,25 @@ class DuplicateContentMergeOptions( HydrusSerialisable.SerialisableBase ):
         
         if self._sync_file_modified_date_action != HC.CONTENT_MERGE_ACTION_NONE:
             
-            first_timestamp_ms = first_media_result.GetTimesManager().GetFileModifiedTimestampMS()
-            second_timestamp_ms = second_media_result.GetTimesManager().GetFileModifiedTimestampMS()
+            first_timestamp_ms = media_result_a.GetTimesManager().GetFileModifiedTimestampMS()
+            second_timestamp_ms = media_result_b.GetTimesManager().GetFileModifiedTimestampMS()
             
             if self._sync_file_modified_date_action == HC.CONTENT_MERGE_ACTION_TWO_WAY_MERGE:
                 
                 if ClientTime.ShouldUpdateModifiedTime( first_timestamp_ms, second_timestamp_ms ):
                     
-                    content_update_package.AddContentUpdate( CC.COMBINED_LOCAL_FILE_SERVICE_KEY, ClientContentUpdates.ContentUpdate( HC.CONTENT_TYPE_TIMESTAMP, HC.CONTENT_UPDATE_SET, ( ( first_hash, ), ClientTime.TimestampData.STATICFileModifiedTime( second_timestamp_ms ) ) ) )
+                    content_update_package.AddContentUpdate( CC.COMBINED_LOCAL_FILE_SERVICE_KEY, ClientContentUpdates.ContentUpdate( HC.CONTENT_TYPE_TIMESTAMP, HC.CONTENT_UPDATE_SET, ( ( hash_a, ), ClientTime.TimestampData.STATICFileModifiedTime( second_timestamp_ms ) ) ) )
                     
                 elif ClientTime.ShouldUpdateModifiedTime( second_timestamp_ms, first_timestamp_ms ):
                     
-                    content_update_package.AddContentUpdate( CC.COMBINED_LOCAL_FILE_SERVICE_KEY, ClientContentUpdates.ContentUpdate( HC.CONTENT_TYPE_TIMESTAMP, HC.CONTENT_UPDATE_SET, ( ( second_hash, ), ClientTime.TimestampData.STATICFileModifiedTime( first_timestamp_ms ) ) ) )
+                    content_update_package.AddContentUpdate( CC.COMBINED_LOCAL_FILE_SERVICE_KEY, ClientContentUpdates.ContentUpdate( HC.CONTENT_TYPE_TIMESTAMP, HC.CONTENT_UPDATE_SET, ( ( hash_b, ), ClientTime.TimestampData.STATICFileModifiedTime( first_timestamp_ms ) ) ) )
                     
                 
             elif self._sync_file_modified_date_action == HC.CONTENT_MERGE_ACTION_COPY:
                 
                 if ClientTime.ShouldUpdateModifiedTime( first_timestamp_ms, second_timestamp_ms ):
                     
-                    content_update_package.AddContentUpdate( CC.COMBINED_LOCAL_FILE_SERVICE_KEY, ClientContentUpdates.ContentUpdate( HC.CONTENT_TYPE_TIMESTAMP, HC.CONTENT_UPDATE_SET, ( ( first_hash, ), ClientTime.TimestampData.STATICFileModifiedTime( second_timestamp_ms ) ) ) )
+                    content_update_package.AddContentUpdate( CC.COMBINED_LOCAL_FILE_SERVICE_KEY, ClientContentUpdates.ContentUpdate( HC.CONTENT_TYPE_TIMESTAMP, HC.CONTENT_UPDATE_SET, ( ( hash_a, ), ClientTime.TimestampData.STATICFileModifiedTime( second_timestamp_ms ) ) ) )
                     
                 
             
@@ -1361,8 +1407,8 @@ class DuplicateContentMergeOptions( HydrusSerialisable.SerialisableBase ):
         
         if self._sync_urls_action != HC.CONTENT_MERGE_ACTION_NONE:
             
-            first_urls = set( first_media_result.GetLocationsManager().GetURLs() )
-            second_urls = set( second_media_result.GetLocationsManager().GetURLs() )
+            first_urls = set( media_result_a.GetLocationsManager().GetURLs() )
+            second_urls = set( media_result_b.GetLocationsManager().GetURLs() )
             
             if self._sync_urls_action == HC.CONTENT_MERGE_ACTION_TWO_WAY_MERGE:
                 
@@ -1371,16 +1417,16 @@ class DuplicateContentMergeOptions( HydrusSerialisable.SerialisableBase ):
                 
                 if len( first_needs ) > 0:
                     
-                    content_update_package.AddContentUpdate( CC.COMBINED_LOCAL_FILE_SERVICE_KEY, ClientContentUpdates.ContentUpdate( HC.CONTENT_TYPE_URLS, HC.CONTENT_UPDATE_ADD, ( first_needs, first_hashes ) ) )
+                    content_update_package.AddContentUpdate( CC.COMBINED_LOCAL_FILE_SERVICE_KEY, ClientContentUpdates.ContentUpdate( HC.CONTENT_TYPE_URLS, HC.CONTENT_UPDATE_ADD, ( first_needs, hash_a_set ) ) )
                     
-                    content_update_package.AddContentUpdates( CC.COMBINED_LOCAL_FILE_SERVICE_KEY, get_domain_modified_content_updates( first_media_result, second_media_result, first_needs ) )
+                    content_update_package.AddContentUpdates( CC.COMBINED_LOCAL_FILE_SERVICE_KEY, get_domain_modified_content_updates( media_result_a, media_result_b, first_needs ) )
                     
                 
                 if len( second_needs ) > 0:
                     
-                    content_update_package.AddContentUpdate( CC.COMBINED_LOCAL_FILE_SERVICE_KEY, ClientContentUpdates.ContentUpdate( HC.CONTENT_TYPE_URLS, HC.CONTENT_UPDATE_ADD, ( second_needs, second_hashes ) ) )
+                    content_update_package.AddContentUpdate( CC.COMBINED_LOCAL_FILE_SERVICE_KEY, ClientContentUpdates.ContentUpdate( HC.CONTENT_TYPE_URLS, HC.CONTENT_UPDATE_ADD, ( second_needs, hash_b_set ) ) )
                     
-                    content_update_package.AddContentUpdates( CC.COMBINED_LOCAL_FILE_SERVICE_KEY, get_domain_modified_content_updates( second_media_result, first_media_result, second_needs ) )
+                    content_update_package.AddContentUpdates( CC.COMBINED_LOCAL_FILE_SERVICE_KEY, get_domain_modified_content_updates( media_result_b, media_result_a, second_needs ) )
                     
                 
             elif self._sync_urls_action == HC.CONTENT_MERGE_ACTION_COPY:
@@ -1389,9 +1435,9 @@ class DuplicateContentMergeOptions( HydrusSerialisable.SerialisableBase ):
                 
                 if len( first_needs ) > 0:
                     
-                    content_update_package.AddContentUpdate( CC.COMBINED_LOCAL_FILE_SERVICE_KEY, ClientContentUpdates.ContentUpdate( HC.CONTENT_TYPE_URLS, HC.CONTENT_UPDATE_ADD, ( first_needs, first_hashes ) ) )
+                    content_update_package.AddContentUpdate( CC.COMBINED_LOCAL_FILE_SERVICE_KEY, ClientContentUpdates.ContentUpdate( HC.CONTENT_TYPE_URLS, HC.CONTENT_UPDATE_ADD, ( first_needs, hash_a_set ) ) )
                     
-                    content_update_package.AddContentUpdates( CC.COMBINED_LOCAL_FILE_SERVICE_KEY, get_domain_modified_content_updates( first_media_result, second_media_result, first_needs ) )
+                    content_update_package.AddContentUpdates( CC.COMBINED_LOCAL_FILE_SERVICE_KEY, get_domain_modified_content_updates( media_result_a, media_result_b, first_needs ) )
                     
                 
             
@@ -1400,14 +1446,14 @@ class DuplicateContentMergeOptions( HydrusSerialisable.SerialisableBase ):
         
         deletee_media_results = []
         
-        if delete_first:
+        if delete_a:
             
-            deletee_media_results.append( first_media_result )
+            deletee_media_results.append( media_result_a )
             
         
-        if delete_second:
+        if delete_b:
             
-            deletee_media_results.append( second_media_result )
+            deletee_media_results.append( media_result_b )
             
         
         for media_result in deletee_media_results:

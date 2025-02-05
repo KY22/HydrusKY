@@ -830,6 +830,19 @@ class FrameGUI( CAC.ApplicationCommandProcessorMixin, ClientGUITopLevelWindows.M
         
         #
         
+        if not HydrusImageHandling.JXL_OK:
+            
+            message = 'Hey, you do not seem to have Jpeg-XL support for our image library Pillow. The error follows:'
+            
+            if HC.PLATFORM_MACOS:
+                
+                message += '\n\nAlso, since you are on macOS, you should know that a common reason for Jpeg-XL not loading is that it is not bundled with their python package on macOS. Your error below probably talks about a missing .dylib or .so file. You can resolve this by opening a terminal and running "brew install jpeg-xl", and then restarting hydrus.'
+                
+            
+            HydrusData.ShowText( message )
+            HydrusData.ShowText( HydrusImageHandling.JXL_ERROR_TEXT )
+            
+        
         availability_lines = []
         
         availability_lines.append( 'QtCharts: {}'.format( ClientGUICharts.QT_CHARTS_OK ) )
@@ -849,8 +862,6 @@ class FrameGUI( CAC.ApplicationCommandProcessorMixin, ClientGUITopLevelWindows.M
                 HydrusData.ShowText( ClientPDFHandling.pdf_failed_reason )
                 
             
-        
-        availability_lines.append( 'Pillow-HEIF: {}'.format( HydrusImageHandling.HEIF_OK ) )
         
         CBOR_AVAILABLE = False
         
@@ -893,6 +904,8 @@ class FrameGUI( CAC.ApplicationCommandProcessorMixin, ClientGUITopLevelWindows.M
         availability_lines.append( 'lxml present: {}'.format( ClientParsing.LXML_IS_OK ) )
         availability_lines.append( 'lz4 present: {}'.format( HydrusCompression.LZ4_OK ) )
         availability_lines.append( 'olefile present: {}'.format( HydrusOLEHandling.OLEFILE_OK ) )
+        availability_lines.append( 'Pillow HEIF/AVIF: {}'.format( HydrusImageHandling.HEIF_OK ) )
+        availability_lines.append( 'Pillow JXL: {}'.format( HydrusImageHandling.JXL_OK ) )
         availability_lines.append( 'psutil present: {}'.format( HydrusPSUtil.PSUTIL_OK ) )
         availability_lines.append( 'pympler present: {}'.format( HydrusMemory.PYMPLER_OK ) )
         availability_lines.append( 'pyopenssl present: {}'.format( HydrusEncryption.OPENSSL_OK ) )
@@ -3570,7 +3583,6 @@ ATTACH "client.mappings.db" as external_mappings;'''
         site = ClientGUIMenus.AppendMenuIconItem( links, 'latest build', 'Open the latest build on the hydrus github repository.', CC.global_icons().github, ClientPaths.LaunchURLInWebBrowser, 'https://github.com/hydrusnetwork/hydrus/releases/latest' )
         site = ClientGUIMenus.AppendMenuIconItem( links, 'issue tracker', 'Open the github issue tracker, which is run by users.', CC.global_icons().github, ClientPaths.LaunchURLInWebBrowser, 'https://github.com/hydrusnetwork/hydrus/issues' )
         site = ClientGUIMenus.AppendMenuBitmapItem( links, '8chan.moe /t/ (Hydrus Network General)', 'Open the 8chan.moe /t/ board, where a Hydrus Network General should exist with release posts and other status updates.', CC.global_pixmaps().eight_chan, ClientPaths.LaunchURLInWebBrowser, 'https://8chan.moe/t/catalog.html' )
-        site = ClientGUIMenus.AppendMenuItem( links, 'Endchan board bunker', 'Open hydrus dev\'s Endchan board, the bunker for the case when 8chan.moe is unavailable. Try .org if .net is unavailable.', ClientPaths.LaunchURLInWebBrowser, 'https://endchan.net/hydrus/index.html' )
         site = ClientGUIMenus.AppendMenuIconItem( links, 'x', 'Open hydrus dev\'s X account, where he makes general progress updates and emergency notifications.', CC.global_icons().x, ClientPaths.LaunchURLInWebBrowser, 'https://x.com/hydrusnetwork' )
         site = ClientGUIMenus.AppendMenuIconItem( links, 'tumblr', 'Open hydrus dev\'s tumblr, where he makes release posts and other status updates.', CC.global_icons().tumblr, ClientPaths.LaunchURLInWebBrowser, 'https://hydrus.tumblr.com/' )
         site = ClientGUIMenus.AppendMenuIconItem( links, 'discord', 'Open a discord channel where many hydrus users congregate. Hydrus dev visits regularly.', CC.global_icons().discord, ClientPaths.LaunchURLInWebBrowser, 'https://discord.gg/wPHPCUZ' )
@@ -4759,7 +4771,7 @@ ATTACH "client.mappings.db" as external_mappings;'''
             
             height_num_chars = 20
             
-            control = ClientGUITime.TimeDeltaCtrl( panel, min = HydrusNetwork.MIN_NULLIFICATION_PERIOD, days = True, hours = True, minutes = True, seconds = True )
+            control = ClientGUITime.TimeDeltaWidget( panel, min = HydrusNetwork.MIN_NULLIFICATION_PERIOD, days = True, hours = True, minutes = True, seconds = True )
             
             control.SetValue( nullification_period )
             
@@ -4884,7 +4896,7 @@ ATTACH "client.mappings.db" as external_mappings;'''
             
             height_num_chars = 20
             
-            control = ClientGUITime.TimeDeltaCtrl( panel, min = HydrusNetwork.MIN_UPDATE_PERIOD, days = True, hours = True, minutes = True, seconds = True )
+            control = ClientGUITime.TimeDeltaWidget( panel, min = HydrusNetwork.MIN_UPDATE_PERIOD, days = True, hours = True, minutes = True, seconds = True )
             
             control.SetValue( update_period )
             
@@ -7798,7 +7810,9 @@ The password is cleartext here but obscured in the entry dialog. Enter a blank p
         
         try:
             
-            self._ImportURL( url )
+            show_destination_page = CG.client_controller.new_options.GetBoolean( 'show_destination_page_when_dnd_url' )
+            
+            self._ImportURL( url, show_destination_page = show_destination_page )
             
         except Exception as e:
             

@@ -31,7 +31,8 @@ I try to release a new version every Wednesday by 8pm EST and write an accompany
 
     *   Get the .dmg App. Open it, drag it to Applications, and check the readme inside.
     *   macOS users have no mpv support for now, so no audio, and video may be laggy.
-    *   _This release has always been a little buggy. Many macOS users are having better success [running from source](running_from_source.md)._
+    *   _This release has always been a little buggy. Many macOS users have better success [running from source](running_from_source.md)._
+    *   _Also, for difficult technical reasons, the App is currently built for the Intel chipset. If you are on Apple Silicon, we again recommend you [run from source](running_from_source.md)!_
 
 === "Linux"
     
@@ -197,7 +198,7 @@ As a result, if you get a failure on trying to do a big update, try cutting the 
 
 If you narrow the gap down to just one version and still get an error, please let me know. If the problem is ever quick to appear and ugly/serious-looking, and perhaps talking about a "bootloader" or "dll" issue, then try doing a clean install as above. I am very interested in these sorts of problems and will be happy to help figure out a fix with you (and everyone else who might be affected).
 
-_All that said, and while updating is complex and every client is different, various user reports over the years suggest this route works and is efficient: 204 > 238 > 246 > 291 > 328 > 335 (clean install) > 376 > 421 > 466 (clean install) > 474 > 480 > 521 (maybe clean install) > 527 (special clean install) > 535 > 558 > 571 (clean install)_ 
+_All that said, and while updating is complex and every client is different, various user reports over the years suggest this route works and is efficient: 204 > 238 > 246 > 291 > 328 > 335 (clean install) > 376 > 421 > 466 (clean install) > 474 > 480 > 521 (maybe clean install) > 527 (special clean install) > 535 > 558 > 571 (clean install) > 603_ 
 
 ??? note "334->335"
     We moved from python 2 to python 3.

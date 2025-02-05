@@ -105,8 +105,8 @@ options = {}
 # Misc
 
 NETWORK_VERSION = 20
-SOFTWARE_VERSION = 604
-CLIENT_API_VERSION = 76
+SOFTWARE_VERSION = 608
+CLIENT_API_VERSION = 78
 
 SERVER_THUMBNAIL_DIMENSIONS = ( 200, 200 )
 
@@ -266,11 +266,12 @@ content_update_string_lookup = {
 DEFINITIONS_TYPE_HASHES = 0
 DEFINITIONS_TYPE_TAGS = 1
 
+# TODO: I should probably split this into status and action, but keeping the same enum stuff; this is confusing
 DUPLICATE_POTENTIAL = 0
 DUPLICATE_FALSE_POSITIVE = 1
 DUPLICATE_SAME_QUALITY = 2
 DUPLICATE_ALTERNATE = 3
-DUPLICATE_BETTER = 4
+DUPLICATE_BETTER = 4 # TODO: as part of this, rename BETTER/WORSE to A IS BETTER and B IS BETTER
 DUPLICATE_SMALLER_BETTER = 5
 DUPLICATE_LARGER_BETTER = 6
 DUPLICATE_WORSE = 7
@@ -283,13 +284,21 @@ duplicate_type_string_lookup = {
     DUPLICATE_FALSE_POSITIVE : 'not related/false positive',
     DUPLICATE_SAME_QUALITY : 'same quality',
     DUPLICATE_ALTERNATE : 'alternates',
-    DUPLICATE_BETTER : 'this is better',
-    DUPLICATE_SMALLER_BETTER : 'smaller hash_id is better',
-    DUPLICATE_LARGER_BETTER : 'larger hash_id is better',
-    DUPLICATE_WORSE : 'this is worse',
+    DUPLICATE_BETTER : 'this is a better duplicate',
+    DUPLICATE_SMALLER_BETTER : 'smaller hash_id is a better duplicate',
+    DUPLICATE_LARGER_BETTER : 'larger hash_id is a better duplicate',
+    DUPLICATE_WORSE : 'this is a worse duplicate',
     DUPLICATE_MEMBER : 'duplicates',
     DUPLICATE_KING : 'the best quality duplicate',
     DUPLICATE_CONFIRMED_ALTERNATE : 'confirmed alternates'
+}
+
+duplicate_type_auto_resolution_action_description_lookup = {
+    DUPLICATE_FALSE_POSITIVE : 'set as not related/false positive',
+    DUPLICATE_SAME_QUALITY : 'set as same quality',
+    DUPLICATE_ALTERNATE : 'set as alternates',
+    DUPLICATE_BETTER : 'set as duplicates--A better',
+    DUPLICATE_WORSE : 'set as duplicates--B better'
 }
 
 ENCODING_RAW = 0
@@ -751,6 +760,7 @@ APPLICATION_XLS = 81
 APPLICATION_PPT = 82
 ANIMATION_WEBP = 83
 UNDETERMINED_WEBP = 84
+IMAGE_JXL = 85
 APPLICATION_OCTET_STREAM = 100
 APPLICATION_UNKNOWN = 101
 
@@ -783,6 +793,7 @@ SEARCHABLE_MIMES = {
     IMAGE_AVIF,
     IMAGE_AVIF_SEQUENCE,
     IMAGE_BMP,
+    IMAGE_JXL,
     ANIMATION_UGOIRA,
     APPLICATION_FLASH,
     VIDEO_AVI,
@@ -843,6 +854,7 @@ IMAGES = [
     IMAGE_GIF,
     IMAGE_WEBP,
     IMAGE_AVIF,
+    IMAGE_JXL,
     IMAGE_BMP,
     IMAGE_HEIC,
     IMAGE_HEIF,
@@ -1048,6 +1060,7 @@ mime_enum_lookup = {
     'image/heic-sequence' : IMAGE_HEIC_SEQUENCE,
     'image/avif' : IMAGE_AVIF,
     'image/avif-sequence' : IMAGE_AVIF_SEQUENCE,
+    'image/jxl' : IMAGE_JXL,
     'image/vnd.microsoft.icon' : IMAGE_ICON,
     'image' : IMAGES,
     'application/x-shockwave-flash' : APPLICATION_FLASH,
@@ -1139,6 +1152,7 @@ mime_string_lookup = {
     IMAGE_HEIC_SEQUENCE : 'heic sequence',
     IMAGE_AVIF : 'avif',
     IMAGE_AVIF_SEQUENCE : 'avif sequence',
+    IMAGE_JXL : 'jxl',
     ANIMATION_UGOIRA : 'ugoira',
     APPLICATION_CBZ : 'cbz',
     APPLICATION_FLASH : 'flash',
@@ -1230,6 +1244,7 @@ mime_mimetype_string_lookup = {
     IMAGE_HEIC_SEQUENCE: 'image/heic-sequence',
     IMAGE_AVIF: 'image/avif',
     IMAGE_AVIF_SEQUENCE: 'image/avif-sequence',
+    IMAGE_JXL: 'image/jxl',
     ANIMATION_UGOIRA : 'application/zip',
     APPLICATION_FLASH : 'application/x-shockwave-flash',
     APPLICATION_OCTET_STREAM : 'application/octet-stream',
@@ -1320,6 +1335,7 @@ mime_ext_lookup = {
     IMAGE_HEIC_SEQUENCE: '.heics',
     IMAGE_AVIF: '.avif',
     IMAGE_AVIF_SEQUENCE: '.avifs',
+    IMAGE_JXL : '.jxl',
     ANIMATION_UGOIRA : '.zip',
     APPLICATION_CBZ : '.cbz',   
     APPLICATION_FLASH : '.swf',

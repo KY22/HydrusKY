@@ -167,7 +167,7 @@ def GetMediasFiletypeSummaryString( medias: typing.Collection[ "Media" ] ):
         
         num_files = sum( [ media.GetNumFiles() for media in medias ] )
         
-        if num_files > 1000:
+        if num_files > 100000:
             
             filetype_summary = 'files'
             
@@ -1099,9 +1099,9 @@ class MediaList( object ):
         return self._GetLast()
         
     
-    def GetMediaIndex( self, media ):
+    def GetMediaByHashes( self, hashes ):
         
-        return self._sorted_media.index( media )
+        return self._GetMedia( hashes )
         
     
     def GetNext( self, media ) -> Media:
@@ -1180,6 +1180,11 @@ class MediaList( object ):
     def HasNoMedia( self ):
         
         return len( self._sorted_media ) == 0
+        
+    
+    def IndexOf( self, media: Media ):
+        
+        return self._sorted_media.index( media )
         
     
     def MoveMedia( self, medias: typing.List[ Media ], insertion_index: int ):
@@ -1304,6 +1309,11 @@ class MediaList( object ):
                     
                 
             
+        
+    
+    def RemoveMediaDirectly( self, singleton_media, collected_media ):
+        
+        self._RemoveMediaDirectly( singleton_media, collected_media )
         
     
     def ResetService( self, service_key ):
@@ -1975,9 +1985,7 @@ class MediaSingleton( Media ):
     
     def HasDuration( self ):
         
-        duration = self._media_result.GetDurationMS()
-        
-        return duration is not None and duration > 0
+        return self._media_result.HasDuration()
         
     
     def HasStaticImages( self ):
@@ -2315,12 +2323,12 @@ class MediaSort( HydrusSerialisable.SerialisableBase ):
                     # videos > images > pdfs
                     # heavy vids first, heavy images first
                     
-                    duration = x.GetDurationMS()
+                    duration_ms = x.GetDurationMS()
                     num_frames = x.GetNumFrames()
                     size = x.GetSize()
                     resolution = x.GetResolution()
                     
-                    if duration is None or duration == 0:
+                    if duration_ms is None or duration_ms == 0:
                         
                         if size is None or size == 0:
                             
@@ -2361,7 +2369,7 @@ class MediaSort( HydrusSerialisable.SerialisableBase ):
                             
                         else:
                             
-                            duration_bitrate = size / duration
+                            duration_bitrate = size / duration_ms
                             
                             if num_frames is None or num_frames == 0:
                                 
@@ -2402,14 +2410,14 @@ class MediaSort( HydrusSerialisable.SerialisableBase ):
                         return -1
                         
                     
-                    duration = x.GetDurationMS()
+                    duration_ms = x.GetDurationMS()
                     
-                    if duration is None or duration == 0:
+                    if duration_ms is None or duration_ms == 0:
                         
                         return -1
                         
                     
-                    return num_frames / duration
+                    return num_frames / duration_ms
                     
                 
             elif sort_data == CC.SORT_FILES_BY_NUM_COLLECTION_FILES:
@@ -2550,7 +2558,7 @@ class MediaSort( HydrusSerialisable.SerialisableBase ):
                     
                     # do not do views as a secondary sort here, to allow for user secondary sort to help out
                     
-                    return fvsm.GetViewtime( CC.CANVAS_MEDIA_VIEWER )
+                    return fvsm.GetViewtimeMS( CC.CANVAS_MEDIA_VIEWER )
                     
                 
             

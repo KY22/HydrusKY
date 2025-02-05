@@ -70,6 +70,11 @@ def FilterOneFileURLs( urls ):
 
 def FileURLMappingHasUntrustworthyNeighbours( hash: bytes, lookup_urls: typing.Collection[ str ] ):
     
+    # TODO: Revisiting this guy, it feels too complicated and opaque
+    # why do we not care about the exact caller URL that got us this hash? in the caller it seems like any match to this hash will fail, no matter how we got there?
+    # is that what we want? if it is, this needs to be clearer
+    # some unit tests couldn't hurt either mate
+    
     # let's see if the file that has this url has any other interesting urls
     # if the file has--or would have, after import--multiple URLs from the same domain with the same URL Class, but those URLs are supposed to only refer to one file, then we have a dodgy spam URL mapping so we cannot trust it
     # maybe this is the correct file, but we can't trust that it is mate
@@ -119,6 +124,8 @@ def FileURLMappingHasUntrustworthyNeighbours( hash: bytes, lookup_urls: typing.C
             
             # oh no, the file these lookup urls refer to has a different known url in the same domain+url_class
             # it is likely that an edit on this site points to the original elsewhere
+            
+            HydrusData.Print( f'INFO: When a URL status lookup suggested {hash.hex()}, I discovered that that file\'s existing URL "{file_url}" had the same URL Class as one of the lookup URLs, which were{HydrusText.ConvertManyStringsToNiceInsertableHumanSummary(lookup_urls)}. This made the lookup untrustworthy (probably evidence of a previous bad booru source reference, or merged URLs during duplicate processing).' )
             
             return True
             
@@ -1358,6 +1365,7 @@ class FileSeed( HydrusSerialisable.SerialisableBase ):
             
             media_result = CG.client_controller.Read( 'media_result', hash )
             
+            # TODO: rewangle this to a GUI-level overseer that'll do Qt signals or whatever. page_key is probably unavoidable
             CG.client_controller.pub( 'add_media_results', page_key, ( media_result, ) )
             
         
