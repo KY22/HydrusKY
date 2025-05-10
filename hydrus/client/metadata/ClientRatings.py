@@ -1,3 +1,5 @@
+import typing
+
 from hydrus.core import HydrusExceptions
 
 from hydrus.client import ClientGlobals as CG
@@ -12,13 +14,53 @@ CIRCLE = 0
 SQUARE = 1
 FAT_STAR = 2
 PENTAGRAM_STAR = 3
+SIX_POINT_STAR = 4
+EIGHT_POINT_STAR = 5
+X_SHAPE = 6
+CROSS = 7
+TRIANGLE_UP = 30
+TRIANGLE_DOWN = 31
+TRIANGLE_RIGHT = 32
+TRIANGLE_LEFT = 33
+DIAMOND = 40
+RHOMBUS_R = 42
+RHOMBUS_L = 43
+HOURGLASS = 44
+PENTAGON = 50
+HEXAGON = 60
+SMALL_HEXAGON = 61
+HEART = 101
+TEARDROP = 102
+MOON_CRESCENT = 103
+
+# TODO: Ultimately, assuming svg works out and fill/border colours are all good, let's port all this to the default svg directory
 
 shape_to_str_lookup_dict = {
     CIRCLE : 'circle',
     SQUARE : 'square',
     FAT_STAR : 'fat star',
-    PENTAGRAM_STAR : 'pentagram star'
+    PENTAGRAM_STAR : 'pentagram star',
+    SIX_POINT_STAR : 'six point star',
+    EIGHT_POINT_STAR : 'eight point star',
+    X_SHAPE : 'x shape',
+    CROSS : 'square cross',
+    TRIANGLE_UP : 'triangle up',
+    TRIANGLE_DOWN : 'triangle down',
+    TRIANGLE_RIGHT : 'triangle right',
+    TRIANGLE_LEFT : 'triangle left',
+    DIAMOND : 'diamond',
+    RHOMBUS_R : 'rhombus right',
+    RHOMBUS_L : 'rhombus left',
+    HOURGLASS : 'hourglass',
+    PENTAGON : 'pentagon',
+    HEXAGON : 'hexagon',
+    SMALL_HEXAGON : 'small hexagon',
+    HEART : 'heart',
+    TEARDROP : 'teardrop',
+    MOON_CRESCENT : 'crescent moon'
 }
+
+#
 
 def ConvertRatingToStars( num_stars: int, allow_zero: bool, rating: float ) -> int:
     
@@ -129,6 +171,7 @@ def GetLikeStateFromRating( rating ):
     elif rating == 0: return DISLIKE
     else: return NULL
     
+
 def GetNumericalStateFromMedia( media, service_key ):
     
     existing_rating = None
@@ -183,18 +226,53 @@ def GetNumericalStateFromMedia( media, service_key ):
         return ( SET, existing_rating )
         
     
-def GetShape( service_key ):
+
+class StarType( object ):
+    
+    def __init__( self, shape: typing.Optional[ int ], rating_svg: typing.Optional[ str ] ):
+        
+        if shape is None and rating_svg is None:
+            
+            shape = FAT_STAR
+            
+        
+        self._shape = shape
+        self._rating_svg = rating_svg
+        
+    
+    def GetShape( self ):
+        
+        return self._shape
+        
+    
+    def HasShape( self ):
+        
+        return self._shape is not None
+        
+    
+    def GetRatingSVG( self ):
+        
+        return self._rating_svg
+        
+    
+    def HasRatingSVG( self ):
+        
+        return self._rating_svg is not None
+        
+    
+
+def GetStarType( service_key ) -> StarType:
     
     try:
         
         service = CG.client_controller.services_manager.GetService( service_key )
         
-        shape = service.GetShape()
+        star_type = service.GetStarType()
         
     except HydrusExceptions.DataMissing:
         
-        shape = FAT_STAR
+        star_type = StarType( FAT_STAR, None )
         
     
-    return shape
+    return star_type
     
