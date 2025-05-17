@@ -17,6 +17,7 @@ from hydrus.client.networking.api import ClientLocalServerResourcesManageFileRel
 from hydrus.client.networking.api import ClientLocalServerResourcesManagePages
 from hydrus.client.networking.api import ClientLocalServerResourcesManagePopups
 from hydrus.client.networking.api import ClientLocalServerResourcesManageServices
+from hydrus.client.networking.api import ClientLocalServerResourcesManageFavouriteTags
 
 class HydrusClientService( HydrusServer.HydrusService ):
     
@@ -83,7 +84,9 @@ class HydrusServiceClientAPI( HydrusClientService ):
         add_tags.putChild( b'clean_tags', ClientLocalServerResourcesAddTags.HydrusResourceClientAPIRestrictedAddTagsCleanTags( self._service, self._client_requests_domain ) )
         add_tags.putChild( b'search_tags', ClientLocalServerResourcesAddTags.HydrusResourceClientAPIRestrictedAddTagsSearchTags( self._service, self._client_requests_domain ) )
         add_tags.putChild( b'get_siblings_and_parents', ClientLocalServerResourcesAddTags.HydrusResourceClientAPIRestrictedAddTagsGetTagSiblingsParents( self._service, self._client_requests_domain ) )
-
+        add_tags.putChild( b'get_favourite_tags', ClientLocalServerResourcesManageFavouriteTags.HydrusResourceClientAPIRestrictedManageFavouriteTagsGetFavouriteTags( self._service, self._client_requests_domain ) )
+        add_tags.putChild( b'set_favourite_tags', ClientLocalServerResourcesManageFavouriteTags.HydrusResourceClientAPIRestrictedManageFavouriteTagsSetFavouriteTags( self._service, self._client_requests_domain ) )
+        
         add_urls = NoResource()
         
         root.putChild( b'add_urls', add_urls )
