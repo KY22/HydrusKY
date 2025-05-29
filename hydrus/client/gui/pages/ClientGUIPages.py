@@ -1370,6 +1370,8 @@ class PagesNotebook( QP.TabWidgetWithDnD ):
         
         for ( page, index ) in ( ( self.widget( index ), index ) for index in range( self.count() ) ):
             
+            page = typing.cast( typing.Union[ Page, PagesNotebook ], page )
+            
             if page.GetPageKey() == page_key:
                 
                 return index
@@ -2203,7 +2205,7 @@ class PagesNotebook( QP.TabWidgetWithDnD ):
                     
                     over_a_tab = False
                     
-                    widget_under_mouse = QW.QApplication.instance().widgetAt( screen_position )
+                    widget_under_mouse = typing.cast( QW.QApplication, QW.QApplication.instance() ).widgetAt( screen_position )
                     
                     if widget_under_mouse is None:
                         
@@ -2224,6 +2226,8 @@ class PagesNotebook( QP.TabWidgetWithDnD ):
                 
                 if event.type() == QC.QEvent.Type.MouseButtonDblClick:
                     
+                    event = typing.cast( QG.QMouseEvent, event )
+                    
                     if event.button() == QC.Qt.MouseButton.LeftButton and over_tab_greyspace and not over_a_tab:
                         
                         self.EventNewPageFromScreenPosition( screen_position )
@@ -2232,6 +2236,8 @@ class PagesNotebook( QP.TabWidgetWithDnD ):
                         
                     
                 elif event.type() == QC.QEvent.Type.MouseButtonRelease:
+                    
+                    event = typing.cast( QG.QMouseEvent, event )
                     
                     if event.button() == QC.Qt.MouseButton.RightButton and ( over_a_tab or over_tab_greyspace ):
                         
@@ -3240,10 +3246,13 @@ class PagesNotebook( QP.TabWidgetWithDnD ):
             initial_hashes = []
             
         
+        start_system_hash_locked = False
+        
         if initial_predicates is None:
             
             if len( initial_hashes ) > 0:
                 
+                start_system_hash_locked = True
                 initial_predicates = [ ClientSearchPredicate.Predicate( predicate_type = ClientSearchPredicate.PREDICATE_TYPE_SYSTEM_HASH, value = ( tuple( initial_hashes ), 'sha256' ) ) ]
                 
             else:
@@ -3281,7 +3290,7 @@ class PagesNotebook( QP.TabWidgetWithDnD ):
             file_search_context.SetComplete()
             
         
-        page_manager = ClientGUIPageManager.CreatePageManagerQuery( page_name, file_search_context )
+        page_manager = ClientGUIPageManager.CreatePageManagerQuery( page_name, file_search_context, start_system_hash_locked = start_system_hash_locked )
         
         if initial_sort is not None:
             
