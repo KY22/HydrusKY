@@ -1,6 +1,5 @@
 import os
 import time
-import typing
 
 from qtpy import QtCore as QC
 from qtpy import QtWidgets as QW
@@ -938,7 +937,7 @@ class EditServiceRestrictedSubPanel( ClientGUICommon.StaticBox ):
         job.start()
         
     
-    def _SelectAccountTypeForAutoAccountCreation( self, account_types: typing.List[ HydrusNetwork.AccountType ] ):
+    def _SelectAccountTypeForAutoAccountCreation( self, account_types: list[ HydrusNetwork.AccountType ] ):
         
         if len( account_types ) == 0:
             
@@ -1461,6 +1460,8 @@ class EditServiceStarRatingsSubPanel( ClientGUICommon.StaticBox ):
         
         help_hbox = ClientGUICommon.WrapInText( help_button, self, 'help -->', object_name = 'HydrusIndeterminate' )
         
+        CC.global_icons().RefreshUserIcons()
+        
         svg_ratings_are_ok = len( CC.global_icons().user_icons ) > 0
         
         choice_tuples = [
@@ -1602,11 +1603,16 @@ class EditServiceRatingsNumericalSubPanel( ClientGUICommon.StaticBox ):
         
         self._num_stars = ClientGUICommon.BetterSpinBox( self, min=1, max=20 )
         self._allow_zero = QW.QCheckBox( self )
+        self._custom_pad = ClientGUICommon.BetterSpinBox( self, min=-64, max=64 )
+
         
         #
         
         self._num_stars.setValue( dictionary['num_stars'] )
         self._allow_zero.setChecked( dictionary[ 'allow_zero' ] )
+        self._custom_pad.setValue( dictionary[ 'custom_pad' ] )
+        
+        self._custom_pad.setToolTip( ClientGUIFunctions.WrapToolTip( 'Set the distance, in pixels, between shapes in the row. Just set this to 0 if you want to go back to the old way these icons were rendered, with them displaying as a seamless loading bar.' ) )
         
         #
         
@@ -1614,6 +1620,7 @@ class EditServiceRatingsNumericalSubPanel( ClientGUICommon.StaticBox ):
         
         rows.append( ( 'number of \'stars\': ', self._num_stars ) )
         rows.append( ( 'allow a zero rating: ', self._allow_zero ) )
+        rows.append( ( 'icon padding: ', self._custom_pad ) )
         
         gridbox = ClientGUICommon.WrapInGrid( self, rows )
         
@@ -1626,6 +1633,7 @@ class EditServiceRatingsNumericalSubPanel( ClientGUICommon.StaticBox ):
         
         num_stars = self._num_stars.value()
         allow_zero = self._allow_zero.isChecked()
+        custom_pad = self._custom_pad.value()
         
         if num_stars == 1 and not allow_zero:
             
@@ -1634,6 +1642,7 @@ class EditServiceRatingsNumericalSubPanel( ClientGUICommon.StaticBox ):
         
         dictionary_part[ 'num_stars' ] = num_stars
         dictionary_part[ 'allow_zero' ] = allow_zero
+        dictionary_part[ 'custom_pad' ] = custom_pad
         
         return dictionary_part
         

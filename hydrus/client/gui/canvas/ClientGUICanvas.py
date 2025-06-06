@@ -1,3 +1,4 @@
+import collections.abc
 import typing
 
 from qtpy import QtCore as QC
@@ -394,7 +395,7 @@ class Canvas( CAC.ApplicationCommandProcessorMixin, QW.QWidget ):
             
         
     
-    def _Delete( self, media = None, default_reason = None, file_service_key = None, just_get_content_update_packages = False ) -> typing.Union[ bool, typing.Collection[ ClientContentUpdates.ContentUpdatePackage ] ]:
+    def _Delete( self, media = None, default_reason = None, file_service_key = None, just_get_content_update_packages = False ) -> typing.Union[ bool, collections.abc.Collection[ ClientContentUpdates.ContentUpdatePackage ] ]:
         
         if media is None:
             
@@ -1104,7 +1105,7 @@ class Canvas( CAC.ApplicationCommandProcessorMixin, QW.QWidget ):
                     ClientGUIMediaSimpleActions.ShowDuplicatesInNewPage( self._location_context, hash, duplicate_type )
                     
                 
-            elif action == CAC.SIMPLE_DUPLICATE_MEDIA_CLEAR_FOCUSED_FALSE_POSITIVES:
+            elif action == CAC.SIMPLE_DUPLICATE_MEDIA_CLEAR_ALL_FOCUSED_FALSE_POSITIVES:
                 
                 # TODO: when media knows dupe relationships, all these lads here need a media scan for the existence of alternate groups or whatever
                 # no duplicate group->don't start the process
@@ -1113,16 +1114,16 @@ class Canvas( CAC.ApplicationCommandProcessorMixin, QW.QWidget ):
                     
                     hash = self._current_media.GetHash()
                     
-                    ClientGUIDuplicateActions.ClearFalsePositives( self, ( hash, ) )
+                    ClientGUIDuplicateActions.ClearAllFalsePositives( self, ( hash, ) )
                     
                 
-            elif action == CAC.SIMPLE_DUPLICATE_MEDIA_CLEAR_FALSE_POSITIVES:
+            elif action == CAC.SIMPLE_DUPLICATE_MEDIA_CLEAR_ALL_FALSE_POSITIVES:
                 
                 if self._current_media is not None:
                     
                     hash = self._current_media.GetHash()
                     
-                    ClientGUIDuplicateActions.ClearFalsePositives( self, ( hash, ) )
+                    ClientGUIDuplicateActions.ClearAllFalsePositives( self, ( hash, ) )
                     
                 
             elif action == CAC.SIMPLE_DUPLICATE_MEDIA_DISSOLVE_FOCUSED_ALTERNATE_GROUP:
@@ -1280,7 +1281,7 @@ class Canvas( CAC.ApplicationCommandProcessorMixin, QW.QWidget ):
             elif action == CAC.SIMPLE_SWITCH_BETWEEN_100_PERCENT_AND_CANVAS_ZOOM:
                 
                 self._media_container.ZoomSwitch()
-            
+                
             elif action == CAC.SIMPLE_SWITCH_BETWEEN_100_PERCENT_AND_CANVAS_ZOOM_VIEWER_CENTER:
                 
                 self._media_container.ZoomSwitch( zoom_center_type_override = ClientGUICanvasMedia.ZOOM_CENTERPOINT_VIEWER_CENTER )
@@ -2297,11 +2298,15 @@ class CanvasWithHovers( Canvas ):
             
             service_key = numerical_service.GetServiceKey()
             
+            custom_pad = numerical_service.GetCustomPad()
+            
             ( rating_state, rating ) = ClientRatings.GetNumericalStateFromMedia( ( self._current_media, ), service_key )
             
-            numerical_width = ClientGUIRatings.GetNumericalWidth( service_key, RATING_ICON_SET_SIZE, STAR_PAD.width() )
+            numerical_width = ClientGUIRatings.GetNumericalWidth( service_key, RATING_ICON_SET_SIZE, custom_pad )
             
-            ClientGUIRatings.DrawNumerical( painter, my_width - numerical_width - ( QFRAME_PADDING + VBOX_MARGIN ) + int( STAR_PAD.width() / 2 ), current_y, service_key, rating_state, rating, QC.QSize( STAR_DX, STAR_DY ), STAR_PAD.width() )
+            current_x = my_width - numerical_width - ( QFRAME_PADDING + VBOX_MARGIN ) + STAR_PAD.width() / 2
+            
+            ClientGUIRatings.DrawNumerical( painter, current_x, current_y, service_key, rating_state, rating, QC.QSize( STAR_DX, STAR_DY ), custom_pad )
             
             current_y += STAR_DY + STAR_PAD.height() + VBOX_SPACING
             
@@ -3668,7 +3673,7 @@ class CanvasFilterDuplicates( CanvasWithHovers ):
         self._RecoverAfterMediaUpdate()
         
     
-    def ProcessServiceUpdates( self, service_keys_to_service_updates: typing.Dict[ bytes, typing.Collection[ ClientServices.ServiceUpdate ] ]  ):
+    def ProcessServiceUpdates( self, service_keys_to_service_updates: dict[ bytes, collections.abc.Collection[ ClientServices.ServiceUpdate ] ]  ):
         
         self._media_list.ProcessServiceUpdates( service_keys_to_service_updates )
         
@@ -4006,7 +4011,7 @@ class CanvasMediaList( CanvasWithHovers ):
             
         
     
-    def ProcessServiceUpdates( self, service_keys_to_service_updates: typing.Dict[ bytes, typing.Collection[ ClientServices.ServiceUpdate ] ]  ):
+    def ProcessServiceUpdates( self, service_keys_to_service_updates: dict[ bytes, collections.abc.Collection[ ClientServices.ServiceUpdate ] ]  ):
         
         self._media_list.ProcessServiceUpdates( service_keys_to_service_updates )
         
@@ -4014,7 +4019,7 @@ class CanvasMediaList( CanvasWithHovers ):
         
     
 
-def CommitArchiveDelete( deletee_location_context: ClientLocation.LocationContext, kept: typing.Collection[ ClientMediaResult.MediaResult ], deleted: typing.Collection[ ClientMediaResult.MediaResult ] ):
+def CommitArchiveDelete( deletee_location_context: ClientLocation.LocationContext, kept: collections.abc.Collection[ ClientMediaResult.MediaResult ], deleted: collections.abc.Collection[ ClientMediaResult.MediaResult ] ):
     
     # there's a problem here that if the user hits F5 super quick, they may see files they just actioned get archived/deleted late
     # we had some odd 'remove again' calls to try to double-action the remove in this case, but it was awkward especially as we moved to Qt signals for that stuff

@@ -1,6 +1,5 @@
 import os
 import threading
-import typing
 
 from qtpy import QtGui as QG
 
@@ -167,6 +166,8 @@ class ClientOptions( HydrusSerialisable.SerialisableBase ):
             'anchor_and_hide_canvas_drags' : HC.PLATFORM_WINDOWS,
             'touchscreen_canvas_drags_unanchor' : False,
             'import_page_progress_display' : True,
+            'rename_page_of_pages_on_pick_new' : False,
+            'rename_page_of_pages_on_send' : False,
             'process_subs_in_random_order' : True,
             'ac_select_first_with_count' : False,
             'saving_sash_positions_on_exit' : True,
@@ -301,7 +302,8 @@ class ClientOptions( HydrusSerialisable.SerialisableBase ):
             'do_not_setgeometry_on_an_mpv' : False,
             'focus_media_thumb_on_viewer_close' : True,
             'skip_yesno_on_write_autocomplete_multiline_paste' : False,
-            'activate_main_gui_on_viewer_close' : False
+            'activate_main_gui_on_viewer_close' : False,
+            'override_bandwidth_on_file_urls_from_post_urls' : True
         }
         
         #
@@ -1347,7 +1349,7 @@ class ClientOptions( HydrusSerialisable.SerialisableBase ):
             
         
     
-    def GetIntegerList( self, name: str ) -> typing.List[ int ]:
+    def GetIntegerList( self, name: str ) -> list[ int ]:
         
         with self._lock:
             
@@ -1597,7 +1599,7 @@ class ClientOptions( HydrusSerialisable.SerialisableBase ):
             
         
     
-    def GetStringList( self, name: str ) -> typing.List[ str ]:
+    def GetStringList( self, name: str ) -> list[ str ]:
         
         with self._lock:
             
@@ -1924,7 +1926,7 @@ class ClientOptions( HydrusSerialisable.SerialisableBase ):
             
         
     
-    def SetIntegerList( self, name: str, value: typing.List[ int ] ):
+    def SetIntegerList( self, name: str, value: list[ int ] ):
         
         with self._lock:
             

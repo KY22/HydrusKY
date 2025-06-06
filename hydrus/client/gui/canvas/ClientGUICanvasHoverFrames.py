@@ -6,6 +6,7 @@ from qtpy import QtGui as QG
 
 from hydrus.core import HydrusConstants as HC
 from hydrus.core import HydrusData
+from hydrus.core import HydrusExceptions
 from hydrus.core import HydrusGlobals as HG
 from hydrus.core import HydrusLists
 from hydrus.core import HydrusNumbers
@@ -24,7 +25,6 @@ from hydrus.client.gui import ClientGUIFunctions
 from hydrus.client.gui import ClientGUIMenus
 from hydrus.client.gui import ClientGUIRatings
 from hydrus.client.gui import ClientGUIShortcuts
-from hydrus.client.gui import ClientGUIShortcutControls
 from hydrus.client.gui import ClientGUITopLevelWindowsPanels
 from hydrus.client.gui import QtPorting as QP
 from hydrus.client.gui.canvas import ClientGUICanvasMedia
@@ -266,7 +266,7 @@ class RatingLikeCanvas( ClientGUIRatings.RatingLike ):
         
     
 
-class RatingNumericalCanvas( ClientGUIRatings.RatingNumerical ):
+class RatingNumericalCanvas( ClientGUIRatings.RatingNumericalControl ):
 
     def __init__( self, parent, service_key, canvas_key, icon_size ):
         
@@ -305,7 +305,7 @@ class RatingNumericalCanvas( ClientGUIRatings.RatingNumerical ):
         
         if self._current_media is not None:
             
-            ClientGUIRatings.DrawNumerical( painter, int( ClientGUIPainterShapes.PAD_PX / 2 ), int( ClientGUIPainterShapes.PAD_PX / 2 ), self._service_key, self._rating_state, self._rating, self._iconsize )
+            ClientGUIRatings.DrawNumerical( painter, ClientGUIPainterShapes.PAD_PX / 2, ClientGUIPainterShapes.PAD_PX / 2, self._service_key, self._rating_state, self._rating, self._iconsize )
             
         
     
@@ -1097,7 +1097,9 @@ class CanvasHoverFrameTop( CanvasHoverFrame ):
         
         menu = ClientGUIMenus.GenerateMenu( self )
         
-        ClientGUIMenus.AppendMenuItem( menu, 'edit shortcuts', 'edit your sets of shortcuts, and change what shortcuts are currently active on this media viewer', ClientGUIShortcutControls.ManageShortcuts, self )
+        from hydrus.client.gui.panels import ClientGUIManageOptionsPanel
+        
+        ClientGUIMenus.AppendMenuItem( menu, 'edit shortcuts', 'edit your sets of shortcuts, and change what shortcuts are currently active on this media viewer', ClientGUIManageOptionsPanel.ManageShortcuts, self )
         
         if len( custom_shortcuts_names ) > 0:
             
@@ -2403,6 +2405,11 @@ class CanvasHoverFrameRightDuplicates( CanvasHoverFrame ):
             
         
         def pre_work_callable():
+            
+            if self._current_media is None or self._comparison_media is None:
+                
+                raise HydrusExceptions.CancelledException()
+                
             
             return ( self._current_media.GetMediaResult(), self._comparison_media.GetMediaResult() )
             
