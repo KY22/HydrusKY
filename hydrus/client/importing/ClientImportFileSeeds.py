@@ -1580,6 +1580,8 @@ class FileSeed( HydrusSerialisable.SerialisableBase ):
                         
                         ( os_file_handle, temp_path ) = HydrusTemp.GetTempPath()
                         
+                        it_was_a_real_file = False
+                        
                         try:
                             
                             with open( temp_path, 'wb' ) as f:
@@ -1595,6 +1597,8 @@ class FileSeed( HydrusSerialisable.SerialisableBase ):
                                 
                                 self.Import( temp_path, file_import_options, status_hook = status_hook )
                                 
+                                it_was_a_real_file = True
+                                
                             
                         except:
                             
@@ -1604,6 +1608,11 @@ class FileSeed( HydrusSerialisable.SerialisableBase ):
                         finally:
                             
                             HydrusTemp.CleanUpTempPath( os_file_handle, temp_path )
+                            
+                        
+                        if not it_was_a_real_file:
+                            
+                            raise HydrusExceptions.VetoException( 'The parser found nothing in the document, nor did it seem to be an importable file!' )
                             
                         
                     elif len( parsed_posts ) > 1:
