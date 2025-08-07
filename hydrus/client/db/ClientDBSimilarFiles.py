@@ -8,6 +8,7 @@ from hydrus.core import HydrusConstants as HC
 from hydrus.core import HydrusData
 from hydrus.core import HydrusDBBase
 from hydrus.core import HydrusGlobals as HG
+from hydrus.core import HydrusLists
 from hydrus.core import HydrusNumbers
 from hydrus.core import HydrusTime
 
@@ -639,7 +640,7 @@ class ClientDBSimilarFiles( ClientDBModule.ClientDBModule ):
         
         self._ExecuteMany( 'DELETE FROM shape_perceptual_hash_map WHERE phash_id = ? AND hash_id = ?;', ( ( perceptual_hash_id, hash_id ) for perceptual_hash_id in perceptual_hash_ids ) )
         
-        useful_perceptual_hash_ids = { perceptual_hash for ( perceptual_hash, ) in self._Execute( 'SELECT phash_id FROM shape_perceptual_hash_map WHERE phash_id IN ' + HydrusData.SplayListForDB( perceptual_hash_ids ) + ';' ) }
+        useful_perceptual_hash_ids = { perceptual_hash for ( perceptual_hash, ) in self._Execute( 'SELECT phash_id FROM shape_perceptual_hash_map WHERE phash_id IN ' + HydrusLists.SplayListForDB( perceptual_hash_ids ) + ';' ) }
         
         useless_perceptual_hash_ids = perceptual_hash_ids.difference( useful_perceptual_hash_ids )
         
@@ -725,7 +726,7 @@ class ClientDBSimilarFiles( ClientDBModule.ClientDBModule ):
                 
                 CG.client_controller.frame_splash_status.SetSubtext( text )
                 job_status.SetStatusText( text )
-                job_status.SetVariable( 'popup_gauge_1', ( num_done, num_to_do ) )
+                job_status.SetGauge( num_done, num_to_do )
                 
                 with self._MakeTemporaryIntegerTable( rebalance_perceptual_hash_ids, 'phash_id' ) as temp_table_name:
                     
@@ -761,8 +762,8 @@ class ClientDBSimilarFiles( ClientDBModule.ClientDBModule ):
         finally:
             
             job_status.SetStatusText( 'done!' )
-            job_status.DeleteVariable( 'popup_gauge_1' )
-            job_status.DeleteStatusText( 2 ) # used in the regenbranch call
+            job_status.DeleteGauge()
+            job_status.DeleteStatusText( level = 2 ) # used in the regenbranch call
             
             job_status.FinishAndDismiss( 5 )
             
@@ -878,7 +879,7 @@ class ClientDBSimilarFiles( ClientDBModule.ClientDBModule ):
             
             job_status.SetStatusText( HydrusNumbers.ToHumanInt( len( all_nodes ) ) + ' leaves found, now regenerating' )
             
-            ( root_id, root_perceptual_hash ) = self._PopBestRootNode( all_nodes ) #HydrusData.RandomPop( all_nodes )
+            ( root_id, root_perceptual_hash ) = self._PopBestRootNode( all_nodes ) #HydrusLists.RandomPop( all_nodes )
             
             self._GenerateBranch( job_status, None, root_id, root_perceptual_hash, all_nodes )
             
@@ -887,7 +888,7 @@ class ClientDBSimilarFiles( ClientDBModule.ClientDBModule ):
         finally:
             
             job_status.SetStatusText( 'done!' )
-            job_status.DeleteStatusText( 2 )
+            job_status.DeleteStatusText( level = 2 )
             
             job_status.FinishAndDismiss( 5 )
             
@@ -924,7 +925,7 @@ class ClientDBSimilarFiles( ClientDBModule.ClientDBModule ):
             similar_hash_ids_and_distances.extend( self.SearchPerceptualHashes( perceptual_hashes, max_hamming_distance ) )
             
         
-        similar_hash_ids_and_distances = HydrusData.DedupeList( similar_hash_ids_and_distances )
+        similar_hash_ids_and_distances = HydrusLists.DedupeList( similar_hash_ids_and_distances )
         
         return similar_hash_ids_and_distances
         
@@ -940,7 +941,7 @@ class ClientDBSimilarFiles( ClientDBModule.ClientDBModule ):
             similar_hash_ids_and_distances.extend( [ ( pixel_dupe_hash_id, 0 ) for pixel_dupe_hash_id in pixel_dupe_hash_ids ] )
             
         
-        similar_hash_ids_and_distances = HydrusData.DedupeList( similar_hash_ids_and_distances )
+        similar_hash_ids_and_distances = HydrusLists.DedupeList( similar_hash_ids_and_distances )
         
         return similar_hash_ids_and_distances
         
@@ -1129,7 +1130,7 @@ class ClientDBSimilarFiles( ClientDBModule.ClientDBModule ):
             similar_hash_ids_and_distances.extend( similar_hash_ids_to_distances.items() )
             
         
-        similar_hash_ids_and_distances = HydrusData.DedupeList( similar_hash_ids_and_distances )
+        similar_hash_ids_and_distances = HydrusLists.DedupeList( similar_hash_ids_and_distances )
         
         return similar_hash_ids_and_distances
         

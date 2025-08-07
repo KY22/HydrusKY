@@ -8,6 +8,7 @@ from qtpy import QtGui as QG
 from hydrus.core import HydrusConstants as HC
 from hydrus.core import HydrusData
 from hydrus.core import HydrusExceptions
+from hydrus.core import HydrusLists
 from hydrus.core import HydrusNumbers
 from hydrus.core import HydrusPaths
 from hydrus.core import HydrusSerialisable
@@ -1866,7 +1867,7 @@ class ReviewServicePanel( QW.QWidget ):
             
             job_status.SetStatusText( content_update_index_string + 'committing' + update_speed_string )
             
-            job_status.SetVariable( 'popup_gauge_1', ( c_u_p_total_weight_processed, c_u_p_num_rows ) )
+            job_status.SetGauge( c_u_p_total_weight_processed, c_u_p_num_rows )
             
             for ( content_updates, weight ) in content_update_package.IterateContentUpdateChunks():
                 
@@ -1883,7 +1884,7 @@ class ReviewServicePanel( QW.QWidget ):
                 
                 job_status.SetStatusText( content_update_index_string + 'committing' + update_speed_string )
                 
-                job_status.SetVariable( 'popup_gauge_1', ( c_u_p_total_weight_processed, c_u_p_num_rows ) )
+                job_status.SetGauge( c_u_p_total_weight_processed, c_u_p_num_rows )
                 
                 precise_timestamp = HydrusTime.GetNowPrecise()
                 
@@ -1898,7 +1899,7 @@ class ReviewServicePanel( QW.QWidget ):
                 c_u_p_total_weight_processed += weight
                 
             
-            job_status.DeleteVariable( 'popup_gauge_1' )
+            job_status.DeleteGauge()
             
             self._service.SyncThumbnails( job_status )
             
@@ -3051,7 +3052,7 @@ class ReviewServiceRepositorySubPanel( QW.QWidget ):
                             finally:
                                 
                                 job_status.SetStatusText( HydrusNumbers.ValueRangeToPrettyString( i + 1, num_to_do ) )
-                                job_status.SetVariable( 'popup_gauge_1', ( i, num_to_do ) )
+                                job_status.SetGauge( i + 1, num_to_do )
                                 
                             
                         
@@ -3059,7 +3060,7 @@ class ReviewServiceRepositorySubPanel( QW.QWidget ):
                         
                     finally:
                         
-                        job_status.DeleteVariable( 'popup_gauge_1' )
+                        job_status.DeleteGauge()
                         
                         job_status.Finish()
                         
@@ -4009,7 +4010,7 @@ class ReviewServiceTrashSubPanel( ClientGUICommon.StaticBox ):
                 
                 hashes = CG.client_controller.Read( 'trash_hashes' )
                 
-                for group_of_hashes in HydrusData.SplitIteratorIntoChunks( hashes, 16 ):
+                for group_of_hashes in HydrusLists.SplitIteratorIntoChunks( hashes, 16 ):
                     
                     content_update = ClientContentUpdates.ContentUpdate( HC.CONTENT_TYPE_FILES, HC.CONTENT_UPDATE_DELETE, group_of_hashes )
                     

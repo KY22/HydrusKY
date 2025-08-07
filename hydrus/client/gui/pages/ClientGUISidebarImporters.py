@@ -3,8 +3,8 @@ import typing
 from qtpy import QtCore as QC
 from qtpy import QtWidgets as QW
 
-from hydrus.core import HydrusData
 from hydrus.core import HydrusExceptions
+from hydrus.core import HydrusLists
 from hydrus.core import HydrusNumbers
 from hydrus.core import HydrusTime
 
@@ -718,12 +718,12 @@ class SidebarImporterMultipleGallery( SidebarImporter ):
                 
                 all_media_results = []
                 
-                for ( i, block_of_hashes ) in enumerate( HydrusData.SplitIteratorIntoChunks( hashes, BLOCK_SIZE ) ):
+                for ( i, block_of_hashes ) in enumerate( HydrusLists.SplitIteratorIntoChunks( hashes, BLOCK_SIZE ) ):
                     
                     num_done = i * BLOCK_SIZE
                     
                     job_status.SetStatusText( 'Loading files: {}'.format( HydrusNumbers.ValueRangeToPrettyString( num_done, num_to_do ) ) )
-                    job_status.SetVariable( 'popup_gauge_1', ( num_done, num_to_do ) )
+                    job_status.SetGauge( num_done, num_to_do )
                     
                     if not have_published_job_status and HydrusTime.TimeHasPassedFloat( start_time + 3 ):
                         
@@ -743,7 +743,7 @@ class SidebarImporterMultipleGallery( SidebarImporter ):
                     
                 
                 job_status.SetStatusText( 'Done!' )
-                job_status.DeleteVariable( 'popup_gauge_1' )
+                job_status.DeleteGauge()
                 
                 return all_media_results
                 
@@ -1864,12 +1864,12 @@ class SidebarImporterMultipleWatcher( SidebarImporter ):
                 
                 all_media_results = []
                 
-                for ( i, block_of_hashes ) in enumerate( HydrusData.SplitIteratorIntoChunks( hashes, BLOCK_SIZE ) ):
+                for ( i, block_of_hashes ) in enumerate( HydrusLists.SplitIteratorIntoChunks( hashes, BLOCK_SIZE ) ):
                     
                     num_done = i * BLOCK_SIZE
                     
                     job_status.SetStatusText( 'Loading files: {}'.format( HydrusNumbers.ValueRangeToPrettyString( num_done, num_to_do ) ) )
-                    job_status.SetVariable( 'popup_gauge_1', ( num_done, num_to_do ) )
+                    job_status.SetGauge( num_done, num_to_do )
                     
                     if not have_published_job_status and HydrusTime.TimeHasPassedFloat( start_time + 3 ):
                         
@@ -1889,7 +1889,7 @@ class SidebarImporterMultipleWatcher( SidebarImporter ):
                     
                 
                 job_status.SetStatusText( 'Done!' )
-                job_status.DeleteVariable( 'popup_gauge_1' )
+                job_status.DeleteGauge()
                 
                 return all_media_results
                 

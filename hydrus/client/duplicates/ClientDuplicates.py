@@ -30,6 +30,14 @@ from hydrus.client.metadata import ClientTags
 DUPE_PAIR_SORT_MAX_FILESIZE = 0
 DUPE_PAIR_SORT_SIMILARITY = 1
 DUPE_PAIR_SORT_MIN_FILESIZE = 2
+DUPE_PAIR_SORT_RANDOM = 3
+
+dupe_pair_sort_string_lookup = {
+    DUPE_PAIR_SORT_MAX_FILESIZE : 'filesize of larger file',
+    DUPE_PAIR_SORT_SIMILARITY : 'similarity (distance/filesize ratio)',
+    DUPE_PAIR_SORT_MIN_FILESIZE : 'filesize of smaller file',
+    DUPE_PAIR_SORT_RANDOM : 'random'
+}
 
 DUPE_SEARCH_ONE_FILE_MATCHES_ONE_SEARCH = 0
 DUPE_SEARCH_BOTH_FILES_MATCH_ONE_SEARCH = 1
@@ -53,7 +61,7 @@ hashes_to_jpeg_quality = {}
 
 def GetDuplicateComparisonScore( shown_media_result: ClientMediaResult.MediaResult, comparison_media_result: ClientMediaResult.MediaResult ):
     
-    statements_and_scores = GetDuplicateComparisonStatements( shown_media_result, comparison_media_result, only_for_scores = True )
+    ( statements_and_scores, they_are_pixel_duplicates ) = GetDuplicateComparisonStatementsFast( shown_media_result, comparison_media_result )
     
     total_score = sum( ( score for ( statement, score ) in statements_and_scores.values() ) )
     
@@ -120,13 +128,16 @@ def GetVisualDataTiled( media_result: ClientMediaResult.MediaResult ) -> ClientV
     return typing.cast( ClientVisualData.VisualDataTiled, visual_data_tiled_cache.GetData( hash ) )
     
 
+COMPLEX_COMPARISON_FILETYPES = set()
+COMPLEX_COMPARISON_FILETYPES.update( HC.IMAGE_PROJECT_FILES )
+COMPLEX_COMPARISON_FILETYPES.update( HC.APPLICATIONS )
+COMPLEX_COMPARISON_FILETYPES.update( HC.ARCHIVES )
+
 # TODO: All this will be replaced by tools being developed for the duplicates auto-resolution system
-def GetDuplicateComparisonStatements( shown_media_result: ClientMediaResult.MediaResult, comparison_media_result: ClientMediaResult.MediaResult, only_for_scores = False ):
+def GetDuplicateComparisonStatementsFast( shown_media_result: ClientMediaResult.MediaResult, comparison_media_result: ClientMediaResult.MediaResult ):
     
     new_options = CG.client_controller.new_options
     
-    duplicate_comparison_score_higher_jpeg_quality = new_options.GetInteger( 'duplicate_comparison_score_higher_jpeg_quality' )
-    duplicate_comparison_score_much_higher_jpeg_quality = new_options.GetInteger( 'duplicate_comparison_score_much_higher_jpeg_quality' )
     duplicate_comparison_score_higher_filesize = new_options.GetInteger( 'duplicate_comparison_score_higher_filesize' )
     duplicate_comparison_score_much_higher_filesize = new_options.GetInteger( 'duplicate_comparison_score_much_higher_filesize' )
     duplicate_comparison_score_higher_resolution = new_options.GetInteger( 'duplicate_comparison_score_higher_resolution' )
@@ -140,9 +151,6 @@ def GetDuplicateComparisonStatements( shown_media_result: ClientMediaResult.Medi
     
     statements_and_scores = {}
     
-    s_hash = shown_media_result.GetHash()
-    c_hash = comparison_media_result.GetHash()
-    
     s_mime = shown_media_result.GetMime()
     c_mime = comparison_media_result.GetMime()
     
@@ -151,7 +159,7 @@ def GetDuplicateComparisonStatements( shown_media_result: ClientMediaResult.Medi
     s_size = shown_media_result.GetSize()
     c_size = comparison_media_result.GetSize()
     
-    is_a_pixel_dupe = False
+    they_are_pixel_duplicates = False
     
     if s_mime in HC.FILES_THAT_CAN_HAVE_PIXEL_HASH and c_mime in HC.FILES_THAT_CAN_HAVE_PIXEL_HASH and shown_media_result.GetResolution() == comparison_media_result.GetResolution():
         
@@ -176,7 +184,7 @@ def GetDuplicateComparisonStatements( shown_media_result: ClientMediaResult.Medi
                 HC.IMAGE_JPEG
             }
             
-            is_a_pixel_dupe = True
+            they_are_pixel_duplicates = True
             
             if s_mime == HC.IMAGE_PNG and c_mime in other_file_is_pixel_png_appropriate_filetypes:
                 
@@ -254,7 +262,7 @@ def GetDuplicateComparisonStatements( shown_media_result: ClientMediaResult.Medi
             
             percentage_different_string = ' ({}{})'.format( sign, HydrusNumbers.FloatToPercentage( percentage_difference ) )
             
-            if is_a_pixel_dupe:
+            if they_are_pixel_duplicates:
                 
                 score = 0
                 
@@ -270,14 +278,21 @@ def GetDuplicateComparisonStatements( shown_media_result: ClientMediaResult.Medi
     s_resolution = shown_media_result.GetResolution()
     c_resolution = comparison_media_result.GetResolution()
     
-    if s_resolution != c_resolution:
+    ( s_w, s_h ) = s_resolution
+    ( c_w, c_h ) = c_resolution
+    
+    all_measurements_are_good = None not in ( s_w, s_h, c_w, c_h ) and True not in ( d <= 0 for d in ( s_w, s_h, c_w, c_h ) )
+    
+    if all_measurements_are_good:
         
-        ( s_w, s_h ) = s_resolution
-        ( c_w, c_h ) = c_resolution
-        
-        all_measurements_are_good = None not in ( s_w, s_h, c_w, c_h ) and True not in ( d <= 0 for d in ( s_w, s_h, c_w, c_h ) )
-        
-        if all_measurements_are_good:
+        if s_w == c_w and s_h == c_h:
+            
+            score = 0
+            statement = f'both are {ClientData.ResolutionToPrettyString(s_resolution)}'
+            
+            statements_and_scores[ 'resolution' ] = ( statement, score )
+            
+        else:
             
             resolution_ratio = ( s_w * s_h ) / ( c_w * c_h )
             
@@ -384,19 +399,27 @@ def GetDuplicateComparisonStatements( shown_media_result: ClientMediaResult.Medi
             
         
     
+    
     # same/diff mime
+    
+    if s_mime in COMPLEX_COMPARISON_FILETYPES or c_mime in COMPLEX_COMPARISON_FILETYPES:
+        
+        score = -100 
+        
+    else:
+        
+        score = 0
+        
     
     if s_mime == c_mime:
         
         statement = 'both are {}s'.format( HC.mime_string_lookup[ s_mime ] )
-        score = 0
         
         statements_and_scores[ 'mime' ] = ( statement, score )
         
     else:
         
         statement = '{} vs {}'.format( HC.mime_string_lookup[ s_mime ], HC.mime_string_lookup[ c_mime ] )
-        score = 0
         
         statements_and_scores[ 'mime' ] = ( statement, score )
         
@@ -406,9 +429,14 @@ def GetDuplicateComparisonStatements( shown_media_result: ClientMediaResult.Medi
     s_has_audio = shown_media_result.HasAudio()
     c_has_audio = comparison_media_result.HasAudio()
     
-    if s_has_audio != c_has_audio:
+    if s_has_audio or c_has_audio:
         
-        if s_has_audio:
+        if s_has_audio and c_has_audio:
+            
+            audio_statement = 'both have audio'
+            score = 0
+            
+        elif s_has_audio:
             
             audio_statement = 'this has audio, the other does not'
             score = duplicate_comparison_score_has_audio
@@ -419,17 +447,22 @@ def GetDuplicateComparisonStatements( shown_media_result: ClientMediaResult.Medi
             score = - duplicate_comparison_score_has_audio
             
         
-        statement = '{} vs {}'.format( s_has_audio, c_has_audio )
-
         statements_and_scores[ 'has_audio' ] = ( audio_statement, score )
-    
+        
 
     # more tags
     
     s_num_tags = len( shown_media_result.GetTagsManager().GetCurrentAndPending( CC.COMBINED_TAG_SERVICE_KEY, ClientTags.TAG_DISPLAY_DISPLAY_ACTUAL ) )
     c_num_tags = len( comparison_media_result.GetTagsManager().GetCurrentAndPending( CC.COMBINED_TAG_SERVICE_KEY, ClientTags.TAG_DISPLAY_DISPLAY_ACTUAL ) )
     
-    if s_num_tags != c_num_tags:
+    if s_num_tags == c_num_tags:
+        
+        score = 0
+        statement = f'both have {HydrusNumbers.ToHumanInt(s_num_tags)} tags'
+        
+    else:
+        
+        operator = '?'
         
         if s_num_tags > 0 and c_num_tags > 0:
             
@@ -457,8 +490,8 @@ def GetDuplicateComparisonStatements( shown_media_result: ClientMediaResult.Medi
         
         statement = '{} tags {} {} tags'.format( HydrusNumbers.ToHumanInt( s_num_tags ), operator, HydrusNumbers.ToHumanInt( c_num_tags ) )
         
-        statements_and_scores[ 'num_tags' ] = ( statement, score )
-        
+    
+    statements_and_scores[ 'num_tags' ] = ( statement, score )
     
     # older
     
@@ -467,100 +500,48 @@ def GetDuplicateComparisonStatements( shown_media_result: ClientMediaResult.Medi
     
     one_month = 86400 * 30
     
-    if s_import_timestamp is not None and c_import_timestamp is not None and abs( s_import_timestamp - c_import_timestamp ) > one_month:
+    if s_import_timestamp is not None and c_import_timestamp is not None:
         
-        if s_import_timestamp < c_import_timestamp:
-            
-            operator = 'older than'
-            score = duplicate_comparison_score_older
-            
-        else:
-            
-            operator = 'newer than'
-            score = -duplicate_comparison_score_older
-            
-        
-        if is_a_pixel_dupe:
+        if abs( s_import_timestamp - c_import_timestamp ) < one_month:
             
             score = 0
             
-        
-        statement = '{}, {} {}'.format( HydrusTime.TimestampToPrettyTimeDelta( s_import_timestamp, history_suffix = ' old' ), operator, HydrusTime.TimestampToPrettyTimeDelta( c_import_timestamp, history_suffix = ' old' ) )
-        
-        statements_and_scores[ 'time_imported' ] = ( statement, score )
-        
-    
-    if s_mime == HC.IMAGE_JPEG and c_mime == HC.IMAGE_JPEG:
-        
-        global hashes_to_jpeg_quality
-        
-        for jpeg_hash in ( s_hash, c_hash ): 
+            statement = 'imported at similar time ({})'.format( HydrusTime.TimestampToPrettyTimeDelta( int( ( s_import_timestamp + c_import_timestamp ) / 2 ) ) )
             
-            if jpeg_hash not in hashes_to_jpeg_quality:
-                
-                path = CG.client_controller.client_files_manager.GetFilePath( jpeg_hash, HC.IMAGE_JPEG )
-                
-                try:
-                    
-                    raw_pil_image = HydrusImageOpening.RawOpenPILImage( path )
-                    
-                    result = HydrusImageMetadata.GetJPEGQuantizationQualityEstimate( raw_pil_image )
-                    
-                except:
-                    
-                    result = ( 'unknown', None )
-                    
-                
-                hashes_to_jpeg_quality[ jpeg_hash ] = result
-                
+        else:
             
-        
-        ( s_label, s_jpeg_quality ) = hashes_to_jpeg_quality[ s_hash ]
-        ( c_label, c_jpeg_quality ) = hashes_to_jpeg_quality[ c_hash ]
-        
-        score = 0
-        
-        if s_label != c_label:
-            
-            if c_jpeg_quality is None or s_jpeg_quality is None or c_jpeg_quality <= 0 or s_jpeg_quality <= 0:
+            if s_import_timestamp < c_import_timestamp:
                 
-                score = 0
+                operator = 'older than'
+                score = duplicate_comparison_score_older
                 
             else:
                 
-                # other way around, low score is good here
-                quality_ratio = c_jpeg_quality / s_jpeg_quality
-                
-                if quality_ratio > 2.0:
-                    
-                    score = duplicate_comparison_score_much_higher_jpeg_quality
-                    
-                elif quality_ratio > 1.0:
-                    
-                    score = duplicate_comparison_score_higher_jpeg_quality
-                    
-                elif quality_ratio < 0.5:
-                    
-                    score = -duplicate_comparison_score_much_higher_jpeg_quality
-                    
-                else:
-                    
-                    score = -duplicate_comparison_score_higher_jpeg_quality
-                    
+                operator = 'newer than'
+                score = -duplicate_comparison_score_older
                 
             
-            statement = '{} vs {} jpeg quality'.format( s_label, c_label )
+            if they_are_pixel_duplicates:
+                
+                score = 0
+                
             
-            statements_and_scores[ 'jpeg_quality' ] = ( statement, score )
+            statement = '{}, {} {}'.format( HydrusTime.TimestampToPrettyTimeDelta( s_import_timestamp, history_suffix = ' old' ), operator, HydrusTime.TimestampToPrettyTimeDelta( c_import_timestamp, history_suffix = ' old' ) )
             
+        
+        statements_and_scores[ 'time_imported' ] = ( statement, score )
         
     
     s_has_transparency = shown_media_result.GetFileInfoManager().has_transparency
     c_has_transparency = comparison_media_result.GetFileInfoManager().has_transparency
     
-    if s_has_transparency ^ c_has_transparency:
+    if s_has_transparency or c_has_transparency:
         
-        if s_has_transparency:
+        if s_has_transparency and c_has_transparency:
+            
+            transparency_statement = 'both have transparency'
+            
+        elif s_has_transparency:
             
             transparency_statement = 'this has transparency, the other is opaque'
             
@@ -575,9 +556,13 @@ def GetDuplicateComparisonStatements( shown_media_result: ClientMediaResult.Medi
     s_has_exif = shown_media_result.GetFileInfoManager().has_exif
     c_has_exif = comparison_media_result.GetFileInfoManager().has_exif
     
-    if s_has_exif ^ c_has_exif:
+    if s_has_exif or c_has_exif:
         
-        if s_has_exif:
+        if s_has_exif and c_has_exif:
+            
+            exif_statement = 'both have exif data'
+            
+        elif s_has_exif:
             
             exif_statement = 'this has exif data, the other does not'
             
@@ -609,9 +594,13 @@ def GetDuplicateComparisonStatements( shown_media_result: ClientMediaResult.Medi
     s_has_icc = shown_media_result.GetFileInfoManager().has_icc_profile
     c_has_icc = comparison_media_result.GetFileInfoManager().has_icc_profile
     
-    if s_has_icc ^ c_has_icc:
+    if s_has_icc or c_has_icc:
         
-        if s_has_icc:
+        if s_has_icc and c_has_icc:
+            
+            icc_statement = 'both have icc profile'
+            
+        elif s_has_icc:
             
             icc_statement = 'this has icc profile, the other does not'
             
@@ -679,9 +668,130 @@ def GetDuplicateComparisonStatements( shown_media_result: ClientMediaResult.Medi
         statements_and_scores[ 'duration' ] = ( statement, score )
         
     
+    return ( statements_and_scores, they_are_pixel_duplicates )
+    
+
+def GetDuplicateComparisonStatementsSlow( shown_media_result: ClientMediaResult.MediaResult, comparison_media_result: ClientMediaResult.MediaResult, they_are_pixel_duplicates: bool ):
+    
+    new_options = CG.client_controller.new_options
+    
+    s_hash = shown_media_result.GetHash()
+    c_hash = comparison_media_result.GetHash()
+    
+    duplicate_comparison_score_higher_jpeg_quality = new_options.GetInteger( 'duplicate_comparison_score_higher_jpeg_quality' )
+    duplicate_comparison_score_much_higher_jpeg_quality = new_options.GetInteger( 'duplicate_comparison_score_much_higher_jpeg_quality' )
+    
+    statements_and_scores = {}
+    
+    s_mime = shown_media_result.GetMime()
+    c_mime = comparison_media_result.GetMime()
+    
+    # jpeg quality
+    
+    if s_mime == HC.IMAGE_JPEG and c_mime == HC.IMAGE_JPEG:
+        
+        global hashes_to_jpeg_quality
+        
+        for jpeg_hash in ( s_hash, c_hash ): 
+            
+            if jpeg_hash not in hashes_to_jpeg_quality:
+                
+                path = CG.client_controller.client_files_manager.GetFilePath( jpeg_hash, HC.IMAGE_JPEG )
+                
+                subsampling_string = 'unknown'
+                quality_result = ( 'unknown', None )
+                
+                try:
+                    
+                    raw_pil_image = HydrusImageOpening.RawOpenPILImage( path )
+                    
+                    subsampling_string = HydrusImageMetadata.GetJpegSubsampling( raw_pil_image )
+                    
+                    quality_result = HydrusImageMetadata.GetJPEGQuantizationQualityEstimate( raw_pil_image )
+                    
+                except:
+                    
+                    pass
+                    
+                
+                hashes_to_jpeg_quality[ jpeg_hash ] = ( subsampling_string, quality_result )
+                
+            
+        
+        ( s_subsampling_string, ( s_label, s_jpeg_quality ) ) = hashes_to_jpeg_quality[ s_hash ]
+        ( c_subsampling_string, ( c_label, c_jpeg_quality ) ) = hashes_to_jpeg_quality[ c_hash ]
+        
+        s_subsampling_value = HydrusImageMetadata.subsampling_value_lookup.get( s_subsampling_string, 0 )
+        c_subsampling_value = HydrusImageMetadata.subsampling_value_lookup.get( c_subsampling_string, 0 )
+        
+        if s_subsampling_value == c_subsampling_value:
+            
+            score = 0
+            statement = f'both {s_subsampling_string}'
+            
+        else:
+            
+            if s_subsampling_value > c_subsampling_value:
+                
+                score = 10
+                
+            else:
+                
+                score = -10
+                
+            
+            statement = f'{s_subsampling_string} vs {c_subsampling_string}'
+            
+        
+        statements_and_scores[ 'jpeg_subsampling' ] = ( statement, score )
+        
+        #
+        
+        score = 0
+        
+        if c_jpeg_quality is None or s_jpeg_quality is None or c_jpeg_quality <= 0 or s_jpeg_quality <= 0:
+            
+            score = 0
+            
+        else:
+            
+            if s_jpeg_quality == c_jpeg_quality:
+                
+                score = 0
+                statement = f'both {s_label} quality'
+                
+            else:
+                
+                # low score is good here
+                quality_ratio = c_jpeg_quality / s_jpeg_quality
+                
+                if quality_ratio > 2.0:
+                    
+                    score = duplicate_comparison_score_much_higher_jpeg_quality
+                    
+                elif quality_ratio > 1.0:
+                    
+                    score = duplicate_comparison_score_higher_jpeg_quality
+                    
+                elif quality_ratio < 0.5:
+                    
+                    score = -duplicate_comparison_score_much_higher_jpeg_quality
+                    
+                else:
+                    
+                    score = -duplicate_comparison_score_higher_jpeg_quality
+                    
+                
+                statement = '{} vs {} jpeg quality'.format( s_label, c_label )\
+                
+            
+            statements_and_scores[ 'jpeg_quality' ] = ( statement, score )
+            
+        
+    
     # visual duplicates
     
-    if not is_a_pixel_dupe and not only_for_scores:
+    if not they_are_pixel_duplicates:
         
         if s_mime in HC.IMAGES and c_mime in HC.IMAGES:
             
@@ -699,11 +809,13 @@ def GetDuplicateComparisonStatements( shown_media_result: ClientMediaResult.Medi
                     
                     ( regional_seems_good, regional_result, regional_score_statement ) = ClientVisualData.FilesAreVisuallySimilarRegional( s_visual_data_tiled, c_visual_data_tiled )
                     
-                    statements_and_scores[ 'a_and_b_are_visual_duplicates' ] = ( regional_score_statement, 0 )
+                    score = 0 if regional_seems_good else -5
+                    
+                    statements_and_scores[ 'a_and_b_are_visual_duplicates' ] = ( regional_score_statement, score )
                     
                 else:
                     
-                    statements_and_scores[ 'a_and_b_are_visual_duplicates' ] = ( simple_score_statement, 0 )
+                    statements_and_scores[ 'a_and_b_are_visual_duplicates' ] = ( simple_score_statement, -10 )
                     
                 
             except HydrusExceptions.ShutdownException:
@@ -908,7 +1020,7 @@ class DuplicatesManager( object ):
                 
                 text = 'searching: {}'.format( HydrusNumbers.ValueRangeToPrettyString( num_searched_estimate, total_num_files ) )
                 job_status.SetStatusText( text )
-                job_status.SetVariable( 'popup_gauge_1', ( num_searched_estimate, total_num_files ) )
+                job_status.SetGauge( num_searched_estimate, total_num_files )
                 
                 if job_status.IsCancelled() or HG.model_shutdown:
                     
@@ -967,11 +1079,11 @@ def get_updated_domain_modified_timestamp_datas( destination_media_result: Clien
         
         if source_timestamp_ms is not None:
             
-            timestamp_data = ClientTime.TimestampData.STATICDomainModifiedTime( domain, source_timestamp_ms )
-            
             destination_timestamp_ms = destination_timestamp_manager.GetDomainModifiedTimestampMS( domain )
             
             if destination_timestamp_ms is None or ClientTime.ShouldUpdateModifiedTime( destination_timestamp_ms, source_timestamp_ms ):
+                
+                timestamp_data = ClientTime.TimestampData.STATICDomainModifiedTime( domain, source_timestamp_ms )
                 
                 timestamp_datas.append( timestamp_data )
                 
@@ -1620,6 +1732,8 @@ class DuplicateContentMergeOptions( HydrusSerialisable.SerialisableBase ):
             first_urls = set( media_result_a.GetLocationsManager().GetURLs() )
             second_urls = set( media_result_b.GetLocationsManager().GetURLs() )
             
+            # hey note here that they url action is x_needs, but the timestamp action works off of what they other guy _has_, totally, since we want to examine conflicts to get the earlier time
+            
             if self._sync_urls_action == HC.CONTENT_MERGE_ACTION_TWO_WAY_MERGE:
                 
                 first_needs = second_urls.difference( first_urls )
@@ -1629,14 +1743,14 @@ class DuplicateContentMergeOptions( HydrusSerialisable.SerialisableBase ):
                     
                     content_update_package.AddContentUpdate( CC.COMBINED_LOCAL_FILE_SERVICE_KEY, ClientContentUpdates.ContentUpdate( HC.CONTENT_TYPE_URLS, HC.CONTENT_UPDATE_ADD, ( first_needs, hash_a_set ) ) )
                     
-                    content_update_package.AddContentUpdates( CC.COMBINED_LOCAL_FILE_SERVICE_KEY, get_domain_modified_content_updates( media_result_a, media_result_b, first_needs ) )
+                    content_update_package.AddContentUpdates( CC.COMBINED_LOCAL_FILE_SERVICE_KEY, get_domain_modified_content_updates( media_result_a, media_result_b, second_urls ) )
                     
                 
                 if len( second_needs ) > 0:
                     
                     content_update_package.AddContentUpdate( CC.COMBINED_LOCAL_FILE_SERVICE_KEY, ClientContentUpdates.ContentUpdate( HC.CONTENT_TYPE_URLS, HC.CONTENT_UPDATE_ADD, ( second_needs, hash_b_set ) ) )
                     
-                    content_update_package.AddContentUpdates( CC.COMBINED_LOCAL_FILE_SERVICE_KEY, get_domain_modified_content_updates( media_result_b, media_result_a, second_needs ) )
+                    content_update_package.AddContentUpdates( CC.COMBINED_LOCAL_FILE_SERVICE_KEY, get_domain_modified_content_updates( media_result_b, media_result_a, first_urls ) )
                     
                 
             elif self._sync_urls_action == HC.CONTENT_MERGE_ACTION_COPY:
@@ -1647,7 +1761,7 @@ class DuplicateContentMergeOptions( HydrusSerialisable.SerialisableBase ):
                     
                     content_update_package.AddContentUpdate( CC.COMBINED_LOCAL_FILE_SERVICE_KEY, ClientContentUpdates.ContentUpdate( HC.CONTENT_TYPE_URLS, HC.CONTENT_UPDATE_ADD, ( first_needs, hash_a_set ) ) )
                     
-                    content_update_package.AddContentUpdates( CC.COMBINED_LOCAL_FILE_SERVICE_KEY, get_domain_modified_content_updates( media_result_a, media_result_b, first_needs ) )
+                    content_update_package.AddContentUpdates( CC.COMBINED_LOCAL_FILE_SERVICE_KEY, get_domain_modified_content_updates( media_result_a, media_result_b, second_urls ) )
                     
                 
             

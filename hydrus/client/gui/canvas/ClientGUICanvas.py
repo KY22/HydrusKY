@@ -1,4 +1,5 @@
 import collections.abc
+import random
 import typing
 
 from qtpy import QtCore as QC
@@ -31,7 +32,6 @@ from hydrus.client.gui import ClientGUIFunctions
 from hydrus.client.gui import ClientGUIMenus
 from hydrus.client.gui import ClientGUIRatings
 from hydrus.client.gui import ClientGUIShortcuts
-from hydrus.client.gui import ClientGUITopLevelWindows
 from hydrus.client.gui import ClientGUITopLevelWindowsPanels
 from hydrus.client.gui import QtPorting as QP
 from hydrus.client.gui.canvas import ClientGUICanvasHoverFrames
@@ -3000,7 +3000,7 @@ def THREADCommitDuplicateResults( content_update_packages: list, pairs_info: lis
         num_done = i + 1
         
         job_status.SetStatusText( f'misc file updates: {HydrusNumbers.ValueRangeToPrettyString( num_done, num_to_do )}' )
-        job_status.SetVariable( 'popup_gauge_1', ( num_done, num_to_do ) )
+        job_status.SetGauge( num_done, num_to_do )
         
         CG.client_controller.WriteSynchronous( 'content_updates', content_update_package )
         
@@ -3015,7 +3015,7 @@ def THREADCommitDuplicateResults( content_update_packages: list, pairs_info: lis
             
         
         job_status.SetStatusText( f'decisions: {HydrusNumbers.ValueRangeToPrettyString( num_done, num_to_do )}' )
-        job_status.SetVariable( 'popup_gauge_1', ( num_done, num_to_do ) )
+        job_status.SetGauge( num_done, num_to_do )
         
         CG.client_controller.WriteSynchronous( 'duplicate_pair_status', block_of_pair_infos )
         
@@ -3031,27 +3031,40 @@ class CanvasFilterDuplicates( CanvasWithHovers ):
     
     showPairInPage = QC.Signal( list )
     
-    def __init__( self, parent, potential_duplicates_search_context: ClientPotentialDuplicatesSearchContext.PotentialDuplicatesSearchContext ):
+    def __init__( self, parent, potential_duplicates_search_context: ClientPotentialDuplicatesSearchContext.PotentialDuplicatesSearchContext, duplicate_pair_sort_type: int, duplicate_pair_sort_asc: bool, filter_group_mode: bool ):
         
         self._potential_duplicates_search_context = potential_duplicates_search_context
+        self._duplicate_pair_sort_type = duplicate_pair_sort_type
+        self._duplicate_pair_sort_asc = duplicate_pair_sort_asc
+        self._filter_group_mode = filter_group_mode
         
         location_context = self._potential_duplicates_search_context.GetFileSearchContext1().GetLocationContext()
         
         super().__init__( parent, location_context )
         
-        self._all_potential_duplicate_pairs_and_distances = ClientPotentialDuplicatesSearchContext.PotentialDuplicatePairsAndDistances( [] )
-        self._all_potential_duplicate_pairs_and_distances_initialised = False
-        self._all_potential_duplicate_pairs_and_distances_fetch_started = False
+        self._potential_duplicate_id_pairs_and_distances = ClientPotentialDuplicatesSearchContext.PotentialDuplicateIdPairsAndDistances( [] )
+        self._potential_duplicate_id_pairs_and_distances_initialised = False
+        self._potential_duplicate_id_pairs_and_distances_fetch_started = False
         
-        self._potential_duplicate_pairs_and_distances_still_to_search = ClientPotentialDuplicatesSearchContext.PotentialDuplicatePairsAndDistances( [] )
+        self._potential_duplicate_id_pairs_and_distances_still_to_search = ClientPotentialDuplicatesSearchContext.PotentialDuplicateIdPairsAndDistances( [] )
         
-        self._fetched_pairs_to_process = []
+        self._group_media_ids = set()
+        
+        self._fetched_media_result_pairs_and_distances_to_process = ClientPotentialDuplicatesSearchContext.PotentialDuplicateMediaResultPairsAndDistances( [] )
         
         self._num_items_to_commit = 0
         self._content_update_packages_we_are_committing = []
         self._pair_infos_we_are_committing = []
         
-        self._search_work_updater = self._InitialiseSearchWorkUpdater()
+        if self._filter_group_mode:
+            
+            self._search_work_updater = self._InitialiseGroupSearchWorkUpdater()
+            
+        else:
+            
+            self._search_work_updater = self._InitialiseMixedSearchWorkUpdater()
+            
+        
         self._commit_work_updater = self._InitialiseCommitWorkUpdater()
         
         self._canvas_type = CC.CANVAS_MEDIA_VIEWER_DUPLICATES
@@ -3113,8 +3126,8 @@ class CanvasFilterDuplicates( CanvasWithHovers ):
         
         # unfortunate, but the old value is now invalid since we are about to change things
         # we may have knocked out potentials without merging media ids (set alternate) or, more rarely, added new potentials from merge inheritance
-        self._all_potential_duplicate_pairs_and_distances = ClientPotentialDuplicatesSearchContext.PotentialDuplicatePairsAndDistances( [] )
-        self._all_potential_duplicate_pairs_and_distances_initialised = False
+        self._potential_duplicate_id_pairs_and_distances = ClientPotentialDuplicatesSearchContext.PotentialDuplicateIdPairsAndDistances( [] )
+        self._potential_duplicate_id_pairs_and_distances_initialised = False
         
         for ( duplicate_type, media_a, media_b, content_update_packages, was_auto_skipped ) in self._processed_pairs:
             
@@ -3456,35 +3469,35 @@ class CanvasFilterDuplicates( CanvasWithHovers ):
             return
             
         
-        if self._all_potential_duplicate_pairs_and_distances_initialised or self._all_potential_duplicate_pairs_and_distances_fetch_started:
+        if self._potential_duplicate_id_pairs_and_distances_initialised or self._potential_duplicate_id_pairs_and_distances_fetch_started:
             
             return
             
         
-        self._all_potential_duplicate_pairs_and_distances_fetch_started = True
+        self._potential_duplicate_id_pairs_and_distances_fetch_started = True
+        
+        location_context = self._potential_duplicates_search_context.GetFileSearchContext1().GetLocationContext()
         
         def work_callable():
             
-            all_potential_duplicate_pairs_and_distances: ClientPotentialDuplicatesSearchContext.PotentialDuplicatePairsAndDistances = CG.client_controller.Read( 'all_potential_duplicate_pairs_and_distances' )
+            potential_duplicate_id_pairs_and_distances: ClientPotentialDuplicatesSearchContext.PotentialDuplicateIdPairsAndDistances = CG.client_controller.Read( 'potential_duplicate_id_pairs_and_distances', location_context )
             
             # ok randomise the order we'll do this guy, but only at the block level
             # we'll preserve order each block came in since we'll then keep db-proximal indices close together on each actual block fetch
+            potential_duplicate_id_pairs_and_distances.RandomiseBlocks()
             
-            # a checkbox for the user to say 'choose different work with each launch'
-            all_potential_duplicate_pairs_and_distances.RandomiseBlocks()
-            
-            return all_potential_duplicate_pairs_and_distances
+            return potential_duplicate_id_pairs_and_distances
             
         
-        def publish_callable( all_potential_duplicate_pairs_and_distances: ClientPotentialDuplicatesSearchContext.PotentialDuplicatePairsAndDistances ):
+        def publish_callable( potential_duplicate_id_pairs_and_distances: ClientPotentialDuplicatesSearchContext.PotentialDuplicateIdPairsAndDistances ):
             
-            self._all_potential_duplicate_pairs_and_distances = all_potential_duplicate_pairs_and_distances
+            self._potential_duplicate_id_pairs_and_distances = potential_duplicate_id_pairs_and_distances
             
-            self._all_potential_duplicate_pairs_and_distances_initialised = True
+            self._potential_duplicate_id_pairs_and_distances_initialised = True
             
-            self._all_potential_duplicate_pairs_and_distances_fetch_started = False
+            self._potential_duplicate_id_pairs_and_distances_fetch_started = False
             
-            if len( self._all_potential_duplicate_pairs_and_distances ) == 0:
+            if len( self._potential_duplicate_id_pairs_and_distances ) == 0:
                 
                 ClientGUIDialogsMessage.ShowInformation( self, 'All potential pairs are cleared!' )
                 
@@ -3579,7 +3592,7 @@ class CanvasFilterDuplicates( CanvasWithHovers ):
         return ClientGUIAsync.AsyncQtUpdater( self, loading_callable, work_callable, publish_callable, pre_work_callable = pre_work_callable )
         
     
-    def _InitialiseSearchWorkUpdater( self ):
+    def _InitialiseGroupSearchWorkUpdater( self ):
         
         def loading_callable():
             
@@ -3593,7 +3606,134 @@ class CanvasFilterDuplicates( CanvasWithHovers ):
                 raise HydrusExceptions.CancelledException()
                 
             
-            if len( self._potential_duplicate_pairs_and_distances_still_to_search ) == 0:
+            if len( self._group_media_ids ) == 0:
+                
+                # we do not currently have any group to search
+                
+                if len( self._potential_duplicate_id_pairs_and_distances_still_to_search ) == 0:
+                    
+                    self._loading_text = 'No duplicate pairs to search!'
+                    
+                    raise HydrusExceptions.CancelledException()
+                    
+                else:
+                    
+                    value = len( self._potential_duplicate_id_pairs_and_distances ) - len( self._potential_duplicate_id_pairs_and_distances_still_to_search )
+                    range = len( self._potential_duplicate_id_pairs_and_distances )
+                    
+                    self._loading_text = f'{HydrusNumbers.ValueRangeToPrettyString(value, range)} pairs searched{HC.UNICODE_ELLIPSIS}'
+                    
+                
+                block_of_id_pairs_and_distances = self._potential_duplicate_id_pairs_and_distances_still_to_search.PopBlock()
+                
+            else:
+                
+                self._loading_text = f'Loading group{HC.UNICODE_ELLIPSIS}'
+                
+                block_of_id_pairs_and_distances = ClientPotentialDuplicatesSearchContext.PotentialDuplicateIdPairsAndDistances( [] )
+                
+            
+            self.update()
+            
+            return ( self._potential_duplicates_search_context, self._group_media_ids, self._potential_duplicate_id_pairs_and_distances, block_of_id_pairs_and_distances )
+            
+        
+        def work_callable( args ):
+            
+            ( potential_duplicates_search_context, group_media_ids, potential_duplicate_id_pairs_and_distances, block_of_id_pairs_and_distances ) = args
+            
+            potential_duplicate_media_result_pairs_and_distances = ClientPotentialDuplicatesSearchContext.PotentialDuplicateMediaResultPairsAndDistances( [] )
+            
+            if len( group_media_ids ) == 0:
+                
+                # ok let's find a group if poss
+                
+                probing_potential_duplicate_media_result_pairs_and_distances = CG.client_controller.Read( 'potential_duplicate_id_pairs_and_distances_fragmentary', potential_duplicates_search_context, block_of_id_pairs_and_distances )
+                
+                if len( probing_potential_duplicate_media_result_pairs_and_distances ) == 0:
+                    
+                    pass # no luck this time; make no changes and try again
+                    
+                else:
+                    
+                    # we found one
+                    pairs = list( probing_potential_duplicate_media_result_pairs_and_distances.GetPairs() )
+                    
+                    pair = random.choice( pairs )
+                    
+                    group_potential_duplicate_id_pairs_and_distances = potential_duplicate_id_pairs_and_distances.FilterWiderPotentialGroup( pair )
+                    
+                    group_media_ids = { media_id for pair in group_potential_duplicate_id_pairs_and_distances.GetRows() for media_id in pair }
+                    
+                
+            else:
+                
+                # ok we have a group; we want to re-fetch it
+                group_potential_duplicate_id_pairs_and_distances = potential_duplicate_id_pairs_and_distances.FilterWiderPotentialGroup( group_media_ids )
+                
+                potential_duplicate_media_result_pairs_and_distances = CG.client_controller.Read( 'potential_duplicate_media_result_pairs_and_distances_fragmentary', potential_duplicates_search_context, group_potential_duplicate_id_pairs_and_distances )
+                
+                if len( potential_duplicate_media_result_pairs_and_distances ) == 0:
+                    
+                    # this group is now exhausted; we need to fetch a new one
+                    
+                    group_media_ids = set()
+                    
+                
+            
+            return ( group_media_ids, potential_duplicate_media_result_pairs_and_distances )
+            
+        
+        def publish_callable( result ):
+            
+            ( self._group_media_ids, self._fetched_media_result_pairs_and_distances_to_process ) = result
+            
+            if len( self._group_media_ids ) == 0 and len( self._potential_duplicate_id_pairs_and_distances_still_to_search ) == 0:
+                
+                ClientGUIDialogsMessage.ShowInformation( self, 'All pairs have been filtered!' )
+                
+                CG.client_controller.pub( 'new_similar_files_potentials_search_numbers' )
+                
+                self._TryToCloseWindow()
+                
+                return
+                
+            
+            if len( self._fetched_media_result_pairs_and_distances_to_process ) > 0:
+                
+                self._fetched_media_result_pairs_and_distances_to_process.Sort( self._duplicate_pair_sort_type, self._duplicate_pair_sort_asc )
+                
+                self._batch_of_pairs_to_process = self._fetched_media_result_pairs_and_distances_to_process.GetPairs()
+                self._current_pair_index = 0
+                
+                self._fetched_media_result_pairs_and_distances_to_process = ClientPotentialDuplicatesSearchContext.PotentialDuplicateMediaResultPairsAndDistances( [] )
+                
+                self._ShowCurrentPair()
+                
+            else:
+                
+                self._DoSearchWork()
+                
+            
+        
+        return ClientGUIAsync.AsyncQtUpdater( self, loading_callable, work_callable, publish_callable, pre_work_callable = pre_work_callable )
+        
+    
+    def _InitialiseMixedSearchWorkUpdater( self ):
+        
+        def loading_callable():
+            
+            pass
+            
+        
+        def pre_work_callable():
+            
+            if self._CurrentlyCommitting():
+                
+                raise HydrusExceptions.CancelledException()
+                
+            
+            if len( self._potential_duplicate_id_pairs_and_distances_still_to_search ) == 0:
                 
                 self._loading_text = 'No duplicate pairs to search!'
                 
@@ -3601,34 +3741,33 @@ class CanvasFilterDuplicates( CanvasWithHovers ):
                 
             else:
                 
-                value = len( self._all_potential_duplicate_pairs_and_distances ) - len( self._potential_duplicate_pairs_and_distances_still_to_search )
-                range = len( self._all_potential_duplicate_pairs_and_distances )
+                value = len( self._potential_duplicate_id_pairs_and_distances ) - len( self._potential_duplicate_id_pairs_and_distances_still_to_search )
+                range = len( self._potential_duplicate_id_pairs_and_distances )
                 
-                self._loading_text = f'{HydrusNumbers.ValueRangeToPrettyString(value, range)} potentials searched; found {HydrusNumbers.ToHumanInt( len( self._fetched_pairs_to_process ) )} pairs{HC.UNICODE_ELLIPSIS}'
+                self._loading_text = f'{HydrusNumbers.ValueRangeToPrettyString(value, range)} pairs searched; {HydrusNumbers.ToHumanInt( len( self._fetched_media_result_pairs_and_distances_to_process ) )} matched{HC.UNICODE_ELLIPSIS}'
                 
             
-            block_of_pairs_and_distances = self._potential_duplicate_pairs_and_distances_still_to_search.PopBlock()
+            block_of_id_pairs_and_distances = self._potential_duplicate_id_pairs_and_distances_still_to_search.PopBlock()
             
             self.update()
             
-            return ( self._potential_duplicates_search_context, block_of_pairs_and_distances )
+            return ( self._potential_duplicates_search_context, block_of_id_pairs_and_distances )
             
         
         def work_callable( args ):
             
-            ( potential_duplicates_search_context, block_of_pairs_and_distances ) = args
+            ( potential_duplicates_search_context, block_of_id_pairs_and_distances ) = args
             
-            sort_type = ClientDuplicates.DUPE_PAIR_SORT_MAX_FILESIZE
-            sort_asc = False
+            no_more_than = CG.client_controller.new_options.GetInteger( 'duplicate_filter_max_batch_size' )
             
-            fetched_pairs = CG.client_controller.Read( 'potential_duplicate_pairs_fragmentary', potential_duplicates_search_context, block_of_pairs_and_distances, sort_type, sort_asc )
+            potential_duplicate_media_result_pairs_and_distances = CG.client_controller.Read( 'potential_duplicate_media_result_pairs_and_distances_fragmentary', potential_duplicates_search_context, block_of_id_pairs_and_distances, no_more_than = no_more_than )
             
-            return fetched_pairs
+            return potential_duplicate_media_result_pairs_and_distances
             
         
         def publish_callable( result ):
             
-            some_fetched_pairs = result
+            potential_duplicate_media_result_pairs_and_distances = result
             
             # filter the pairs as needed I guess
             # keep adding them one at a time or whatever
@@ -3636,19 +3775,21 @@ class CanvasFilterDuplicates( CanvasWithHovers ):
             
             total_we_want = CG.client_controller.new_options.GetInteger( 'duplicate_filter_max_batch_size' )
             
-            for fetched_pair in some_fetched_pairs:
+            for row in potential_duplicate_media_result_pairs_and_distances.IterateRows():
                 
-                self._fetched_pairs_to_process.append( fetched_pair )
+                self._fetched_media_result_pairs_and_distances_to_process.AppendRow( row )
                 
-                if len( self._fetched_pairs_to_process ) >= total_we_want:
+                if len( self._fetched_media_result_pairs_and_distances_to_process ) >= total_we_want:
                     
                     break
                     
                 
             
-            if len( self._fetched_pairs_to_process ) >= total_we_want or len( self._potential_duplicate_pairs_and_distances_still_to_search ) == 0:
+            if len( self._fetched_media_result_pairs_and_distances_to_process ) >= total_we_want or len( self._potential_duplicate_id_pairs_and_distances_still_to_search ) == 0:
                 
-                if len( self._fetched_pairs_to_process ) == 0:
+                self._fetched_media_result_pairs_and_distances_to_process.Sort( self._duplicate_pair_sort_type, self._duplicate_pair_sort_asc )
+                
+                if len( self._fetched_media_result_pairs_and_distances_to_process ) == 0:
                     
                     ClientGUIDialogsMessage.ShowInformation( self, 'All pairs have been filtered!' )
                     
@@ -3659,10 +3800,10 @@ class CanvasFilterDuplicates( CanvasWithHovers ):
                     return
                     
                 
-                self._batch_of_pairs_to_process = self._fetched_pairs_to_process
+                self._batch_of_pairs_to_process = self._fetched_media_result_pairs_and_distances_to_process.GetPairs()
                 self._current_pair_index = 0
                 
-                self._fetched_pairs_to_process = []
+                self._fetched_media_result_pairs_and_distances_to_process = ClientPotentialDuplicatesSearchContext.PotentialDuplicateMediaResultPairsAndDistances( [] )
                 
                 self._ShowCurrentPair()
                 
@@ -3682,9 +3823,9 @@ class CanvasFilterDuplicates( CanvasWithHovers ):
             return
             
         
-        if not self._all_potential_duplicate_pairs_and_distances_initialised:
+        if not self._potential_duplicate_id_pairs_and_distances_initialised:
             
-            if not self._all_potential_duplicate_pairs_and_distances_fetch_started:
+            if not self._potential_duplicate_id_pairs_and_distances_fetch_started:
                 
                 self._InitialisePotentialDuplicatePairs()
                 
@@ -3699,11 +3840,9 @@ class CanvasFilterDuplicates( CanvasWithHovers ):
         
         self._loading_text = 'Loading more pairs--please wait.'
         
-        # TODO: if I want to sort by similarity, I can pre-sort this by distance right now!!
-        # or indeed when we initialise this guy but whatever
-        # to grab stable/random groups, we can choose to randomise blocks or not, also
-        self._potential_duplicate_pairs_and_distances_still_to_search = self._all_potential_duplicate_pairs_and_distances.Duplicate()
-        self._fetched_pairs_to_process = []
+        self._potential_duplicate_id_pairs_and_distances_still_to_search = self._potential_duplicate_id_pairs_and_distances.Duplicate()
+        
+        self._fetched_media_result_pairs_and_distances_to_process = ClientPotentialDuplicatesSearchContext.PotentialDuplicateMediaResultPairsAndDistances( [] )
         
         self.ClearMedia()
         
@@ -4092,7 +4231,24 @@ class CanvasFilterDuplicates( CanvasWithHovers ):
                             
                         
                     
-                    if not we_saw_a_non_auto_skip:
+                    if we_saw_a_non_auto_skip:
+                        
+                        if self._filter_group_mode:
+                            
+                            text = 'You appear to have skipped this whole group. Do you want to load up a different one?'
+                            
+                            result = ClientGUIDialogsQuick.GetYesNo( self, text )
+                            
+                            if result == QW.QDialog.DialogCode.Accepted:
+                                
+                                self._group_media_ids = set()
+                                
+                                self._potential_duplicate_id_pairs_and_distances = ClientPotentialDuplicatesSearchContext.PotentialDuplicateIdPairsAndDistances( [] )
+                                self._potential_duplicate_id_pairs_and_distances_initialised = False
+                                
+                            
+                        
+                    else:
                         
                         CG.client_controller.pub( 'new_similar_files_potentials_search_numbers' )
                         
@@ -4408,12 +4564,22 @@ class CanvasMediaList( CanvasWithHovers ):
             self.exitFocusMediaForced.emit( self._current_media )
             
         
+        if CG.client_controller.new_options.GetBoolean( 'activate_main_gui_on_focusing_viewer_close' ):
+            
+            CG.client_controller.gui.activateWindow()
+            
+        
     
     def _TryToShowPageThatLaunchedUs( self ):
         
         if CG.client_controller.gui.GetPageFromPageKey( self._page_key ) is not None:
             
             CG.client_controller.gui.ShowPage( self._page_key )
+            
+        
+        if CG.client_controller.new_options.GetBoolean( 'activate_main_gui_on_focusing_viewer_close' ):
+            
+            CG.client_controller.gui.activateWindow()
             
         
     
@@ -4644,17 +4810,16 @@ def CommitArchiveDelete( deletee_location_context: ClientLocation.LocationContex
         
     
     BLOCK_SIZE = 64
-    num_to_do = len( deleted )
     
-    for ( i, block_of_deleted ) in enumerate( HydrusLists.SplitListIntoChunks( deleted, BLOCK_SIZE ) ):
+    for ( num_done, num_to_do, block_of_deleted ) in HydrusLists.SplitListIntoChunksRich( deleted, BLOCK_SIZE ):
         
         if not have_shown_popup and HydrusTime.TimeHasPassedFloat( start_time + 1 ):
             
             CG.client_controller.pub( 'message', job_status )
             
         
-        job_status.SetStatusText( f'Deleting - {HydrusNumbers.ValueRangeToPrettyString( i * BLOCK_SIZE, num_to_do )}' )
-        job_status.SetVariable( 'popup_gauge_1', ( i * BLOCK_SIZE, num_to_do ) )
+        job_status.SetStatusText( f'Deleting - {HydrusNumbers.ValueRangeToPrettyString( num_done, num_to_do )}' )
+        job_status.SetGauge( num_done, num_to_do )
         
         if CG.client_controller.new_options.GetBoolean( 'delete_lock_for_archived_files' ) and CG.client_controller.new_options.GetBoolean( 'delete_lock_reinbox_deletees_after_archive_delete' ):
             
@@ -4685,17 +4850,15 @@ def CommitArchiveDelete( deletee_location_context: ClientLocation.LocationContex
     
     kept_hashes = [ m.GetHash() for m in kept ]
     
-    num_to_do = len( kept_hashes )
-    
-    for ( i, block_of_kept_hashes ) in enumerate( HydrusLists.SplitListIntoChunks( kept_hashes, BLOCK_SIZE ) ):
+    for ( num_done, num_to_do, block_of_kept_hashes ) in HydrusLists.SplitListIntoChunksRich( kept_hashes, BLOCK_SIZE ):
         
         if not have_shown_popup and HydrusTime.TimeHasPassedFloat( start_time + 1 ):
             
             CG.client_controller.pub( 'message', job_status )
             
         
-        job_status.SetStatusText( f'Archiving - {HydrusNumbers.ValueRangeToPrettyString( i * BLOCK_SIZE, num_to_do )}' )
-        job_status.SetVariable( 'popup_gauge_1', ( i * BLOCK_SIZE, num_to_do ) )
+        job_status.SetStatusText( f'Archiving - {HydrusNumbers.ValueRangeToPrettyString( num_done, num_to_do )}' )
+        job_status.SetGauge( num_done, num_to_do )
         
         content_update_package = ClientContentUpdates.ContentUpdatePackage.STATICCreateFromContentUpdate( CC.COMBINED_LOCAL_FILE_SERVICE_KEY, ClientContentUpdates.ContentUpdate( HC.CONTENT_TYPE_FILES, HC.CONTENT_UPDATE_ARCHIVE, block_of_kept_hashes ) )
         
@@ -4705,7 +4868,7 @@ def CommitArchiveDelete( deletee_location_context: ClientLocation.LocationContex
         
     
     job_status.SetStatusText( 'Done!' )
-    job_status.DeleteVariable( 'popup_gauge_1' )
+    job_status.DeleteGauge()
     
     job_status.FinishAndDismiss( 2 )
     
@@ -4807,7 +4970,7 @@ class CanvasMediaListFilterArchiveDelete( CanvasMediaList ):
                         
                     
                 
-                location_contexts_to_present_options_for = HydrusData.DedupeList( location_contexts_to_present_options_for )
+                location_contexts_to_present_options_for = HydrusLists.DedupeList( location_contexts_to_present_options_for )
                 
                 only_allow_all_media_files = len( location_contexts_to_present_options_for ) > 1 and CG.client_controller.new_options.GetBoolean( 'only_show_delete_from_all_local_domains_when_filtering' ) and True in ( location_context.IsAllMediaFiles() for location_context in location_contexts_to_present_options_for )
                 
@@ -5686,15 +5849,17 @@ class CanvasMediaListBrowser( CanvasMediaListNavigable ):
             
             ClientGUIMenus.AppendMenu( menu, manage_menu, 'manage' )
             
-            ( local_duplicable_to_file_service_keys, local_moveable_from_and_to_file_service_keys ) = ClientGUIMediaSimpleActions.GetLocalFileActionServiceKeys( (self._current_media,) )
+            local_file_service_keys = ClientMedia.GetLocalFileServiceKeys( ( self._current_media, ) )
+            
+            ( local_duplicable_to_file_service_keys, local_moveable_from_and_to_file_service_keys, local_mergable_from_and_to_file_service_keys ) = ClientGUIMediaSimpleActions.GetLocalFileActionServiceKeys( ( self._current_media, ) )
             
             multiple_selected = False
             
-            if len( local_duplicable_to_file_service_keys ) > 0 or len( local_moveable_from_and_to_file_service_keys ) > 0:
+            if len( local_file_service_keys ) + len( local_duplicable_to_file_service_keys ) + len( local_moveable_from_and_to_file_service_keys ) + len( local_mergable_from_and_to_file_service_keys ) > 0:
                 
                 locations_menu = ClientGUIMenus.GenerateMenu( menu )
                 
-                ClientGUIMediaMenus.AddLocalFilesMoveAddToMenu( self, locations_menu, local_duplicable_to_file_service_keys, local_moveable_from_and_to_file_service_keys, multiple_selected, self.ProcessApplicationCommand )
+                ClientGUIMediaMenus.AddLocalFilesMoveAddToMenu( self, locations_menu, local_file_service_keys, local_duplicable_to_file_service_keys, local_moveable_from_and_to_file_service_keys, local_mergable_from_and_to_file_service_keys, multiple_selected, self.ProcessApplicationCommand )
                 
                 ClientGUIMenus.AppendMenu( menu, locations_menu, 'locations' )
                 

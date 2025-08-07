@@ -12,6 +12,7 @@ from hydrus.core import HydrusConstants as HC
 from hydrus.core import HydrusData
 from hydrus.core import HydrusExceptions
 from hydrus.core import HydrusGlobals as HG
+from hydrus.core import HydrusLists
 from hydrus.core import HydrusNumbers
 from hydrus.core import HydrusSerialisable
 from hydrus.core import HydrusTags
@@ -1796,7 +1797,7 @@ class ServiceRepository( ServiceRestricted ):
                     
                     CG.client_controller.frame_splash_status.SetText( status, print_to_log = False )
                     job_status.SetStatusText( status )
-                    job_status.SetVariable( 'popup_gauge_1', ( i + 1, len( update_hashes ) ) )
+                    job_status.SetGauge( i + 1, len( update_hashes ) )
                     
                     with self._lock:
                         
@@ -1922,7 +1923,7 @@ class ServiceRepository( ServiceRestricted ):
                     
                 
                 job_status.SetStatusText( 'finished' )
-                job_status.DeleteVariable( 'popup_gauge_1' )
+                job_status.DeleteGauge()
                 
             finally:
                 
@@ -1999,7 +2000,7 @@ class ServiceRepository( ServiceRestricted ):
                     status = 'processing {}'.format( progress_string )
                     
                     job_status.SetStatusText( status )
-                    job_status.SetVariable( 'popup_gauge_1', ( num_updates_done, num_updates_to_do ) )
+                    job_status.SetGauge( num_updates_done, num_updates_to_do )
                     
                     try:
                         
@@ -2128,7 +2129,7 @@ class ServiceRepository( ServiceRestricted ):
                     status = 'processing {}'.format( progress_string )
                     
                     job_status.SetStatusText( status )
-                    job_status.SetVariable( 'popup_gauge_1', ( num_updates_done, num_updates_to_do ) )
+                    job_status.SetGauge( num_updates_done, num_updates_to_do )
                     
                     try:
                         
@@ -2177,8 +2178,8 @@ class ServiceRepository( ServiceRestricted ):
                     
                     if HC.CONTENT_TYPE_MAPPINGS in content_types:
                         
-                        iterator_dict[ 'new_mappings' ] = HydrusData.SmoothOutMappingIterator( content_update.GetNewMappings(), 50 )
-                        iterator_dict[ 'deleted_mappings' ] = HydrusData.SmoothOutMappingIterator( content_update.GetDeletedMappings(), 50 )
+                        iterator_dict[ 'new_mappings' ] = HydrusLists.SmoothOutMappingIterator( content_update.GetNewMappings(), 50 )
+                        iterator_dict[ 'deleted_mappings' ] = HydrusLists.SmoothOutMappingIterator( content_update.GetDeletedMappings(), 50 )
                         
                     
                     if HC.CONTENT_TYPE_TAG_PARENTS in content_types:
@@ -2298,8 +2299,8 @@ class ServiceRepository( ServiceRestricted ):
                 
             
             job_status.DeleteStatusText()
-            job_status.DeleteStatusText( 2 )
-            job_status.DeleteVariable( 'popup_gauge_1' )
+            job_status.DeleteStatusText( level = 2 )
+            job_status.DeleteGauge()
             
             job_status.FinishAndDismiss( 3 )
             
@@ -2742,7 +2743,7 @@ class ServiceRepository( ServiceRestricted ):
                     
                     CG.client_controller.frame_splash_status.SetText( status, print_to_log = False )
                     job_status.SetStatusText( status )
-                    job_status.SetVariable( 'popup_gauge_1', ( i + 1, num_to_do ) )
+                    job_status.SetGauge( i + 1, num_to_do )
                     
                     with self._lock:
                         
@@ -2794,7 +2795,7 @@ class ServiceRepository( ServiceRestricted ):
                     
                 
                 job_status.SetStatusText( 'finished' )
-                job_status.DeleteVariable( 'popup_gauge_1' )
+                job_status.DeleteGauge()
                 
             finally:
                 
@@ -2999,7 +3000,7 @@ class ServiceIPFS( ServiceRemote ):
                     
                 
                 job_status.SetStatusText( 'ensuring files are pinned: ' + HydrusNumbers.ValueRangeToPrettyString( i + 1, len( hashes ) ) )
-                job_status.SetVariable( 'popup_gauge_1', ( i + 1, len( hashes ) ) )
+                job_status.SetGauge( i + 1, len( hashes ) )
                 
                 media_result = CG.client_controller.Read( 'media_result', hash )
                 
@@ -3042,7 +3043,7 @@ class ServiceIPFS( ServiceRemote ):
                 
             
             job_status.SetStatusText( 'creating directory' )
-            job_status.DeleteVariable( 'popup_gauge_1' )
+            job_status.DeleteGauge()
             
             dag_json_encoded = json.dumps( dag_object )
             
@@ -3093,7 +3094,7 @@ class ServiceIPFS( ServiceRemote ):
             
         finally:
             
-            job_status.DeleteVariable( 'popup_gauge_1' )
+            job_status.DeleteGauge()
             
             job_status.Finish()
             

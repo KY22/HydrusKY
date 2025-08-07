@@ -422,7 +422,7 @@ class Page( QW.QWidget ):
             hashes = list( self._initial_hashes )
             hashes.extend( ( media_result.GetHash() for media_result in self._pre_initialisation_media_results ) )
             
-            hashes = HydrusData.DedupeList( hashes )
+            hashes = HydrusLists.DedupeList( hashes )
             
             return hashes
             
@@ -820,13 +820,13 @@ class Page( QW.QWidget ):
             
         
         controller = CG.client_controller
-        initial_hashes = HydrusData.DedupeList( self._initial_hashes )
+        initial_hashes = HydrusLists.DedupeList( self._initial_hashes )
         
         def work_callable():
             
             initial_media_results = []
             
-            for group_of_initial_hashes in HydrusLists.SplitListIntoChunks( initial_hashes, 64 ):
+            for ( num_done, num_to_do, group_of_initial_hashes ) in HydrusLists.SplitListIntoChunksRich( initial_hashes, 64 ):
                 
                 more_media_results = controller.Read( 'media_results', group_of_initial_hashes )
                 
@@ -1344,7 +1344,7 @@ class PagesNotebook( QP.TabWidgetWithDnD ):
             hashes.extend( page.GetHashes() )
             
         
-        hashes = HydrusData.DedupeList( hashes )
+        hashes = HydrusLists.DedupeList( hashes )
         
         message = f'This will collect the {HydrusNumbers.ToHumanInt(len(hashes))} files in view in the {HydrusNumbers.ToHumanInt(len(closees))} pages and place them, in current order, in a single new search page.'
         message += '\n\n'
@@ -2492,7 +2492,7 @@ class PagesNotebook( QP.TabWidgetWithDnD ):
             hashes.extend( page.GetHashes() )
             
         
-        hashes = HydrusData.DedupeList( hashes )
+        hashes = HydrusLists.DedupeList( hashes )
         
         return hashes
         

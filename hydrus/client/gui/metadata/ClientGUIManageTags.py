@@ -948,7 +948,7 @@ class ManageTagsPanel( CAC.ApplicationCommandProcessorMixin, ClientGUIScrolledPa
                 
                 frame = ClientGUITopLevelWindowsPanels.FrameThatTakesScrollablePanel( tlw, 'migrate tags' )
                 
-                panel = ClientGUIMigrateTags.MigrateTagsPanel( frame, self._tag_service_key, hashes )
+                panel = ClientGUIMigrateTags.MigrateTagsPanel( frame, tag_service_key, hashes )
                 
                 frame.SetPanel( panel )
                 
