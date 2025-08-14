@@ -939,8 +939,8 @@ def OpenURLs( win: QW.QWidget, urls ):
                         return
                         
                     
-                    job_status.SetStatusText( HydrusNumbers.ValueRangeToPrettyString( i + 1, num_urls ) )
-                    job_status.SetGauge( i + 1, num_urls )
+                    job_status.SetStatusText( HydrusNumbers.ValueRangeToPrettyString( i, num_urls ) )
+                    job_status.SetGauge( i, num_urls )
                     
                 
                 ClientPaths.LaunchURLInWebBrowser( url )
@@ -1069,7 +1069,7 @@ def SetFilesForcedFiletypes( win: QW.QWidget, medias: collections.abc.Collection
                     CG.client_controller.pub( 'message', job_status )
                     
                 
-                for ( num_done, num_to_do, block_of_media ) in HydrusLists.SplitListIntoChunks( medias, BLOCK_SIZE ):
+                for ( num_done, num_to_do, block_of_media ) in HydrusLists.SplitListIntoChunksRich( medias, BLOCK_SIZE ):
                     
                     if job_status.IsCancelled():
                         
