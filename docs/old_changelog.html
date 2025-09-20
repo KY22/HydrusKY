@@ -35,6 +35,133 @@
             <h1 id="changelog"><a href="#changelog">changelog</a></h1>
             <ul>
                 <li>
+                    <h2 id="version_639"><a href="#version_639">version 639</a></h2>
+                    <ul>
+                        <li><h3>misc</h3></li>
+                        <li>`system:number of tags` and `system:tag as number` have a nicer new namespace selection widget</li>
+                        <li>fixed the duplicate filter group mode finding a new group after the previous group was resolved. I messed this up in last week's rewrite and it slipped through testing</li>
+                        <li>huge multi-column lists handle large selections much more efficiently, particularly when they have lots of buttons. all the various logic that handles 'should this accompanying button be enabled?' and so on now uses calls that work much faster when there are thousands of items selected. in my tests, a sublist with 5,000 test items now updates to a new selection in under 30ms--previously it was about a second. similarly, pasting all those items to a new list now takes about six seconds, whereas previously it was locking up for ages and ages, perhaps forever (issue #1737)</li>
+                        <li>fixed an issue where the 'move media files' dialog was saying all files were in their ideal location if the thumbnail location override was not set. this was happening because an error was being quashed over-eagerly. if this dialog has a similar problem in future, you might get some spammy reports, but it'll show. also a side thing, the 'set' button of the thumbnail location override no longer disables if you have a path set--feel free to move it to a new location in one step mate</li>
+                        <li>the system that positions windows off the topLeft corner of their parent is now more forgiving of unusual window manager frame geometry. if you kept getting 'hey I just rescued a window from ( 24, -14 )'-style popups every time you open the options off a maximised main GUI, let me know what happens now--are your dialogs appearing offscreen, auto-repositioning to (0, 0), or is everything good now?</li>
+                        <li>if you are feeling clever and can get an OR predicate into the duplicates auto-resolution 'test A or B' comparator, it now works! I'll brush up the UI in future to make it easy to enter an OR here (issue #1790)</li>
+                        <li><h3>potential duplicates discovery</h3></li>
+                        <li>I have overhauled the daemon that looks for new potential duplicate pairs. this guy no longer searches for pairs during shutdown maintenance (I'm generally trying to retire shutdown work), but you can now tell it to run in idle and/or normal time, with separate work/rest settings under `options-&gt;maintenance and processing`</li>
+                        <li>your settings here will mostly reset to defaults this week, sorry! default is to run in idle time but not active time, with some conservative work/rest ratios</li>
+                        <li>a critical section of database code that finds outstanding eligible files to perform the similar files search on is now optimised for clients with larger numbers of files. there will be a one-time CPU cost for each search distance you run at, and thereafter this thing should run like greased lightning even if you have millions of files, reducing per-job overhead for all similar files search</li>
+                        <li>when you force work through the duplicate page 'preparation' tab, it now works through a pause/play button and there is no separate work popup; it now just updates the bar in front of you</li>
+                        <li>I'm interested to know how 'run in normal time' feels for clients that have a lot of imports going on. I haven't gone for instant reaction to new files yet, but if it is idling with all other work done it'll get to any new files within about ten seconds, and the auto-resolution system _will_ react instantly to new potential duplicate pairs. might be laggy, might be cool, might be confusing as files in downloader pages are deleted before your eyes. the super ideal here would be to collapse the whole operation into the single import job and return something like 'file was duplicate' instead of 'already in db' as the import status, but we'll see how this does</li>
+                        <li>the 'reset potential search' cog-button task now resets the search for all eligible files. previously, I was trying to be cute and only reset search for files that previously found a potential pair, but the, say, ~37% filled progress bar after reset was confusing and not actually what the maintenance task wanted. KISS</li>
+                        <li><h3>profile mode</h3></li>
+                        <li>`help-&gt;debug-&gt;profiling-&gt;profile mode` now works on Python 3.12+. newer version of python are more strict about how profiling operates in a multi-threaded environment, and hydrus's profiling now obeys these rules. it turns out hydrus was always getting some _slightly_ gonk numbers here in busy multi-threaded situations, or at least many jobs were being truncated, which explains some inexplicable results I've seen over the years</li>
+                        <li>profile mode is now split into four exclusive types--client api, db, threads, and ui. the menu and html help are updated to talk about these. most users will want 'db'</li>
+                        <li>'threads' and 'client api' profiles will sometimes include a bunch of truncated 'EXCLUSIVE: (job) ran in 17ms'. this is me salvaging a difficult situation with a still-useful number. don't worry about it!</li>
+                        <li>Python 3.12+ adds some cool tools here, and I expect to expand to some 'profile everything going on mate' modes in future to capture deep Qt things my specific modes do not</li>
+                        <li>there's an ancient shortcut for 'turn profile mode on'. this now does 'db' profile mode; it'll probably do something else later, or I'll retire it</li>
+                        <li><h3>boring stuff</h3></li>
+                        <li>if you boot the client or server in a python environment that does not have the requirements.txt stuff installed, the client now recognises this and gives a nicer error saying 'hey, I think you need to reinstall/activate your venv', rather than the old 'hey you don't have yaml' error</li>
+                        <li>tweaked the client's critical boot error handling so that it shows a nicer english error message first and then the full traceback in a second dialog</li>
+                        <li>added some unit tests for OR predicates within Metadata Conditionals</li>
+                        <li>fixed a deprecated unit test call. thanks to the user who pointed this out. this is not the first time this specific thing happened, so I'm switching up my testing regime to catch this in future</li>
+                        <li><h3>boring overhauls and refactoring</h3></li>
+                        <li>wrote a new MainLoop Manager for the potential duplicates search and some maintenance and numbers caching</li>
+                        <li>overhauled the potential duplicates search tree maintenance call to have less overhead and be happier working in tiny chunks. it is now continually maintained throughout search work</li>
+                        <li>wrote a count cache for the shape search store for the new daemon (previously it counted manually); it is updated as the underlying store changes</li>
+                        <li>hooked up new notification paths for new shape search counts or brance rebalancing work. these paths are simple and comprehensive, so the new guy should be a bit more reliable for unusual file maintenance jobs and so on that may alter the search space a little</li>
+                        <li>added some safety code to the new similar files search daemon to stop an infinite loop if the search record store has non-searchable items for some reason</li>
+                        <li>cleaned up the Duplicates Page Sidebar maintenance page a bunch. there was just a ton of cruft to go through</li>
+                        <li>to untangle some imports, moved duplicate score and visual duplicates gubbins out of `ClientDuplicates.py` to a new `ClientDuplicatesComparisonStatements.py`</li>
+                        <li>collected pretty much all the profiling and query planner gubbins like start time and job count and printing tech from `HydrusController.py` and `HydrusGlobals.py` to `HydrusProfiling.py`. I cleaned a bunch of it up along the way</li>
+                        <li>brushed up some of the database migration help r.e. missing locations and the pre-boot repair dialog</li>
+                        <li>the core `CallAfter` method used by many thread-to-Qt comms is a tiny bit more stable/thread-safe</li>
+                        <li>misc linting work, including clearing out some legacy unresolved references</li>
+                    </ul>
+                </li>
+                <li>
+                    <h2 id="version_638"><a href="#version_638">version 638</a></h2>
+                    <ul>
+                        <li><h3>misc</h3></li>
+                        <li>thanks to a user, epubs with svg or IBook image cover pages will now get nice thumbnails. epubs with html covers will no longer spam error info to the log</li>
+                        <li>the default pixiv URL Classes are tweaked a little so they now want to keep their `www.`. when I did the multi-domain url class update the other week, which unified domain parsing and normalisation, some `www*.` removal loopholes were fixed and suddenly the pixiv downloader had a bunch of redirects going on behind the scenes because they are still firmly a `www.`-preferred site. no great harm done or subscription inefficiency or anything precisely because these URLs are considered the same now, but it was ugly in places so I've cleaned it up on my end. what to do about `www.` in future is perhaps something to talk about, and in context of an eventual _en masse_ URL normaliser/converter--maybe URL Classes will get an option regarding `www.` so we can handle various legacy issues like this. also for some reason the 'pixiv file api' url class was saving associated urls, which I've turned off</li>
+                        <li>the media viewer's prefetch system has better error handling for images with unknown resolution</li>
+                        <li>when exporting files, if the export filename produced by the pattern is the empty string, it now (again) falls back to the file hash. in a recent round of rewrites, it was falling back to the string 'empty', so you'd get a scatter of annoying 'empty (7).jpg' filenames</li>
+                        <li>when viewing an animation with the native viewer, hitting the shortcut for 'seek media: negative time delta' repeatedly near the beginning of the video, either on a slow video or a paused one, will no longer let the viewer move from the 1st frame to the undefined 0th frame (issue #1793)</li>
+                        <li>updated the first/previous/next/last media viewer navigation arrows to .svg icons and renamed them behind the scenes to position_x so they line up better alphabetically</li>
+                        <li>brushed up my newer .svg icons with some nicer gradients and drop shadows</li>
+                        <li><h3>duplicates</h3></li>
+                        <li>several duplicates auto-resolution thumbnail lists now spawn full-fledged duplicate filters instead of media viewers. these will navigate the full list, not just the one pair, starting with the most recent pair you have selected. the lists that have this tech are: in the 'edit rule' panel, the 'preview' tab's 'passed the test' and 'failed the test' lists; and in the 'review' panel, the 'pending actions' tab's main list</li>
+                        <li>the duplicate filter here has the normal actions. I'd like to add 'approve/deny' buttons for the 'pending actions' panel in future</li>
+                        <li>the 'send pair to duplicates media page for later processing' button in this case now sends the pair to a new/existing page called 'duplicate pairs'</li>
+                        <li>the 'send pair to duplicates media page for later processing' button on the duplicate right-hand hover no longer has the 'fullscreen' icon, which was changed last week and doesn't work there any more. I gave it the 'copy' icon for now</li>
+                        <li>the iterative duplicate search routines that generate grouped or mixed pairs for the filter and the one that generates the count of the current search for a duplicate search context panel are now auto-throttled. they'll start at 4096 items and speed up (reducing overhead) or slow down (reducing system latency) based on live timings, aiming for about 0.5s per work packet, which for almost all users will mean a prompt acceleration. if you have been staring at a lot of '2,000,000/4,100,000 ... 0 found' duplicate progress texts recently, let me know if this changes things at all (issue #1778)</li>
+                        <li><h3>referral url logic cleanup and policy change</h3></li>
+                        <li>the downloader is now stricter about which url it will prime child objects to use as their referral url (i.e. the file result from a gallery hit, one of multiple file objects created by a multi-file post, or a 'next gallery page'). the referral url given to the child object is now, strictly, the same URL that was actually hit at the parent stage, _including_ redirects. if you use an API redirect, that is now the referral URL. if the server 3XX redirects you, that is now the referral URL</li>
+                        <li>previously, it was mostly the 'pretty', pre-API redirect URL used, unless it was for some reason set otherwise, and unless there was a 3XX, in which case it was always that(?). it was a mess. rather than trying to be cute, I'm going for clear and accurate KISS. if hydrus hits an URL, that's the referral for the child, unless the URL Class of the child overrides it, and if it overrides it, it overrides _it_</li>
+                        <li>advanced downloader creators will recall that URL Classes can override, nullify, or modify the given referral URL. if you have a delicate URL Class here that uses both an API Redirect and a referral URL regex transformation that presumably eats the pre-API URL as a base, I am afraid I may have broken your downloader. I hate to do this, but I need to clean up the logic here and I think my decision causes the least damage and makes for the most reliable new rule going forward</li>
+                        <li>when you right-click a file object and look at 'additional urls', it will now state if there is an API/Redirect, and what URL that will be</li>
+                        <li>when you right-click a file object and look at 'additional urls', it will now state if the referral URL is due to be modified by URL Class rules. the URL Class is of course that for the expected URL to fetch, i.e. after API/Redirect conversion</li>
+                        <li>when you right-click a gallery object in a gallery/check log, you now see an 'additional urls' submenu with the above API/Redirect and Referral URL stuff, and you'll see any fixed http headers</li>
+                        <li>note in this subject that as part of moving from `requests` to `httpx`, I'm strongly considering handling redirects myself, and that will appear in the logs here as a child object with the new URL. I'd like the logs here to be better logs of what happened, in full, with less voodoo</li>
+                        <li>issue #1789 is related here, but I don't think I have it actually fixed</li>
+                        <li><h3>boring stuff</h3></li>
+                        <li>moved the duplicates filter canvas (60KB now) to its own `ClientGUICanvasDuplicates.py` file</li>
+                        <li>overhauled the duplicates filter canvas to be agnostic about the source of its list of pairs to action. it now takes a new pair factory, and all async work to initialise the search space and do grouping and fetching and sorting is now handled on the side of the factory</li>
+                        <li>cleaned up some of the not-great async logic around here during the decoupling, which clarified some things, and committed some fresh sins too</li>
+                        <li>wrote a pair factory for the thumbnail lists</li>
+                        <li>misc URL handling code cleanup and variable normallisation</li>
+                        <li>added a couple notes regarding mpv and ffmpeg in macOS to the 'running from source' help; thanks to the feedback from users who recently made the migration</li>
+                    </ul>
+                </li>
+                <li>
+                    <h2 id="version_637"><a href="#version_637">version 637</a></h2>
+                    <ul>
+                        <li><h3>duplicates auto-resolution</h3></li>
+                        <li>'test A or B' comparators now support 'system:time', for the four main time system predicates (import time, modified time, last viewed time, archived time)</li>
+                        <li>'test A against B using file info' comparators now support the same 'system:time' stuff, so you can now mandate, say, that "A has system:import time earlier than B". I also wangled a time delta in there, so you can say 'A was imported more than three months earlier than B' if you like</li>
+                        <li>I brushed up the comparator UI for time; instead of `&lt;` and `=`, you'll see a vertical stack of 'earlier than', 'roughly the same time as' and so on. also, the deltas for `+/-` and the B delta are full time widgets, so you set the time you mean and don't have to care about converting to milliseconds. this all percolates to the comparator summary string too.</li>
+                        <li>same deal for `system:duration` in that panel--it now has a time delta for the absolute `+/-` test and the B delta, and has a time-aware summary string</li>
+                        <li>I added 'only earlier imports' variants for the 'visually similar pairs' suggested duplicates auto-resolution rules. I am sure there are many edge cases, but I feel that these are pretty good 'near-zero false positive' rules to try out</li>
+                        <li>the 'edit duplicate auto-resolution rules' panel now has export/import/duplicate buttons</li>
+                        <li>the 'comparison' tab of 'edit duplicate auto-resolution rule', where you edit comparators, now has export/import/duplicate buttons</li>
+                        <li><h3>duplicates</h3></li>
+                        <li>in the duplicate filter, jpeg subsampling and quality info is cached in a nicer, more thread-safe way. certain laggy calculation situations should be more stable. I am not sure if this was the source of the crashes some people have had, so if you still get them, please let me know</li>
+                        <li><h3>misc</h3></li>
+                        <li>for the new `/db/static` overwrite tech, a .png icon in the db dir now overrides an .svg in the install dir. if you chose to add it, I'll prefer it</li>
+                        <li>the star.png used for favourites buttons is now an svg</li>
+                        <li>the fullscreen_switch.png used in the media viewer is now an svg, and more like the typical icon for this</li>
+                        <li>I forgot to do some metadata regen on epubs last week, so any existing epubs probably got stretched thumbnails. soon after v637 boots, your epubs should double-check their resolution ratios and regen any busted thumbs (issue #1788)</li>
+                        <li>I overhauled one of the ways that threads can give Qt work to do, making it more Qt safe. there were about 80 calls that used this system, mostly stuff like initialising a label or focusing a button in the event loop immediately after a panel appears. fingers crossed, these will be much more stable in edge cases when, say, a dialog insta-closes before an initialising job can fire</li>
+                        <li><h3>big brain subscription logic improvement</h3></li>
+                        <li>when subscription queries compact themselves down to the (typically 250) newest URLs, they now recognise that child URLs ("Found 2 new URLs in 2 sub-posts.") should not be counted. in sites where the gallery pages have potentially high count and each gallery-parsed post URL can also each produce many files (e.g. Pixiv manga), 250 file import objects could only be, say, 21 top-level Post URLs, significantly less than the gallery page provides, and the safety checks here, which are tuned to recognise 100 contiguous Post URLs 'already in cache', were overflowing every n checks and causing some post re-downloads. hydrus should be better about recognising this situation</li>
+                        <li>the compaction routine does this by grouping file import objects into parents, including nesting parents, and only culling on the top level. when things are confusing, it tries to fail safely in complicated situations, on the side of reducing compaction aggressision</li>
+                        <li>if you have manga subs, they may well grow to be like 4,000 files. let me know how it all goes</li>
+                        <li>a similar bit of logic that tests the number of items found versus the pre-gallery-sync size of the file log now uses this tech to estimate that size (previously it did some hacky referral url checking stuff)</li>
+                        <li>thanks to the user who worked with me to figure this one out</li>
+                        <li>this is more evidence that I should write a layer on the database level URL storage for 'subscription x saw this URL', and then we wouldn't have such a problem</li>
+                        <li><h3>base64URL</h3></li>
+                        <li>String Converters can now encode/decode with Base64URL, which is a variant of Base64 that uses `-_` instead of `+/` and where '=' padding is encoder-optional (and not added here) to make inclusion in an URL parameter simpler</li>
+                        <li>when I _decode_ (convert from base64 to normal text) by base64 of either sort now, I add any extra `=` padding that is needed, no worries</li>
+                        <li>String Matches can now have a 'character set' of Base64URL (`^[a-zA-Z\d\-_]+={0,2}$`) or 'Base64 (url encoded)'' (`^([a-zA-Z\d]|%2B|%2F)+(%3D){0,2}$`)</li>
+                        <li><h3>boring stuff</h3></li>
+                        <li>removed the macOS build script and such. I left the macOS build files in place and copied my various .yml workflow scripts to `static/build_files/macos`</li>
+                        <li>fixed up some bad layout flags in the duplicates auto-resolution comparator edit panels</li>
+                        <li>swapped the trash and retry buttons in the gallery downloader page sidebar</li>
+                        <li>similarly moved the trash button to the end in the watcher downloader page sidebar</li>
+                        <li>wrote unit tests for predicate value testing (i.e. for Metadata Conditionals) for import time, modified time, last viewed time, archived time</li>
+                        <li>wrote unit tests for predicate value extracting (i.e. for relative file info comparators) for import time, modified time, last viewed time, archived time</li>
+                        <li>wrote unit tests for the new Base64URL encode/decode and added some clever stuff to check for the `+/-_` stuff</li>
+                        <li>wrote unit tests for the new Base64 character set filters</li>
+                        <li>fleshed out some of my Base64 unit tests to catch a couple extra situations</li>
+                        <li>wrote unit tests for my new query compaction parent-grouping tech and 'master url' counting routine</li>
+                        <li>moved the 'CallAfter' thread-to-qt calling system to a new file `ClientGUICallAfter.py`, and made it safer</li>
+                        <li>moved an overhead-heavy alternate Qt-safe CallAfter to this leaner pipeline</li>
+                        <li>renamed `PREDICATE_TYPE_SYSTEM_AGE` to `PREDICATE_TYPE_SYSTEM_IMPORT_TIME`</li>
+                        <li>the `NumberTest` init no longer flips from `+/-%` to `=` if the inherent 'value' is 0--this was not helping in duplicates auto-resolution, where the value is not used and in some cases initialises to 0</li>
+                        <li>updated the predicate object so null/stub preds (which until comparators generally only appeared in memory as autocomplete dropdown system preds) can always serialise</li>
+                        <li>if a menu item label is longer than 128 characters and thus...elides, the tooltip will no longer have doubled ampersands (generally affects urls in menus)</li>
+                        <li>added a catch to the `help-&gt;about` error reporting; if you have "sio_flush" in an mpv import error, I now say to try running from source</li>
+                    </ul>
+                </li>
+                <li>
                     <h2 id="version_636"><a href="#version_636">version 636</a></h2>
                     <ul>
                         <li><h3>multi-domain URL Classes</h3></li>

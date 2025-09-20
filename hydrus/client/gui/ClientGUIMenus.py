@@ -269,11 +269,11 @@ def GetEventCallable( callable, *args, **kwargs ):
     
     def event_callable( checked_state ):
         
-        if HG.profile_mode:
+        if HydrusProfiling.IsProfileMode( 'ui' ):
             
             summary = 'Profiling menu: ' + repr( callable )
             
-            HydrusProfiling.Profile( summary, 'callable( *args, **kwargs )', globals(), locals(), min_duration_ms = HG.menu_profile_min_job_time_ms )
+            HydrusProfiling.Profile( summary, HydrusData.Call( callable, *args, **kwargs ), min_duration_ms = HG.menu_profile_min_job_time_ms )
             
         else:
             
@@ -322,6 +322,8 @@ def SetMenuItemLabel( menu_item: QW.QAction, label: str ):
 
 def SetMenuTexts( menu_item: QW.QAction, label: str, description: str ):
     
+    unsanitized_label = label
+    
     label = SanitiseLabel( label )
     
     elided_label = HydrusText.ElideText( label, 128, elide_center = True )
@@ -332,7 +334,7 @@ def SetMenuTexts( menu_item: QW.QAction, label: str, description: str ):
     
     if label != elided_label:
         
-        menu_item.setToolTip( ClientGUIFunctions.WrapToolTip( label ) )
+        menu_item.setToolTip( ClientGUIFunctions.WrapToolTip( unsanitized_label ) + '\n\n' + description )
         
     elif description != label and description != '':
         

@@ -17,7 +17,6 @@ from hydrus.core import HydrusController
 from hydrus.core import HydrusData
 from hydrus.core import HydrusExceptions
 from hydrus.core import HydrusGlobals as HG
-from hydrus.core import HydrusNumbers
 from hydrus.core import HydrusProcess
 from hydrus.core import HydrusPSUtil
 from hydrus.core import HydrusSerialisable
@@ -38,6 +37,7 @@ from hydrus.client.caches import ClientCaches
 from hydrus.client.db import ClientDB
 from hydrus.client.files import ClientFilesMaintenance
 from hydrus.client.files import ClientFilesManager
+from hydrus.client.gui import ClientGUICallAfter
 from hydrus.client.gui import ClientGUIDialogsMessage
 from hydrus.client.gui import ClientGUISplash
 from hydrus.client.gui import QtPorting as QP
@@ -126,8 +126,6 @@ class App( QW.QApplication ):
         
         self.setQuitLockEnabled( False )
         
-        self.call_after_catcher = QP.CallAfterEventCatcher( self )
-        
         self.pubsub_catcher = PubSubEventCatcher( self, self._pubsub )
         
         self.aboutToQuit.connect( self.EventAboutToQuit )
@@ -213,6 +211,8 @@ class Controller( HydrusController.HydrusController ):
         self._previously_idle = False
         self._idle_started = None
         
+        self.call_after_catcher = ClientGUICallAfter.CallAfterEventCatcher( QW.QApplication.instance() )
+        
         self.thumbnails_cache: typing.Optional[ ClientCaches.ThumbnailCache ] = None
         
         self.client_files_manager: typing.Optional[ ClientFilesManager.ClientFilesManager ] = None
@@ -246,7 +246,7 @@ class Controller( HydrusController.HydrusController ):
             
             self._splash = None
             
-            QP.CallAfter( qt_code, splash )
+            self.CallAfter( splash, qt_code, splash )
             
         
     
@@ -455,7 +455,7 @@ class Controller( HydrusController.HydrusController ):
         
         job_status = ClientThreading.JobStatus( cancellable = True, cancel_on_shutdown = False )
         
-        QP.CallAfter( qt_code, win, job_status )
+        self.CallAfter( win, qt_code, win, job_status )
         
         # I think in some cases with the splash screen we may actually be pushing stuff here after model shutdown
         # but I also don't want a hang, as we have seen with some GUI async job that got fired on shutdown and it seems some event queue was halted or deadlocked
@@ -492,9 +492,16 @@ class Controller( HydrusController.HydrusController ):
         raise HydrusExceptions.ShutdownException()
         
     
-    def CallAfterQtSafe( self, window, label, func, *args, **kwargs ) -> ClientThreading.QtAwareJob:
+    def CallAfter( self, qobject: QC.QObject, func, *args, **kwargs ):
         
-        return self.CallLaterQtSafe( window, 0, label, func, *args, **kwargs )
+        ClientGUICallAfter.CallAfter( self.call_after_catcher, qobject, func, *args, **kwargs )
+        
+    
+    def CallAfterQtSafe( self, window: QW.QWidget, label, func, *args, **kwargs ):
+        
+        # for future cleanup, I think we should merge CallAfter into this guy and rename everything here CallAfterQtSafe
+        
+        self.CallAfter( window, func, *args, **kwargs )
         
     
     def CallLaterQtSafe( self, window, initial_delay, label, func, *args, **kwargs ) -> ClientThreading.QtAwareJob:
@@ -552,7 +559,7 @@ class Controller( HydrusController.HydrusController ):
                 
                 event = QG.QCloseEvent()
                 
-                QW.QApplication.instance().postEvent( self.gui, event )
+                QW.QApplication.postEvent( self.gui, event )
                 
             else:
                 
@@ -914,13 +921,15 @@ class Controller( HydrusController.HydrusController ):
                 
             finally:
                 
-                QW.QApplication.instance().setProperty( 'exit_complete', True )
+                qapp = QW.QApplication.instance()
+                
+                qapp.setProperty( 'exit_complete', True )
                 
                 self._DestroySplash()
                 
                 self._program_is_shut_down = True
                 
-                QP.CallAfter( QW.QApplication.exit )
+                self.CallAfter( qapp, QW.QApplication.exit )
                 
             
         
@@ -969,63 +978,9 @@ class Controller( HydrusController.HydrusController ):
     
     def FlipQueryPlannerMode( self ):
         
-        if not HG.query_planner_mode:
-            
-            now = HydrusTime.GetNow()
-            
-            HG.query_planner_start_time = now
-            HG.query_planner_query_count = 0
-            
-            HG.query_planner_mode = True
-            
-            HydrusData.ShowText( 'Query Planner mode on!' )
-            
-        else:
-            
-            HG.query_planner_mode = False
-            
-            HG.queries_planned = set()
-            
-            HydrusData.ShowText( 'Query Planning done: {} queries analyzed'.format( HydrusNumbers.ToHumanInt( HG.query_planner_query_count ) ) )
-            
+        from hydrus.core import HydrusProfiling
         
-    
-    def FlipProfileMode( self ):
-        
-        if sys.version_info >= ( 3, 12 ):
-            
-            HydrusData.ShowText( 'Sorry, this is broke on python 3.12+, hydev will fix soon\u2122!' )
-            
-            return
-            
-        
-        if not HG.profile_mode:
-            
-            now = HydrusTime.GetNow()
-            
-            with HG.profile_counter_lock:
-                
-                HG.profile_start_time = now
-                HG.profile_slow_count = 0
-                HG.profile_fast_count = 0
-                
-            
-            
-            HG.profile_mode = True
-            
-            HydrusData.ShowText( 'Profile mode on!' )
-            
-        else:
-            
-            HG.profile_mode = False
-            
-            with HG.profile_counter_lock:
-                
-                ( slow, fast ) = ( HG.profile_slow_count, HG.profile_fast_count )
-                
-            
-            HydrusData.ShowText( 'Profiling done: {} slow jobs, {} fast jobs'.format( HydrusNumbers.ToHumanInt( slow ), HydrusNumbers.ToHumanInt( fast ) ) )
-            
+        HydrusProfiling.FlipQueryPlannerMode()
         
     
     def GetClipboardImage( self ):
@@ -1411,6 +1366,14 @@ class Controller( HydrusController.HydrusController ):
         
         self.tag_display_maintenance_manager.Start()
         
+        from hydrus.client.duplicates import ClientPotentialDuplicatesManager
+        
+        self.potential_duplicates_manager = ClientPotentialDuplicatesManager.PotentialDuplicatesMaintenanceManager( self )
+        
+        self._managers_with_mainloops.append( self.potential_duplicates_manager )
+        
+        self.potential_duplicates_manager.Start()
+        
         #
         
         self.frame_splash_status.SetSubtext( 'favourite searches' )
@@ -1634,75 +1597,6 @@ class Controller( HydrusController.HydrusController ):
             return
             
         
-        tree_stop_time = stop_time
-        
-        if tree_stop_time is None:
-            
-            tree_stop_time = HydrusTime.GetNow() + 30
-            
-        
-        self.WriteSynchronous( 'maintain_similar_files_tree', maintenance_mode = maintenance_mode, stop_time = tree_stop_time )
-        
-        if self.ShouldStopThisWork( maintenance_mode, stop_time = stop_time ):
-            
-            return
-            
-        
-        if self.new_options.GetBoolean( 'maintain_similar_files_duplicate_pairs_during_idle' ):
-            
-            work_done = False
-            
-            still_work_to_do = True
-            
-            while still_work_to_do:
-                
-                search_distance = CG.client_controller.new_options.GetInteger( 'similar_files_duplicate_pairs_search_distance' )
-                
-                start_time = HydrusTime.GetNowPrecise()
-                
-                work_time_ms = CG.client_controller.new_options.GetInteger( 'potential_duplicates_search_work_time_ms' )
-                
-                work_time = HydrusTime.SecondiseMSFloat( work_time_ms )
-                
-                ( still_work_to_do, num_done ) = CG.client_controller.WriteSynchronous( 'maintain_similar_files_search_for_potential_duplicates', search_distance, maintenance_mode = maintenance_mode, work_time_float = work_time )
-                
-                if num_done > 0:
-                    
-                    work_done = True
-                    
-                
-                if not still_work_to_do:
-                    
-                    break
-                    
-                
-                if self.ShouldStopThisWork( maintenance_mode, stop_time = stop_time ):
-                    
-                    break
-                    
-                
-                time_it_took = HydrusTime.GetNowPrecise() - start_time
-                
-                rest_ratio = CG.client_controller.new_options.GetInteger( 'potential_duplicates_search_rest_percentage' ) / 100
-                
-                reasonable_work_time = min( 5 * work_time, time_it_took )
-                
-                time.sleep( reasonable_work_time * rest_ratio )
-                
-            
-            if work_done:
-                
-                from hydrus.client.duplicates import ClientDuplicates
-                
-                ClientDuplicates.DuplicatesManager.instance().RefreshMaintenanceNumbers()
-                
-            
-        
-        if self.ShouldStopThisWork( maintenance_mode, stop_time = stop_time ):
-            
-            return
-            
-        
         self.WriteSynchronous( 'analyze', maintenance_mode = maintenance_mode, stop_time = stop_time )
         
         if self.ShouldStopThisWork( maintenance_mode, stop_time = stop_time ):
@@ -1742,7 +1636,7 @@ class Controller( HydrusController.HydrusController ):
                 
             
         
-        QP.CallAfter( do_gui_refs, self.gui )
+        self.CallAfter( self.gui, do_gui_refs, self.gui )
         
     
     def PageAlive( self, page_key ):
@@ -1798,7 +1692,7 @@ class Controller( HydrusController.HydrusController ):
         
         app = typing.cast( App, QW.QApplication.instance() )
         
-        app.postEvent( app.pubsub_catcher, PubSubEvent() )
+        QW.QApplication.postEvent( app.pubsub_catcher, PubSubEvent() )
         
     
     def RefreshServices( self ):
@@ -2473,6 +2367,8 @@ class Controller( HydrusController.HydrusController ):
     
     def THREADBootEverything( self ):
         
+        qapp = QW.QApplication.instance()
+        
         try:
             
             self.CheckAlreadyRunning()
@@ -2481,7 +2377,7 @@ class Controller( HydrusController.HydrusController ):
             
             self._DestroySplash()
             
-            QP.CallAfter( QW.QApplication.exit )
+            self.CallAfter( qapp, QW.QApplication.exit )
             
             return
             
@@ -2502,13 +2398,13 @@ class Controller( HydrusController.HydrusController ):
             
             self.CleanRunningFile()
             
-            QP.CallAfter( QW.QApplication.exit )
+            self.CallAfter( qapp, QW.QApplication.exit )
             
         except HydrusExceptions.DBVersionException as e:
             
             self.BlockingSafeShowCriticalMessage( 'database version error', str( e ) )
             
-            QP.CallAfter( QW.QApplication.exit, 1 )
+            self.CallAfter( qapp, QW.QApplication.exit, 1 )
             
         except HydrusExceptions.DBAccessException as e:
             
@@ -2522,7 +2418,7 @@ class Controller( HydrusController.HydrusController ):
             
             self.BlockingSafeShowCriticalMessage( 'boot error', text )
             
-            QP.CallAfter( QW.QApplication.exit, 1 )
+            self.CallAfter( qapp, QW.QApplication.exit, 1 )
             
         except Exception as e:
             
@@ -2548,7 +2444,7 @@ class Controller( HydrusController.HydrusController ):
             
             self.BlockingSafeShowCriticalMessage( 'boot error', trace )
             
-            QP.CallAfter( QW.QApplication.exit, 1 )
+            self.CallAfter( qapp, QW.QApplication.exit, 1 )
             
         finally:
             
@@ -2627,7 +2523,7 @@ class Controller( HydrusController.HydrusController ):
                     time.sleep( 0.1 )
                     
                 
-                QP.CallAfter( CopyToClipboard )
+                self.CallAfter( self.gui, CopyToClipboard )
                 
             
             self.CallToThreadLongRunning( THREADWait )

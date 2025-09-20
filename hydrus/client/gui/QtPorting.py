@@ -7,6 +7,7 @@
 
 import collections.abc
 import os
+import typing
 
 from qtpy import QtCore as QC
 from qtpy import QtWidgets as QW
@@ -16,9 +17,7 @@ from collections import defaultdict
 
 from hydrus.core import HydrusConstants as HC
 from hydrus.core import HydrusData
-from hydrus.core import HydrusGlobals as HG
 from hydrus.core import HydrusLists
-from hydrus.core import HydrusProfiling
 from hydrus.core import HydrusTime
 
 from hydrus.client import ClientConstants as CC
@@ -81,7 +80,9 @@ class LabelledSlider( QW.QWidget ):
         
         super().__init__( parent )
         
-        self.setLayout( VBoxLayout( spacing = 2 ) )
+        vbox = VBoxLayout( spacing = 2 )
+        
+        self.setLayout( vbox )
         
         top_layout = HBoxLayout( spacing = 2 )
         
@@ -97,10 +98,10 @@ class LabelledSlider( QW.QWidget ):
         top_layout.addWidget( self._slider )
         top_layout.addWidget( self._max_label )
         
-        self.layout().addLayout( top_layout )
-        self.layout().addWidget( self._value_label )
+        vbox.addLayout( top_layout )
+        vbox.addWidget( self._value_label )
         self._value_label.setAlignment( QC.Qt.AlignmentFlag.AlignVCenter | QC.Qt.AlignmentFlag.AlignHCenter )
-        self.layout().setAlignment( self._value_label, QC.Qt.AlignmentFlag.AlignHCenter )
+        vbox.setAlignment( self._value_label, QC.Qt.AlignmentFlag.AlignHCenter )
         
         self._slider.valueChanged.connect( self._UpdateLabels )
         self._slider.valueChanged.connect( self.valueChanged )
@@ -117,6 +118,7 @@ class LabelledSlider( QW.QWidget ):
     def GetValue( self ):
         
         return self._slider.value()
+        
     
     def SetInterval( self, interval ):
         
@@ -967,7 +969,7 @@ class TabWidgetWithDnD( QW.QTabWidget ):
                     page_key = source_notebook.GetPageKey()
                     
                 
-                CallAfter( CG.client_controller.gui.ShowPage, page_key )
+                CG.client_controller.CallAfter( self, CG.client_controller.gui.ShowPage, page_key )
                 
             
         
@@ -1346,80 +1348,6 @@ def GetBackgroundColour( widget ):
     return widget.palette().color( QG.QPalette.ColorRole.Window )
     
 
-CallAfterEventType = registerEventType()
-
-class CallAfterEvent( QC.QEvent ):
-    
-    def __init__( self, fn, *args, **kwargs ):
-        
-        super().__init__( CallAfterEventType )
-        
-        self._fn = fn
-        self._args = args
-        self._kwargs = kwargs
-        
-    
-    def Execute( self ):
-        
-        if self._fn is not None:
-            
-            self._fn( *self._args, **self._kwargs )
-            
-        
-    
-
-# TODO: CallAfter gubbins may be replaceable by QMetaObject.invokeMethod( obj, "methodname", Qt.QueuedConnection/Qt.BlockingQueuedConnection ) and such???
-
-class CallAfterEventCatcher( QC.QObject ):
-    
-    def __init__( self, parent ):
-        
-        super().__init__( parent )
-        
-        self.installEventFilter( self )
-        
-    
-    def eventFilter( self, watched, event ):
-        
-        try:
-            
-            if event.type() == CallAfterEventType and isinstance( event, CallAfterEvent ):
-                
-                if HG.profile_mode:
-                    
-                    summary = 'Profiling CallAfter Event: {}'.format( event._fn )
-                    
-                    HydrusProfiling.Profile( summary, 'event.Execute()', globals(), locals(), min_duration_ms = HG.callto_profile_min_job_time_ms )
-                    
-                else:
-                    
-                    event.Execute()
-                    
-                
-                event.accept()
-                
-                return True
-                
-            
-        except Exception as e:
-            
-            HydrusData.ShowException( e )
-            
-            return True
-            
-        
-        return False
-        
-    
-
-def CallAfter( fn, *args, **kwargs ):
-    
-    QW.QApplication.instance().postEvent( QW.QApplication.instance().call_after_catcher, CallAfterEvent( fn, *args, **kwargs ) )
-    
-    # it appears this is redundant and for Arch from the Ubuntu-built release apparently eventDispatcher() was None
-    # QW.QApplication.instance().eventDispatcher().wakeUp()
-    
-
 def ClearLayout( layout, delete_widgets = False ):
     
     while layout.count() > 0:
@@ -1585,8 +1513,8 @@ class UIActionSimulator:
         ev1 = QG.QKeyEvent( QC.QEvent.Type.KeyPress, key, QC.Qt.KeyboardModifier.NoModifier, text = text )
         ev2 = QG.QKeyEvent( QC.QEvent.Type.KeyRelease, key, QC.Qt.KeyboardModifier.NoModifier, text = text )
         
-        QW.QApplication.instance().postEvent( widget, ev1 )
-        QW.QApplication.instance().postEvent( widget, ev2 )
+        QW.QApplication.postEvent( widget, ev1 )
+        QW.QApplication.postEvent( widget, ev2 )
         
     
 
@@ -1810,7 +1738,9 @@ class PasswordEntryDialog( Dialog ):
         self._password = QW.QLineEdit( self )
         self._password.setEchoMode( QW.QLineEdit.EchoMode.Password )
         
-        self.setLayout( QW.QVBoxLayout() )
+        vbox = QW.QVBoxLayout()
+        
+        self.setLayout( vbox )
         
         entry_layout = QW.QHBoxLayout()
         
@@ -1823,8 +1753,8 @@ class PasswordEntryDialog( Dialog ):
         button_layout.addWidget( self._cancel_button )
         button_layout.addWidget( self._ok_button )
         
-        self.layout().addLayout( entry_layout )
-        self.layout().addLayout( button_layout )
+        vbox.addLayout( entry_layout )
+        vbox.addLayout( button_layout )
         
 
     def GetValue( self ):
@@ -2082,6 +2012,8 @@ class WidgetEventFilter ( QC.QObject ):
             
             if type == QC.QEvent.Type.MouseButtonDblClick:
                 
+                event = typing.cast( QG.QMouseEvent, event )
+                
                 if event.button() == QC.Qt.MouseButton.LeftButton:
                     
                     event_killed = event_killed or self._ExecuteCallbacks( 'EVT_LEFT_DCLICK', event )
@@ -2093,6 +2025,8 @@ class WidgetEventFilter ( QC.QObject ):
                 
             elif type == QC.QEvent.Type.MouseButtonPress:
                 
+                event = typing.cast( QG.QMouseEvent, event )
+                
                 if event.buttons() & QC.Qt.MouseButton.LeftButton: event_killed = event_killed or self._ExecuteCallbacks( 'EVT_LEFT_DOWN', event )
                 
                 if event.buttons() & QC.Qt.MouseButton.MiddleButton: event_killed = event_killed or self._ExecuteCallbacks( 'EVT_MIDDLE_DOWN', event )
@@ -2100,6 +2034,8 @@ class WidgetEventFilter ( QC.QObject ):
                 if event.buttons() & QC.Qt.MouseButton.RightButton: event_killed = event_killed or self._ExecuteCallbacks( 'EVT_RIGHT_DOWN', event )
                 
             elif type == QC.QEvent.Type.MouseButtonRelease:
+                
+                event = typing.cast( QG.QMouseEvent, event )
                 
                 if event.buttons() & QC.Qt.MouseButton.LeftButton: event_killed = event_killed or self._ExecuteCallbacks( 'EVT_LEFT_UP', event )
                 

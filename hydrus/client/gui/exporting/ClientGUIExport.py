@@ -380,7 +380,7 @@ If you select synchronise, be careful!'''
         
         self._phrase_box.Add( phrase_hbox, CC.FLAGS_EXPAND_SIZER_PERPENDICULAR )
         
-        st = ClientGUICommon.BetterStaticText( self._metadata_routers_box, label = 'An export folder will not update pre-existing sidecar files. If you change the sidecar actions here on an export folder that has run before, delete the sidecars you want to refresh and on next run it will regenerate them.' )
+        st = ClientGUICommon.BetterStaticText( self._metadata_routers_box, label = 'An export folder will not update pre-existing sidecar files. If you change the sidecar actions here, or if the metadata has changed and you want those updates, delete the sidecars you want to refresh and on next run they will be regenerated.' )
         st.setWordWrap( True )
         
         self._metadata_routers_box.Add( st, CC.FLAGS_EXPAND_PERPENDICULAR )
@@ -871,7 +871,7 @@ class ReviewExportFilesPanel( ClientGUIScrolledPanels.ReviewPanel ):
             
             if quit_afterwards:
                 
-                QP.CallAfter( self.parentWidget().close )
+                CG.client_controller.CallAfter( self, self.parentWidget().close )
                 
             
         
@@ -905,7 +905,7 @@ class ReviewExportFilesPanel( ClientGUIScrolledPanels.ReviewPanel ):
                     job_status.SetStatusText( 'Exporting: {}'.format( x_of_y ) )
                     job_status.SetGauge( index, num_to_do )
                     
-                    QP.CallAfter( qt_update_label, x_of_y )
+                    CG.client_controller.CallAfter( self, qt_update_label, x_of_y )
                     
                     hash = media.GetHash()
                     mime = media.GetMime()
@@ -984,7 +984,7 @@ class ReviewExportFilesPanel( ClientGUIScrolledPanels.ReviewPanel ):
             
             if not job_status.IsCancelled() and delete_afterwards:
                 
-                QP.CallAfter( qt_update_label, 'deleting' )
+                CG.client_controller.CallAfter( self, qt_update_label, 'deleting' )
                 
                 actually_done_media_results = [ m.GetMediaResult() for m in actually_done_ok ]
                 
@@ -1005,13 +1005,13 @@ class ReviewExportFilesPanel( ClientGUIScrolledPanels.ReviewPanel ):
             
             job_status.FinishAndDismiss( 5 )
             
-            QP.CallAfter( qt_update_label, 'done!' )
+            CG.client_controller.CallAfter( self, qt_update_label, 'done!' )
             
             time.sleep( 1 )
             
-            QP.CallAfter( qt_update_label, 'export' )
+            CG.client_controller.CallAfter( self, qt_update_label, 'export' )
             
-            QP.CallAfter( qt_done, quit_afterwards )
+            CG.client_controller.CallAfter( self, qt_done, quit_afterwards )
             
         
         CG.client_controller.CallToThread( do_it, directory, metadata_routers, delete_afterwards, export_symlinks, quit_afterwards, self._media_to_number_indices )

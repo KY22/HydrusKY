@@ -7,6 +7,154 @@ title: Changelog
 !!! note
     This is the new changelog, only the most recent builds. For all versions, see the [old changelog](old_changelog.html).
 
+## [Version 639](https://github.com/hydrusnetwork/hydrus/releases/tag/v639)
+
+### misc
+
+* `system:number of tags` and `system:tag as number` have a nicer new namespace selection widget
+* fixed the duplicate filter group mode finding a new group after the previous group was resolved. I messed this up in last week's rewrite and it slipped through testing
+* huge multi-column lists handle large selections much more efficiently, particularly when they have lots of buttons. all the various logic that handles 'should this accompanying button be enabled?' and so on now uses calls that work much faster when there are thousands of items selected. in my tests, a sublist with 5,000 test items now updates to a new selection in under 30ms--previously it was about a second. similarly, pasting all those items to a new list now takes about six seconds, whereas previously it was locking up for ages and ages, perhaps forever (issue #1737)
+* fixed an issue where the 'move media files' dialog was saying all files were in their ideal location if the thumbnail location override was not set. this was happening because an error was being quashed over-eagerly. if this dialog has a similar problem in future, you might get some spammy reports, but it'll show. also a side thing, the 'set' button of the thumbnail location override no longer disables if you have a path set--feel free to move it to a new location in one step mate
+* the system that positions windows off the topLeft corner of their parent is now more forgiving of unusual window manager frame geometry. if you kept getting 'hey I just rescued a window from ( 24, -14 )'-style popups every time you open the options off a maximised main GUI, let me know what happens now--are your dialogs appearing offscreen, auto-repositioning to (0, 0), or is everything good now?
+* if you are feeling clever and can get an OR predicate into the duplicates auto-resolution 'test A or B' comparator, it now works! I'll brush up the UI in future to make it easy to enter an OR here (issue #1790)
+
+### potential duplicates discovery
+
+* I have overhauled the daemon that looks for new potential duplicate pairs. this guy no longer searches for pairs during shutdown maintenance (I'm generally trying to retire shutdown work), but you can now tell it to run in idle and/or normal time, with separate work/rest settings under `options->maintenance and processing`
+* your settings here will mostly reset to defaults this week, sorry! default is to run in idle time but not active time, with some conservative work/rest ratios
+* a critical section of database code that finds outstanding eligible files to perform the similar files search on is now optimised for clients with larger numbers of files. there will be a one-time CPU cost for each search distance you run at, and thereafter this thing should run like greased lightning even if you have millions of files, reducing per-job overhead for all similar files search
+* when you force work through the duplicate page 'preparation' tab, it now works through a pause/play button and there is no separate work popup; it now just updates the bar in front of you
+* I'm interested to know how 'run in normal time' feels for clients that have a lot of imports going on. I haven't gone for instant reaction to new files yet, but if it is idling with all other work done it'll get to any new files within about ten seconds, and the auto-resolution system _will_ react instantly to new potential duplicate pairs. might be laggy, might be cool, might be confusing as files in downloader pages are deleted before your eyes. the super ideal here would be to collapse the whole operation into the single import job and return something like 'file was duplicate' instead of 'already in db' as the import status, but we'll see how this does
+* the 'reset potential search' cog-button task now resets the search for all eligible files. previously, I was trying to be cute and only reset search for files that previously found a potential pair, but the, say, ~37% filled progress bar after reset was confusing and not actually what the maintenance task wanted. KISS
+
+### profile mode
+
+* `help->debug->profiling->profile mode` now works on Python 3.12+. newer version of python are more strict about how profiling operates in a multi-threaded environment, and hydrus's profiling now obeys these rules. it turns out hydrus was always getting some _slightly_ gonk numbers here in busy multi-threaded situations, or at least many jobs were being truncated, which explains some inexplicable results I've seen over the years
+* profile mode is now split into four exclusive types--client api, db, threads, and ui. the menu and html help are updated to talk about these. most users will want 'db'
+* 'threads' and 'client api' profiles will sometimes include a bunch of truncated 'EXCLUSIVE: (job) ran in 17ms'. this is me salvaging a difficult situation with a still-useful number. don't worry about it!
+* Python 3.12+ adds some cool tools here, and I expect to expand to some 'profile everything going on mate' modes in future to capture deep Qt things my specific modes do not
+* there's an ancient shortcut for 'turn profile mode on'. this now does 'db' profile mode; it'll probably do something else later, or I'll retire it
+
+### boring stuff
+
+* if you boot the client or server in a python environment that does not have the requirements.txt stuff installed, the client now recognises this and gives a nicer error saying 'hey, I think you need to reinstall/activate your venv', rather than the old 'hey you don't have yaml' error
+* tweaked the client's critical boot error handling so that it shows a nicer english error message first and then the full traceback in a second dialog
+* added some unit tests for OR predicates within Metadata Conditionals
+* fixed a deprecated unit test call. thanks to the user who pointed this out. this is not the first time this specific thing happened, so I'm switching up my testing regime to catch this in future
+
+### boring overhauls and refactoring
+
+* wrote a new MainLoop Manager for the potential duplicates search and some maintenance and numbers caching
+* overhauled the potential duplicates search tree maintenance call to have less overhead and be happier working in tiny chunks. it is now continually maintained throughout search work
+* wrote a count cache for the shape search store for the new daemon (previously it counted manually); it is updated as the underlying store changes
+* hooked up new notification paths for new shape search counts or brance rebalancing work. these paths are simple and comprehensive, so the new guy should be a bit more reliable for unusual file maintenance jobs and so on that may alter the search space a little
+* added some safety code to the new similar files search daemon to stop an infinite loop if the search record store has non-searchable items for some reason
+* cleaned up the Duplicates Page Sidebar maintenance page a bunch. there was just a ton of cruft to go through
+* to untangle some imports, moved duplicate score and visual duplicates gubbins out of `ClientDuplicates.py` to a new `ClientDuplicatesComparisonStatements.py`
+* collected pretty much all the profiling and query planner gubbins like start time and job count and printing tech from `HydrusController.py` and `HydrusGlobals.py` to `HydrusProfiling.py`. I cleaned a bunch of it up along the way
+* brushed up some of the database migration help r.e. missing locations and the pre-boot repair dialog
+* the core `CallAfter` method used by many thread-to-Qt comms is a tiny bit more stable/thread-safe
+* misc linting work, including clearing out some legacy unresolved references
+
+## [Version 638](https://github.com/hydrusnetwork/hydrus/releases/tag/v638)
+
+### misc
+
+* thanks to a user, epubs with svg or IBook image cover pages will now get nice thumbnails. epubs with html covers will no longer spam error info to the log
+* the default pixiv URL Classes are tweaked a little so they now want to keep their `www.`. when I did the multi-domain url class update the other week, which unified domain parsing and normalisation, some `www*.` removal loopholes were fixed and suddenly the pixiv downloader had a bunch of redirects going on behind the scenes because they are still firmly a `www.`-preferred site. no great harm done or subscription inefficiency or anything precisely because these URLs are considered the same now, but it was ugly in places so I've cleaned it up on my end. what to do about `www.` in future is perhaps something to talk about, and in context of an eventual _en masse_ URL normaliser/converter--maybe URL Classes will get an option regarding `www.` so we can handle various legacy issues like this. also for some reason the 'pixiv file api' url class was saving associated urls, which I've turned off
+* the media viewer's prefetch system has better error handling for images with unknown resolution
+* when exporting files, if the export filename produced by the pattern is the empty string, it now (again) falls back to the file hash. in a recent round of rewrites, it was falling back to the string 'empty', so you'd get a scatter of annoying 'empty (7).jpg' filenames
+* when viewing an animation with the native viewer, hitting the shortcut for 'seek media: negative time delta' repeatedly near the beginning of the video, either on a slow video or a paused one, will no longer let the viewer move from the 1st frame to the undefined 0th frame (issue #1793)
+* updated the first/previous/next/last media viewer navigation arrows to .svg icons and renamed them behind the scenes to position_x so they line up better alphabetically
+* brushed up my newer .svg icons with some nicer gradients and drop shadows
+
+### duplicates
+
+* several duplicates auto-resolution thumbnail lists now spawn full-fledged duplicate filters instead of media viewers. these will navigate the full list, not just the one pair, starting with the most recent pair you have selected. the lists that have this tech are: in the 'edit rule' panel, the 'preview' tab's 'passed the test' and 'failed the test' lists; and in the 'review' panel, the 'pending actions' tab's main list
+* the duplicate filter here has the normal actions. I'd like to add 'approve/deny' buttons for the 'pending actions' panel in future
+* the 'send pair to duplicates media page for later processing' button in this case now sends the pair to a new/existing page called 'duplicate pairs'
+* the 'send pair to duplicates media page for later processing' button on the duplicate right-hand hover no longer has the 'fullscreen' icon, which was changed last week and doesn't work there any more. I gave it the 'copy' icon for now
+* the iterative duplicate search routines that generate grouped or mixed pairs for the filter and the one that generates the count of the current search for a duplicate search context panel are now auto-throttled. they'll start at 4096 items and speed up (reducing overhead) or slow down (reducing system latency) based on live timings, aiming for about 0.5s per work packet, which for almost all users will mean a prompt acceleration. if you have been staring at a lot of '2,000,000/4,100,000 ... 0 found' duplicate progress texts recently, let me know if this changes things at all (issue #1778)
+
+### referral url logic cleanup and policy change
+
+* the downloader is now stricter about which url it will prime child objects to use as their referral url (i.e. the file result from a gallery hit, one of multiple file objects created by a multi-file post, or a 'next gallery page'). the referral url given to the child object is now, strictly, the same URL that was actually hit at the parent stage, _including_ redirects. if you use an API redirect, that is now the referral URL. if the server 3XX redirects you, that is now the referral URL
+* previously, it was mostly the 'pretty', pre-API redirect URL used, unless it was for some reason set otherwise, and unless there was a 3XX, in which case it was always that(?). it was a mess. rather than trying to be cute, I'm going for clear and accurate KISS. if hydrus hits an URL, that's the referral for the child, unless the URL Class of the child overrides it, and if it overrides it, it overrides _it_
+* advanced downloader creators will recall that URL Classes can override, nullify, or modify the given referral URL. if you have a delicate URL Class here that uses both an API Redirect and a referral URL regex transformation that presumably eats the pre-API URL as a base, I am afraid I may have broken your downloader. I hate to do this, but I need to clean up the logic here and I think my decision causes the least damage and makes for the most reliable new rule going forward
+* when you right-click a file object and look at 'additional urls', it will now state if there is an API/Redirect, and what URL that will be
+* when you right-click a file object and look at 'additional urls', it will now state if the referral URL is due to be modified by URL Class rules. the URL Class is of course that for the expected URL to fetch, i.e. after API/Redirect conversion
+* when you right-click a gallery object in a gallery/check log, you now see an 'additional urls' submenu with the above API/Redirect and Referral URL stuff, and you'll see any fixed http headers
+* note in this subject that as part of moving from `requests` to `httpx`, I'm strongly considering handling redirects myself, and that will appear in the logs here as a child object with the new URL. I'd like the logs here to be better logs of what happened, in full, with less voodoo
+* issue #1789 is related here, but I don't think I have it actually fixed
+
+### boring stuff
+
+* moved the duplicates filter canvas (60KB now) to its own `ClientGUICanvasDuplicates.py` file
+* overhauled the duplicates filter canvas to be agnostic about the source of its list of pairs to action. it now takes a new pair factory, and all async work to initialise the search space and do grouping and fetching and sorting is now handled on the side of the factory
+* cleaned up some of the not-great async logic around here during the decoupling, which clarified some things, and committed some fresh sins too
+* wrote a pair factory for the thumbnail lists
+* misc URL handling code cleanup and variable normallisation
+* added a couple notes regarding mpv and ffmpeg in macOS to the 'running from source' help; thanks to the feedback from users who recently made the migration
+
+## [Version 637](https://github.com/hydrusnetwork/hydrus/releases/tag/v637)
+
+### duplicates auto-resolution
+
+* 'test A or B' comparators now support 'system:time', for the four main time system predicates (import time, modified time, last viewed time, archived time)
+* 'test A against B using file info' comparators now support the same 'system:time' stuff, so you can now mandate, say, that "A has system:import time earlier than B". I also wangled a time delta in there, so you can say 'A was imported more than three months earlier than B' if you like
+* I brushed up the comparator UI for time; instead of `<` and `=`, you'll see a vertical stack of 'earlier than', 'roughly the same time as' and so on. also, the deltas for `+/-` and the B delta are full time widgets, so you set the time you mean and don't have to care about converting to milliseconds. this all percolates to the comparator summary string too.
+* same deal for `system:duration` in that panel--it now has a time delta for the absolute `+/-` test and the B delta, and has a time-aware summary string
+* I added 'only earlier imports' variants for the 'visually similar pairs' suggested duplicates auto-resolution rules. I am sure there are many edge cases, but I feel that these are pretty good 'near-zero false positive' rules to try out
+* the 'edit duplicate auto-resolution rules' panel now has export/import/duplicate buttons
+* the 'comparison' tab of 'edit duplicate auto-resolution rule', where you edit comparators, now has export/import/duplicate buttons
+
+### duplicates
+
+* in the duplicate filter, jpeg subsampling and quality info is cached in a nicer, more thread-safe way. certain laggy calculation situations should be more stable. I am not sure if this was the source of the crashes some people have had, so if you still get them, please let me know
+
+### misc
+
+* for the new `/db/static` overwrite tech, a .png icon in the db dir now overrides an .svg in the install dir. if you chose to add it, I'll prefer it
+* the star.png used for favourites buttons is now an svg
+* the fullscreen_switch.png used in the media viewer is now an svg, and more like the typical icon for this
+* I forgot to do some metadata regen on epubs last week, so any existing epubs probably got stretched thumbnails. soon after v637 boots, your epubs should double-check their resolution ratios and regen any busted thumbs (issue #1788)
+* I overhauled one of the ways that threads can give Qt work to do, making it more Qt safe. there were about 80 calls that used this system, mostly stuff like initialising a label or focusing a button in the event loop immediately after a panel appears. fingers crossed, these will be much more stable in edge cases when, say, a dialog insta-closes before an initialising job can fire
+
+### big brain subscription logic improvement
+
+* when subscription queries compact themselves down to the (typically 250) newest URLs, they now recognise that child URLs ("Found 2 new URLs in 2 sub-posts.") should not be counted. in sites where the gallery pages have potentially high count and each gallery-parsed post URL can also each produce many files (e.g. Pixiv manga), 250 file import objects could only be, say, 21 top-level Post URLs, significantly less than the gallery page provides, and the safety checks here, which are tuned to recognise 100 contiguous Post URLs 'already in cache', were overflowing every n checks and causing some post re-downloads. hydrus should be better about recognising this situation
+* the compaction routine does this by grouping file import objects into parents, including nesting parents, and only culling on the top level. when things are confusing, it tries to fail safely in complicated situations, on the side of reducing compaction aggressision
+* if you have manga subs, they may well grow to be like 4,000 files. let me know how it all goes
+* a similar bit of logic that tests the number of items found versus the pre-gallery-sync size of the file log now uses this tech to estimate that size (previously it did some hacky referral url checking stuff)
+* thanks to the user who worked with me to figure this one out
+* this is more evidence that I should write a layer on the database level URL storage for 'subscription x saw this URL', and then we wouldn't have such a problem
+
+### base64URL
+
+* String Converters can now encode/decode with Base64URL, which is a variant of Base64 that uses `-_` instead of `+/` and where '=' padding is encoder-optional (and not added here) to make inclusion in an URL parameter simpler
+* when I _decode_ (convert from base64 to normal text) by base64 of either sort now, I add any extra `=` padding that is needed, no worries
+* String Matches can now have a 'character set' of Base64URL (`^[a-zA-Z\d\-_]+={0,2}$`) or 'Base64 (url encoded)'' (`^([a-zA-Z\d]|%2B|%2F)+(%3D){0,2}$`)
+
+### boring stuff
+
+* removed the macOS build script and such. I left the macOS build files in place and copied my various .yml workflow scripts to `static/build_files/macos`
+* fixed up some bad layout flags in the duplicates auto-resolution comparator edit panels
+* swapped the trash and retry buttons in the gallery downloader page sidebar
+* similarly moved the trash button to the end in the watcher downloader page sidebar
+* wrote unit tests for predicate value testing (i.e. for Metadata Conditionals) for import time, modified time, last viewed time, archived time
+* wrote unit tests for predicate value extracting (i.e. for relative file info comparators) for import time, modified time, last viewed time, archived time
+* wrote unit tests for the new Base64URL encode/decode and added some clever stuff to check for the `+/-_` stuff
+* wrote unit tests for the new Base64 character set filters
+* fleshed out some of my Base64 unit tests to catch a couple extra situations
+* wrote unit tests for my new query compaction parent-grouping tech and 'master url' counting routine
+* moved the 'CallAfter' thread-to-qt calling system to a new file `ClientGUICallAfter.py`, and made it safer
+* moved an overhead-heavy alternate Qt-safe CallAfter to this leaner pipeline
+* renamed `PREDICATE_TYPE_SYSTEM_AGE` to `PREDICATE_TYPE_SYSTEM_IMPORT_TIME`
+* the `NumberTest` init no longer flips from `+/-%` to `=` if the inherent 'value' is 0--this was not helping in duplicates auto-resolution, where the value is not used and in some cases initialises to 0
+* updated the predicate object so null/stub preds (which until comparators generally only appeared in memory as autocomplete dropdown system preds) can always serialise
+* if a menu item label is longer than 128 characters and thus...elides, the tooltip will no longer have doubled ampersands (generally affects urls in menus)
+* added a catch to the `help->about` error reporting; if you have "sio_flush" in an mpv import error, I now say to try running from source
+
 ## [Version 636](https://github.com/hydrusnetwork/hydrus/releases/tag/v636)
 
 ### multi-domain URL Classes
@@ -357,188 +505,3 @@ title: Changelog
 * fixed a client api test that could sometimes fail due to a thread taking too long to work
 * `help->about` now says the system architecture (e.g. x86_64, arm64, aarch64)
 * `help->about` has better wordwrap (we noticed it gets super wide if your install dir is long etc..)
-
-## [Version 629](https://github.com/hydrusnetwork/hydrus/releases/tag/v629)
-
-### misc
-
-* fixed the regression where the top-right hover window was not showing in the archive/delete or duplicate filters (issue #1755)
-* fixed some volume/rating rendering stuff in the filters, too
-* the new '3/5' numerical ratings texts are now drawn in the normal text colour for your stylesheet, not from the rating colours
-* you can now select the 'aggregate modified time' as the source timestamp when setting up a sidecar export. this is the reasonable minimum of all known modified times and what you generally see in the UI when it only shows one modified time
-* if you try to import a Canon RAW CR3, it is no longer recognised in the initial path scanning routine as an mp4. many still images that ffmpeg can somewhat parse but isn't sure on should be fixed here--I was reading back the ffmpeg output badly and falling to a 'generic mp4?' assumption (issue #1756)
-* the optional library lines in `help->about` now say a little more than just True/False, and the process by which this dialog says 'hey, mpv failed to import for this reason' on window launch is now generalised, recognises the difference between a module not being available and an actual error during import, and covers mpv, QtCharts, QtPDF, dateparser, dateutil, and psutil
-* fixed 'collapse pages to the right' page tab actions, which were typo-broken in recent refactoring
-
-### duplicates
-
-* fixed an issue where the duplicates auto-resolution system would work way too hard and not take long enough breaks in many cases. it was notifying itself there was new work due _while_ doing work, leading it to keep waking itself up as soon as it went to sleep. it now ignores these signals while it is doing work. you will generally see the system working much slower from now on. let me know how this goes--now the clock behind all this isn't busted, it needs a re-tuning and/or options regarding how hard it wants to work, and we may want to bring back 'work hard' mode
-* the 'A and B are visual duplicates' test has a more sophisticated edge-detection routine. it can now detect paler watermarks or other artist edits by tiling the images' average edge differences and calculating a skew metric to notice unusual regional shifts
-* the duplicates auto-resolution system (and the database maintenance manager) now force breaks of at least 250ms between each job when things are busy
-* the duplicates auto-resolution system now runs with significantly less overhead any time it needs to consult rules
-* the list on the main duplicates filter 'auto-resolution' tab updates itself significantly faster now, only needing to hit the database on rule edits or the refresh button
-* rules are now better at reporting if they are doing work in this list. they'll say 'waiting' (want to work but settings say no working right now) and 'working' (taking available work slots right now) a lot more now. also instead of 'idle', they now say 'done'
-* the 'test' phase of a duplicates auto-resolution rule, which is CPU expensive for 'A and B are visual duplicates', now occurs outside the database transaction
-* fixed the 'work on these rules during idle time' cog menu, which was wired up to the 'do search for potential duplicates in idle time' options boolean due to a typo
-* the 'edit rules' dialog is now much more aggressive at interrupting and pausing ongoing work so it can launch
-
-### more invalid export path fixes
-
-* the new routine that elides subdirectory names generated by a export filename pattern is now careful to trim the directory name of leading/trailing whitespace. previously, when you were unlucky enough to get elided to `tag, tag, tag, `, the export operation would fail in Windows and simply be ugly everywhere else. the base filename is stripped of whitespace too, so you won't get `tag, tag, tag .jpeg` any more (issue #1751 again)
-* it now also removes periods from the end of windows file/dirnames, which it turns out are also not allowed
-* it now also excludes some windows reserved names like 'AUX' and 'COM1'
-
-### AVIF
-
-* the Pillow guys released the 11.3 that adds nice native AVIF support. all builds will fold this in and it should all just work. users who run from source might like to rebuild their venvs this week. this fixes some bugs we had with the interim plugin library, including one with unusual rotation (issue #1728)
-* in the v629 update, all AVIFs are scheduled for: a metadata rescan, the 'has exif/icc profile/other human-readable embedded metadata?' checks, and forced thumb, pixel hash, and phash regen (there are several legacy issues from this saga to catch up on)
-* the code that imports the heif, avif, and jpegxl plugin libraries now asks Pillow if it can do the respective thing (turns out it has a nice call for this) before importing the plugin, making for a much more natural and foolproof update process as we go forward here
-* the `help->about` window now shows if you have heif, avif, or jpegxl support natively in Pillow or via a plugin
-
-### dateparser fixes
-
-* dateparser, which we use to do the 'easy date parse' solution, updated to `1.2.2` and suddenly wouldn't import correct in the Linux and Windows builds (maybe macOS too, not sure, but it seems to have been a PyInstaller issue), breaking a bunch of cool date parsing
-* I have rolled back dateparser to `1.2.1` in all requirements files and it should import again ok in v629 builds. to check, you can see it under `help->about`
-* it looks like the new version had additional locale issues, too, or it aggravated an older known one. computers that are in locales where the local time is strictly 24-hour, such as Polish or Russian, were having trouble parsing any date with AM/PM info, even when I told dateparser 'hey, if that failed, just do it in EN mate'. the program now initialises dateparser right at the very start of the program, before other imports sink their teeth into app locale, and this appears to fix dateparser's timezone cache initialisation. thanks to the user who figured this out!
-* the 'easy date parse' system now has a fallback to dateutil's very good parser if dateparser fails
-* all the above addresses issue #1754
-
-### cleanup/boring stuff
-
-* fixed a deprecated Pillow fromarray mode param
-* think I fixed an issue with Arch running the Ubuntu-built release relating to a bad 'wakeUp' call in some event dispatching code
-* added some painter save/restore stuff to ensure 'draw rating here' calls are non-destructive to painter state
-* auto-resolution rules' counts are now updated at the object on any change and do not have to be reloaded when a daemon wants to consult them. also made it more thread-safe
-* added some sidecar modified timestamp unit tests
-* added unit tests for the new export path stuff, and improved my path unit tests to better work on any OS
-* deleted the old integrated 'do duplicates auto-resolution work' db code
-* removed the 'TEST: stop mpv on media transitions' option. this test failed and caused other bugs, but I have some other ideas I'm going to play with
-
-## [Version 628](https://github.com/hydrusnetwork/hydrus/releases/tag/v628)
-
-### ratings
-
-* thanks to a user, we have another round of new ratings UI features--
-* under `options->media viewer` you can now have the ratings hover window and background appear, just like in the normal media viewer! quick ratings setting from the preview!
-* under the new `options->ratings`, you can now customise the size of ratings in the manage ratings dialog and the preview viewer. you can also set a different width for inc/dec ratings
-* also under `options->ratings`, you can now set numerical ratings to only show the `3/5` fraction and a single star on the thumbnail view
-* under the `services->manage services` panel of a 'numerical' rating service, you can now set to have the `3/5` fraction written to the left/right of the stars display
-* a bunch of misc code cleanup. we are slowly tearing out some of my bad old code to make a more decoupled renderer here, and ideally to eventually figure out a proper 'what this rating will look like' preview widget alongside these options
-* thanks to another user, we have a bunch of new rating svgs available by default: `architecture`, `art-palette`, `cinema-reel`, `eye`, `heart-cute`, `inspiration`, `scenery`, `smile`, and `wallpaper`. I think they look great!
-
-### misc
-
-* the new 'export filename' generation routine now parses any subdirs your pattern makes and forces a 64 character limit on Windows and a ~250 byte limit otherwise. you can now put `{character}\{hash}` as the pattern and it will create stable and reliable folder names. this is a hardcoded hack waiting for a richer path generation system (issue #1751)
-* fixed a bug when loading an OR predicate that held a rating predicate during database initialisation (which could happen during a db update or, it seems, when loading the core options structure after the user had done some OR/ratings work that populated the 'recently used predicates' structure)
-* fixed a bug when rendering any rating predicate to text during database initialisation
-* since it is a clever routine and it has caused us trouble before, predicates now never fail to render themselves. if there's an error, they print it to log and return `error:cannot render this predicate`
-* fixed a bug in the 'present this list of texts to the user' renderer that was causing the last line not to render when there were more than 4 items to show. this made for a completely empty output if you pasted five really short texts into 'paste queries'. it was also undercounting the 'and x others' line by one, when there were more than 24 lines of content
-* the 'stop removing double slashes at the start of an URL' test went well, so all users are now flipped to working this way by default. the 'TEST' checkbox under `options->downloading` is now a 'DEBUG' one, if you need to go back to the old way
-* the program no longer logs the full error when FFMPEG cannot render a PSD
-* the program no longer logs the full error when Qt cannot render a PDF for a thumbnail
-
-### potential duplicate pairs count is smoother
-
-* the widget that edits a potential duplicate pairs search context (which you see in the duplicate filter page sidebar and the duplicates auto-resolution search panel) now has an integrated duplicate pairs count. this count calculates in an iterative/incremental way, doing a bit of counting over and over rather than one big job, just like the duplicates auto-resolution preview page, and thus opening a duplicates filter page is no longer an instant db lag. updating the search context or getting a signal of new potential pairs will quickly cancel any ongoing search and restart the count. it also pauses an ongoing count while you are not looking at it. the count also only disables the 'launch the filter' and 'show some random potential pairs' buttons until it finds at least one pair. this should all just work better!
-* note that I did a bit more assumptive 'things haven't changed in the past five minutes' logic with this work, so while it should still update itself on big changes, I made it lazier on the small stuff. let me know if and when it undercounts. I also stopped it refreshing after every 'random potential pairs' action, too. the refresh button should fix any undercounting or other desync, so let's see how it does IRL
-
-### duplicates auto-resolution
-
-* the approve/deny actions in the review rule panel now work in chunks, which gives other jobs time to get at the database (no more freezing up), and they report '16/55' status on the button you clicked, so you can see how it is doing
-* this panel also gets a 'select all' button
-* I tweaked the suggested 'A and B are visual dupes' rule to queue up 128 files and broke it into two rules--one that requires `A has filesize > 1.1x B` and the other doing `A has width/height > 1.1x B`, mostly to increase confidence on the 'better' action. I didn't have time to add times to the comparator system, but that's next. I want 'A modified date earlier than B' on both rules as an extra safety guard rail for what I suggest as a default
-* added a new 'archived file delete lock' exception under `options->files and trash`, for any auto-resolution action
-* I've hidden the 'work hard' button. I don't really like it and it wasn't working pleasantly. maybe I'll bring it back, but if I do it'll be with some nicer UI
-
-### boring duplicate cleanup
-
-* the initial work that goes into setting up the new iterative potential duplicate pair fetch is now cached and shared amongst all callers, so a variety of refresh calls and duplicate filter or rule edit panel loads will now be that bit faster off the mark. this is important if you have like 700k potential pairs
-* the new iterative potential duplicate pair fetch now pre-filters to any simple local file domain, so when it runs on a single local file domain with a small relative file count, it is now much much faster
-* the new iterative potential duplicate pair fetch is now faster with `system:everything` searches
-* the new iterative potential duplicate pair fetch tech now grabs in blocks of 4096 pairs, up from 1024. the core auto-resolution rule searcher is now 4096, too, down from 8192
-* the old monolithic potential duplicate pairs counter, which now only occurs in unit tests and an API call, uses the new tech (just by iterating over the whole search space in one transaction), and is thus a good bit faster and cleaner etc.. in various situations. I was able to delete a bunch of semi-duplicated code after this!
-* all duplicate pair searches that are both `system:everything` and a union of multiple local file domains now run at good speed (they were previously extremely unoptimised in many situations)
-
-### boring cleanup
-
-* when editing favourite regexes, the 'add' call now shows a rich regex edit box, and both add and edit calls' regex boxes are a little wider and no longer offer a recursive 'manage favourites' command from their menu lol
-* moved the edit regex favourites panel to its own class
-* moved the autocomplete dropdown resize code from old wx hacks to Qt Events
-* moved the frame size and position saving code from old wx hacks to Qt Events and Timers and a nicer eventFilter, and reduced some save spam
-* since they are no longer used anywhere, cleared out these old wx move and maximise event catching hacks
-* when you enter a password through the database menu, it now asks for it a second time to confirm you typed it all ok, and if you clear it, it gives a yes/no to confirm that
-* the slideshow custom period input now defaults to `15.0` so the user knows they can do sub-second input, and it now presents a graphical message if the time was unparseable
-* the various 'separate' subscription choices should be better about sorting the to-be-split queries with human sort rather than just ascii
-* my 'select from a list' and 'select from a checkbox list' mini-dialogs now sort their contents with richer human sort
-* in the edit duplicates auto-resolution rule panel, the 'max pairs in pending queue' widget now disables more carefully based on the starting operation mode. btw I think I was crazy defining the pause state via a third operation mode choice and will most likely rework this to a separate checkbox
-* updated the example response in the Client API `/manage_pages/get_page_info` documentation to include `hash_ids`
-* cleaned some misc client db job-to-command mapping stuff
-* bunch of little logical improvements for various text entry dialog feel, mostly making some 'edit this if you want' cancel outcomes in sub merge/separate no longer mean a cancel of the larger multi-step workflow
-* `help->about` now says your numpy version
-* broke `ClientGUITags`, which was ~230KB, into smaller files for Manage Tags, Manage Tag Siblings, Manage Tag Parents, Incremental Tagging, Tag Filters, Sync Maintenance EditReview, Tag Display Options, Edit Namespace Sort, and Tag Summary Generators in `hydrus.client.gui.metadata`
-
-### text entry dialog overhaul
-
-* migrated the ancient 'enter single line of text' dialog to my newer edit panel system. migrated all the old dialog calls over to the new class, being: sort-by namespace custom entry; password setup entry; password boot entry; debug fetch an url entry; janitor file repo file info lookup hash entry; janitor account lookup account key entry; file lookup script custom input; gui session name input; string-to-string widget add and edit key/value inputs; string-to-string-match widget add and edit key inputs; sub merge name input; select subs by name input; non-half subscription separate name input; tag filter favourite import name input and save name input; manage tags reason input; tag summary generator namespace/prefix/separator edit inputs; slideshow custom period input; some tag petition reason input; note import options whitelist add/edit name input; add domain modified timestamp domain entry; json object exporter name input; tag sibling/parent pend and petition reason entry; export downloader domain input; parser example url input; login management domain and access description entry; login script example domain and access description entry; parsing test panel url fetch input; petition files reason input; ipfs directory naming input; new page of pages naming-on-creation and naming-on-send-down option input; page renaming; registration token entry; ipfs share note input; simple downloader formulae naming input; external program launch path input; advanced file deletion reasons edit; namespace colour namespace input; namespace sort options panel editing input; tag suggestion slice weight; edit notes name input; regex favourites regex and description input
-* aaaiiiieeeeeeeee
-
-### library updates
-
-* the 'future build' last week went without any problems, so I am folding its updates in to this build. we have--
-* On All--
-    - `requests` moved from `2.32.3` to `2.32.4` (security fix)
-* On Linux and Windows--
-    - `PyInstaller` moved from `6.7` to `6.14.1` (handles new numpy)
-    - `setuptools` moved from `70.3.0` to `78.1.1` (security fix)
-    - `numpy` moved from `2.2.6` to `2.3.1` (lots of improvements, py 3.11+)
-* On Windows--
-    - `sqlite` dll moved from `3.45.3` to `3.50.1`
-* Source venvs--
-    - `numpy` moved from `>=2.0.0` to `<=2.3.1`
-* the pyinstaller bump is the most important, I think, and it should fix a bunch of dll load and OS API issues. there are no special install instructions, but let me know if you run into any trouble
-
-## [Version 627](https://github.com/hydrusnetwork/hydrus/releases/tag/v627)
-
-### misc
-
-* windows that remember position are better about saving that position on a window move. some window managers (particularly on Linux) were not recognising the previous 'window move has ended' tech, nor non-mouse moves, so I wrote something that will work more generally. let me know if any windows start positioning crazy this week during drags!
-* fixed variable framerate render timing in the native viewer for animated webp files. I messed up some logic when I first rolled this out in v620; should be working correct now (issue #1749)
-* fixed an issue where import sidecars were losing their texts' order (they were being pseudorandomly re-sorted) in the outer layer of string processing where multiple sidecar texts are combined. the sidecar pipeline now preserves original sort throughout the pipeline (issue #1746)
-* added a `TEST: Stop mpv before media transition` in an attempt to early-cancel laggy mpv when transitioning media when the current (looping and pre-buffering) media is near the end. may also help some situations with laggy storage, but we'll see. I think this mode might have some load bugs
-
-### visual duplicate detection is ready
-
-* the 'A and B are visual duplicates' system now compares spatial edge data and is better able to recognise mosaic/blur patches, minor alterations or repositions, and subtle alternates in busy areas like eye pupils. all the remaining difficult false positives I have are fixed, and the test easily catches several pairs that were previously tricky, allowing me to remove a hacky test on the colour testing side of things that was producing some false negatives
-* this test is now available as a comparator in duplicates auto-resolution rules! you can choose it to be at least 'very probably', 'almost certainly', or 'near-perfect'. I default to and recommend 'almost certainly' for now. I am still interested in seeing any new false positives you encounter
-* note that this tool is CPU heavy--expect about a second per pair tested! the UI seems to be holding up well with the delay, but I've added a new label to the preview panel to show when it is running slow and there are pairs still to be tested
-* added a new and generally cautious 'visually similar pairs - eliminate smaller' suggested rule. it does an 'A and B are almost certainly visual duplicates' test on similar filetypes, preferring an A that is larger in size and larger or equal in resolution, and is semi-automatic. if you have been following all this, please give it a go and let me know what you think
-* assuming this tech holds up, this was the last big difficult thing in my auto-resolution superjob. there is still a lot I want to do, but it'll mostly be cleaner UI, some more comparator types, a way to interact with the denied pairs log, smoother counting and pair load in more places, a way to load up a duplicate rule's pending decisions in the normal filter, richer duplicate-aware pair preview/review, that sort of thing
-
-### cleanup/docs/boring
-
-* added some notes to the 'migrate' and 'source' help regarding needing to rebuild your venv every time you move the install folder
-* added some 'better software for x' links to 'getting started with files' to ComicRackCE, Lanaragi, and Calibre
-* added a little about 'A and B are visual duplicates' to the duplicates auto-resolution help
-* the 'LabHistogram' stuff that does the new 'A and B are visual duplicates' is now renamed generally to 'VisualData', and the LabHistogram stuff is rejiggered into a subclass
-* fixed a small warning bug when the thumbnail pair list in the auto-resolution preview panel is updated to have a new rule while it is empty
-* fixed a duplicate file system bug where it wasn't able to negotiate the correct `media id` for a file when the duplicate group had an identity definition but somehow was desynced and did not list the king as a member
-* added a new 'pixel-perlfect jpegs vs pngs - except when png is smaller' alternate suggested rule that does pixel perfect jpegs and pngs but only actions when the jpeg is smaller than the png
-* wrote some unit tests for 'A and B are visual duplicates'
-* I think I silenced OpenCV's warning logspam. if you ever saw `[ WARN:44@43420.823] global grfmt_png.cpp:695 read_chunk chunk data is too large` kind of thing in your log, you shouldn't any more
-
-### future build
-
-* I am making another future build this week. This is a special build with new libraries that I would like advanced users to test out so I know they are safe to fold into the normal release.
-* in the release post, I will link to this alternate build. if you are experienced and would like to help me, please check it out
-* the new numpy version that caused trouble for Arch users also broke our build right afterwards, so this is an attempt to fix that while rolling in some security updates. updating PyInstaller more than a year to the same numpy fix they rolled out two weeks ago did not, I was surprised to discover, appear to break anything, so the builds may be significantly more stable and OS-compatible. as usual, I will be interested to know if anyone on Win 10 or any other older OS has trouble running this. as far as I can tell, a clean install is _not_ required
-* the specific changes this week are--
-* On All--
-    - `requests` moved from `2.32.3` to `2.32.4` (security fix)
-* On Linux and Windows--
-    - `PyInstaller` moved from `6.7` to `6.14.1` (handles new numpy)
-    - `setuptools` moved from `70.3.0` to `78.1.1` (security fix)
-    - `numpy` moved from `2.2.6` to `2.3.1` (lots of improvements, py 3.11+)
-* On Windows--
-    - `sqlite` dll moved from `3.45.3` to `3.50.1`
-* Source venvs--
-    - `numpy` moved from `>=2.0.0` to `<=2.3.1`
