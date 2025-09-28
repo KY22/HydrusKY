@@ -592,6 +592,8 @@ class MediaList( object ):
         self._singleton_media = set( self._sorted_media )
         self._collected_media = set()
         
+        self._media_index_history = []
+        
         self._RecalcHashes()
         
     
@@ -730,6 +732,45 @@ class MediaList( object ):
             
         
     
+    def _GetRandom( self, media ):
+        
+        if len( self._sorted_media ) == 0 or media is None:
+            
+            return None
+            
+        
+        if len( self._sorted_media ) == 1:
+            
+            return media
+            
+        
+        curr_index = self._sorted_media.index( media )
+        
+        self._media_index_history.append( curr_index )
+        
+        while True:
+            
+            random_index = random.randrange( len( self._sorted_media ) )
+            
+            if random_index != curr_index:
+                
+                return self._sorted_media[ random_index ]
+                
+            
+        
+    
+    def _UndoRandom( self, media ):
+        
+        if len ( self._media_index_history ) == 0:
+            
+            return media
+            
+        
+        recent_index = self._media_index_history.pop()
+        
+        return self._sorted_media[ recent_index ]
+        
+    
     def _HasHashes( self, hashes ):
         
         for hash in hashes:
@@ -785,6 +826,8 @@ class MediaList( object ):
                 self._hashes_to_singleton_media[ hash ] = m
                 
             
+        
+        self._media_index_history = []
         
     
     def _RemoveMediaByHashes( self, hashes ):
@@ -1158,6 +1201,16 @@ class MediaList( object ):
     def GetPrevious( self, media ):
         
         return self._GetPrevious( media )
+        
+    
+    def GetRandom( self, media ):
+        
+        return self._GetRandom( media )
+        
+    
+    def UndoRandom( self, media ):
+        
+        return self._UndoRandom( media )
         
     
     def GetSelectedMedia( self ):
