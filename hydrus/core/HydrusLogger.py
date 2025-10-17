@@ -5,12 +5,19 @@ import time
 
 from hydrus.core import HydrusConstants as HC
 
+# this guy catches crashes and dumps all thread stacks to original stderr or the stable file handle you pass to it
+# I am informed it has zero overhead but it will pre-empt or otherwise mess around with other dump creators
+# Update: MPV playback causes crashes with this on because of pre-emption of internal dll exception gubbins, hooray
+import faulthandler
+
 class HydrusLogger( object ):
     
     def __init__( self, db_dir, prefix ):
         
         self._db_dir = db_dir
         self._prefix = prefix
+        
+        self._currently_crash_reporting = False
         
         self._lock = threading.Lock()
         
@@ -54,6 +61,11 @@ class HydrusLogger( object ):
     
     def _CloseLog( self ) -> None:
         
+        if self._currently_crash_reporting:
+            
+            faulthandler.disable()
+            
+        
         self._log_file.close()
         
     
@@ -78,6 +90,11 @@ class HydrusLogger( object ):
         
         self._log_file = open( self._log_path, 'a', encoding = 'utf-8' )
         
+        if self._currently_crash_reporting:
+            
+            faulthandler.enable( file = self._log_file, all_threads = True )
+            
+        
         if is_new_file:
             
             self._log_file.write( HC.UNICODE_BYTE_ORDER_MARK ) # Byte Order Mark, BOM, to help reader software interpret this as utf-8
@@ -94,6 +111,20 @@ class HydrusLogger( object ):
             
             self._OpenLog()
             
+        
+    
+    def FlipCrashReporting( self ):
+        
+        if self._currently_crash_reporting:
+            
+            faulthandler.disable()
+            
+        else:
+            
+            faulthandler.enable( self._log_file, all_threads = True )
+            
+        
+        self._currently_crash_reporting = not self._currently_crash_reporting
         
     
     def flush( self ) -> None:
@@ -126,6 +157,11 @@ class HydrusLogger( object ):
     def isatty( self ) -> bool:
         
         return False
+        
+    
+    def CurrentlyCrashReporting( self ):
+        
+        return self._currently_crash_reporting
         
     
     def write( self, value ) -> None:

@@ -169,7 +169,7 @@ class Controller( HydrusController.HydrusController ):
     
     my_instance = None
     
-    def __init__( self, db_dir ):
+    def __init__( self, db_dir, logger ):
         
         self._qt_app_running = False
         self._is_booted = False
@@ -181,7 +181,7 @@ class Controller( HydrusController.HydrusController ):
         
         self.gui = None
         
-        super().__init__( db_dir )
+        super().__init__( db_dir, logger )
         
         self._name = 'client'
         
@@ -230,14 +230,11 @@ class Controller( HydrusController.HydrusController ):
         
         def qt_code( splash ):
             
-            if splash and QP.isValid( splash ):
-                
-                splash.hide()
-                
-                splash.close()
-                
-                self.frame_splash_status.Reset()
-                
+            splash.hide()
+            
+            splash.close()
+            
+            self.frame_splash_status.Reset()
             
         
         if self._splash is not None:
@@ -246,7 +243,7 @@ class Controller( HydrusController.HydrusController ):
             
             self._splash = None
             
-            self.CallAfter( splash, qt_code, splash )
+            self.CallAfterQtSafe( splash, qt_code, splash )
             
         
     
@@ -420,18 +417,6 @@ class Controller( HydrusController.HydrusController ):
             
             try:
                 
-                if win is not None and not QP.isValid( win ):
-                    
-                    if HG.view_shutdown:
-                        
-                        raise HydrusExceptions.ShutdownException( 'Application is shutting down!' )
-                        
-                    else:
-                        
-                        raise HydrusExceptions.QtDeadWindowException( 'Parent Window was destroyed before Qt command was called!' )
-                        
-                    
-                
                 result = func( *args, **kwargs )
                 
                 job_status.SetVariable( 'result', result )
@@ -453,9 +438,14 @@ class Controller( HydrusController.HydrusController ):
                 
             
         
+        if self.AmInTheMainQtThread():
+            
+            return func( *args, **kwargs )
+            
+        
         job_status = ClientThreading.JobStatus( cancellable = True, cancel_on_shutdown = False )
         
-        self.CallAfter( win, qt_code, win, job_status )
+        self.CallAfterQtSafe( win, qt_code, win, job_status )
         
         # I think in some cases with the splash screen we may actually be pushing stuff here after model shutdown
         # but I also don't want a hang, as we have seen with some GUI async job that got fired on shutdown and it seems some event queue was halted or deadlocked
@@ -492,16 +482,9 @@ class Controller( HydrusController.HydrusController ):
         raise HydrusExceptions.ShutdownException()
         
     
-    def CallAfter( self, qobject: QC.QObject, func, *args, **kwargs ):
+    def CallAfterQtSafe( self, qobject: QC.QObject, func, *args, **kwargs ):
         
         ClientGUICallAfter.CallAfter( self.call_after_catcher, qobject, func, *args, **kwargs )
-        
-    
-    def CallAfterQtSafe( self, window: QW.QWidget, label, func, *args, **kwargs ):
-        
-        # for future cleanup, I think we should merge CallAfter into this guy and rename everything here CallAfterQtSafe
-        
-        self.CallAfter( window, func, *args, **kwargs )
         
     
     def CallLaterQtSafe( self, window, initial_delay, label, func, *args, **kwargs ) -> ClientThreading.QtAwareJob:
@@ -707,10 +690,20 @@ class Controller( HydrusController.HydrusController ):
         
         if self._program_is_shutting_down:
             
+            if HG.idle_report_mode:
+                
+                HydrusData.ShowText( 'IDLE MODE - Blocked: Program shutting down.' )
+                
+            
             return False
             
         
         if HG.force_idle_mode:
+            
+            if HG.idle_report_mode:
+                
+                HydrusData.ShowText( 'IDLE MODE - Forced via debug menu' )
+                
             
             self._idle_started = 0
             
@@ -718,6 +711,11 @@ class Controller( HydrusController.HydrusController ):
             
         
         if not HydrusTime.TimeHasPassedMS( self.GetBootTimestampMS() + ( 120 * 1000 ) ):
+            
+            if HG.idle_report_mode:
+                
+                HydrusData.ShowText( 'IDLE MODE - Blocked: Program has not been on for 120s yet.' )
+                
             
             return False
             
@@ -734,6 +732,11 @@ class Controller( HydrusController.HydrusController ):
                 
                 if not HydrusTime.TimeHasPassedMS( self.GetTimestampMS( 'last_user_action' ) + idle_period_ms ):
                     
+                    if HG.idle_report_mode:
+                        
+                        HydrusData.ShowText( f'IDLE MODE - Blocked: Last user action was {HydrusTime.TimestampToPrettyTimeDelta( HydrusTime.SecondiseMS( self.GetTimestampMS( "last_user_action" ) ) )}.' )
+                        
+                    
                     currently_idle = False
                     
                 
@@ -743,6 +746,11 @@ class Controller( HydrusController.HydrusController ):
             if idle_mouse_period_ms is not None:
                 
                 if not HydrusTime.TimeHasPassedMS( self.GetTimestampMS( 'last_mouse_action' ) + idle_mouse_period_ms ):
+                    
+                    if HG.idle_report_mode:
+                        
+                        HydrusData.ShowText( f'IDLE MODE - Blocked: Last mouse move was {HydrusTime.TimestampToPrettyTimeDelta( HydrusTime.SecondiseMS( self.GetTimestampMS( "last_mouse_action" ) ) )}.' )
+                        
                     
                     currently_idle = False
                     
@@ -754,24 +762,48 @@ class Controller( HydrusController.HydrusController ):
                 
                 if not HydrusTime.TimeHasPassedMS( self.GetTimestampMS( 'last_client_api_action' ) + idle_mode_client_api_timeout_ms ):
                     
+                    if HG.idle_report_mode:
+                        
+                        HydrusData.ShowText( f'IDLE MODE - Blocked: Last Client API action was {HydrusTime.TimestampToPrettyTimeDelta( HydrusTime.SecondiseMS( self.GetTimestampMS( "last_client_api_action" ) ) )}.' )
+                        
+                    
                     currently_idle = False
                     
                 
             
         else:
             
+            if HG.idle_report_mode:
+                
+                HydrusData.ShowText( 'IDLE MODE - Blocked: Options have disabled normal idle work.' )
+                
+            
             currently_idle = False
             
         
         turning_idle = currently_idle and not self._previously_idle
+        turning_active = self._previously_idle and not currently_idle
         
         self._previously_idle = currently_idle
         
         if turning_idle:
             
+            if HG.idle_report_mode:
+                
+                HydrusData.ShowText( f'IDLE MODE - Turning ON' )
+                
+            
             self._idle_started = HydrusTime.GetNow()
             
             self.pub( 'wake_daemons' )
+            
+        
+        if turning_active:
+            
+            if HG.idle_report_mode:
+                
+                HydrusData.ShowText( f'IDLE MODE - Turning OFF' )
+                
             
         
         if not currently_idle:
@@ -929,7 +961,7 @@ class Controller( HydrusController.HydrusController ):
                 
                 self._program_is_shut_down = True
                 
-                self.CallAfter( qapp, QW.QApplication.exit )
+                self.CallAfterQtSafe( qapp, QW.QApplication.exit )
                 
             
         
@@ -1151,6 +1183,10 @@ class Controller( HydrusController.HydrusController ):
         from hydrus.core import HydrusTime
         
         HydrusTime.ALWAYS_SHOW_ISO_TIME_ON_DELTA_CALL = self.new_options.GetBoolean( 'always_show_iso_time' )
+        
+        from hydrus.core import HydrusPaths
+        
+        HydrusPaths.DO_NOT_DO_CHMOD_MODE = self.new_options.GetBoolean( 'do_not_do_chmod_mode' )
         
     
     def InitModel( self ):
@@ -1630,13 +1666,13 @@ class Controller( HydrusController.HydrusController ):
         
         def do_gui_refs( gui ):
             
-            if self.gui is not None and QP.isValid( self.gui ):
-                
-                self.gui.MaintainCanvasFrameReferences()
-                
+            self.gui.MaintainCanvasFrameReferences()
             
         
-        self.CallAfter( self.gui, do_gui_refs, self.gui )
+        if self.gui is not None:
+            
+            self.CallAfterQtSafe( self.gui, do_gui_refs, self.gui )
+            
         
     
     def PageAlive( self, page_key ):
@@ -1843,6 +1879,7 @@ class Controller( HydrusController.HydrusController ):
                 
                 import ctypes
                 
+                # noinspection PyUnresolvedReferences
                 ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID( 'hydrus network client' )
                 
             except:
@@ -2377,7 +2414,7 @@ class Controller( HydrusController.HydrusController ):
             
             self._DestroySplash()
             
-            self.CallAfter( qapp, QW.QApplication.exit )
+            self.CallAfterQtSafe( qapp, QW.QApplication.exit )
             
             return
             
@@ -2398,13 +2435,13 @@ class Controller( HydrusController.HydrusController ):
             
             self.CleanRunningFile()
             
-            self.CallAfter( qapp, QW.QApplication.exit )
+            self.CallAfterQtSafe( qapp, QW.QApplication.exit )
             
         except HydrusExceptions.DBVersionException as e:
             
             self.BlockingSafeShowCriticalMessage( 'database version error', str( e ) )
             
-            self.CallAfter( qapp, QW.QApplication.exit, 1 )
+            self.CallAfterQtSafe( qapp, QW.QApplication.exit, 1 )
             
         except HydrusExceptions.DBAccessException as e:
             
@@ -2418,7 +2455,7 @@ class Controller( HydrusController.HydrusController ):
             
             self.BlockingSafeShowCriticalMessage( 'boot error', text )
             
-            self.CallAfter( qapp, QW.QApplication.exit, 1 )
+            self.CallAfterQtSafe( qapp, QW.QApplication.exit, 1 )
             
         except Exception as e:
             
@@ -2444,7 +2481,7 @@ class Controller( HydrusController.HydrusController ):
             
             self.BlockingSafeShowCriticalMessage( 'boot error', trace )
             
-            self.CallAfter( qapp, QW.QApplication.exit, 1 )
+            self.CallAfterQtSafe( qapp, QW.QApplication.exit, 1 )
             
         finally:
             
@@ -2523,7 +2560,7 @@ class Controller( HydrusController.HydrusController ):
                     time.sleep( 0.1 )
                     
                 
-                self.CallAfter( self.gui, CopyToClipboard )
+                self.CallAfterQtSafe( self.gui, CopyToClipboard )
                 
             
             self.CallToThreadLongRunning( THREADWait )

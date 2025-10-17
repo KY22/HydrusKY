@@ -346,7 +346,7 @@ class PreparationPanel( QW.QWidget ):
         
         #
         
-        self._searching_panel = ClientGUICommon.StaticBox( self, 'finding potential duplicates' )
+        self._searching_panel = ClientGUICommon.StaticBox( self, 'potential duplicate pair discovery' )
         
         self._refresh_maintenance_button = ClientGUICommon.IconButton( self._searching_panel, CC.global_icons().refresh, self._RefreshMaintenanceNumbers )
         
@@ -356,15 +356,15 @@ class PreparationPanel( QW.QWidget ):
         
         submenu_template_items = []
         
-        check_manager = ClientGUICommon.CheckboxManagerOptions( 'maintain_similar_files_duplicate_pairs_during_active' )
-        check_manager.AddNotifyCall( CG.client_controller.potential_duplicates_manager.Wake )
-        
-        submenu_template_items.append( ClientGUIMenuButton.MenuTemplateItemCheck( 'during normal time', 'Tell the client to find potential duplicate pairs all the time.', check_manager ) )
-        
         check_manager = ClientGUICommon.CheckboxManagerOptions( 'maintain_similar_files_duplicate_pairs_during_idle' )
         check_manager.AddNotifyCall( CG.client_controller.potential_duplicates_manager.Wake )
         
         submenu_template_items.append( ClientGUIMenuButton.MenuTemplateItemCheck( 'during idle time', 'Tell the client to find potential duplicate pairs in its normal idle time maintenance.', check_manager ) )
+        
+        check_manager = ClientGUICommon.CheckboxManagerOptions( 'maintain_similar_files_duplicate_pairs_during_active' )
+        check_manager.AddNotifyCall( CG.client_controller.potential_duplicates_manager.Wake )
+        
+        submenu_template_items.append( ClientGUIMenuButton.MenuTemplateItemCheck( 'during normal time', 'Tell the client to find potential duplicate pairs all the time.', check_manager ) )
         
         menu_template_items.append( ClientGUIMenuButton.MenuTemplateItemSubmenu( 'search for potential duplicates', submenu_template_items ) )
         
@@ -393,6 +393,7 @@ class PreparationPanel( QW.QWidget ):
         self._max_hamming_distance_for_potential_discovery_button = ClientGUIMenuButton.MenuButton( self._searching_panel, 'similarity', menu_template_items )
         
         self._max_hamming_distance_for_potential_discovery_spinctrl = ClientGUICommon.BetterSpinBox( self._searching_panel, min=0, max=64, width = 50 )
+        self._max_hamming_distance_for_potential_discovery_spinctrl.setToolTip( ClientGUIFunctions.WrapToolTip( 'The max "hamming distance" allowed in the search. The higher you go, the slower the search and the more false positives.' ) )
         self._max_hamming_distance_for_potential_discovery_spinctrl.setSingleStep( 2 )
         
         self._num_searched = ClientGUICommon.TextAndGauge( self._searching_panel )

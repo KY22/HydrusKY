@@ -54,7 +54,7 @@ class TestPanel( QW.QWidget ):
         self._copy_button.setToolTip( ClientGUIFunctions.WrapToolTip( 'Copy the current example data to the clipboard.' ) )
         
         self._fetch_button = ClientGUICommon.IconButton( raw_data_panel, CC.global_icons().link, self._FetchFromURL )
-        self._fetch_button.setToolTip( ClientGUIFunctions.WrapToolTip( 'Fetch data from a URL.' ) )
+        self._fetch_button.setToolTip( ClientGUIFunctions.WrapToolTip( 'Fetch data from an URL.' ) )
         
         self._paste_button = ClientGUICommon.IconButton( raw_data_panel, CC.global_icons().paste, self._Paste )
         self._paste_button.setToolTip( ClientGUIFunctions.WrapToolTip( 'Paste the current clipboard data into here.' ) )
@@ -116,7 +116,7 @@ class TestPanel( QW.QWidget ):
         
         if len( test_data.texts ) > 0:
             
-            CG.client_controller.CallAfter( self, self._SetExampleData, test_data.texts[0] )
+            CG.client_controller.CallAfterQtSafe( self, self._SetExampleData, test_data.texts[0] )
             
         
     
@@ -128,11 +128,6 @@ class TestPanel( QW.QWidget ):
     def _FetchFromURL( self ):
         
         def qt_code( example_data, example_bytes ):
-            
-            if not self or not QP.isValid( self ):
-                
-                return
-                
             
             example_parsing_context = self._example_parsing_context.GetValue()
             
@@ -173,16 +168,21 @@ class TestPanel( QW.QWidget ):
                 HydrusData.ShowException( e )
                 
             
-            CG.client_controller.CallAfter( self, qt_code, example_data, example_bytes )
+            CG.client_controller.CallAfterQtSafe( self, qt_code, example_data, example_bytes )
             
         
         message = 'Enter URL to fetch data for.'
         
         try:
             
-            url = ClientGUIDialogsQuick.EnterText( self, message, placeholder = 'url' )
+            url = ClientGUIDialogsQuick.EnterText( self, message, placeholder = 'url' ).strip()
             
         except HydrusExceptions.CancelledException:
+            
+            return
+            
+        
+        if url == '':
             
             return
             

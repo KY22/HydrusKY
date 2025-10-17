@@ -23,7 +23,7 @@ COMPLEX_COMPARISON_FILETYPES.update( HC.IMAGE_PROJECT_FILES )
 COMPLEX_COMPARISON_FILETYPES.update( HC.APPLICATIONS )
 COMPLEX_COMPARISON_FILETYPES.update( HC.ARCHIVES )
 
-def GetDuplicateComparisonScore( shown_media_result: ClientMediaResult.MediaResult, comparison_media_result: ClientMediaResult.MediaResult ):
+def GetDuplicateComparisonScoreFast( shown_media_result: ClientMediaResult.MediaResult, comparison_media_result: ClientMediaResult.MediaResult ):
     
     ( statements_and_scores, they_are_pixel_duplicates ) = GetDuplicateComparisonStatementsFast( shown_media_result, comparison_media_result )
     
@@ -766,7 +766,7 @@ def GetVisualData( media_result: ClientMediaResult.MediaResult ) -> ClientVisual
         
         numpy_image = image_renderer.GetNumPyImage()
         
-        visual_data = ClientVisualData.GenerateImageVisualDataNumPy( numpy_image, hash )
+        visual_data = ClientVisualData.GenerateImageVisualDataNumPy( numpy_image )
         
         visual_data_cache.AddData( hash, visual_data )
         
@@ -796,7 +796,7 @@ def GetVisualDataTiled( media_result: ClientMediaResult.MediaResult ) -> ClientV
         
         numpy_image = image_renderer.GetNumPyImage()
         
-        visual_data_tiled = ClientVisualData.GenerateImageVisualDataTiledNumPy( numpy_image, hash )
+        visual_data_tiled = ClientVisualData.GenerateImageVisualDataTiledNumPy( numpy_image )
         
         visual_data_tiled_cache.AddData( hash, visual_data_tiled )
         

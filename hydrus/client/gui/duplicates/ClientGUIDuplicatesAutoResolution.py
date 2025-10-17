@@ -14,10 +14,12 @@ from hydrus.core import HydrusTime
 
 from hydrus.client import ClientConstants as CC
 from hydrus.client import ClientGlobals as CG
+from hydrus.client import ClientLocation
 from hydrus.client import ClientThreading
 from hydrus.client.duplicates import ClientDuplicatesAutoResolution
 from hydrus.client.duplicates import ClientDuplicatesAutoResolutionComparators
 from hydrus.client.duplicates import ClientDuplicates
+from hydrus.client.duplicates import ClientPotentialDuplicatesSearchContext
 from hydrus.client.files.images import ClientVisualData
 from hydrus.client.gui import ClientGUIAsync
 from hydrus.client.gui import ClientGUIDialogsQuick
@@ -38,6 +40,7 @@ from hydrus.client.gui.widgets import ClientGUICommon
 from hydrus.client.gui.widgets import ClientGUIMenuButton
 from hydrus.client.gui.widgets import ClientGUINumberTest
 from hydrus.client.search import ClientNumberTest
+from hydrus.client.search import ClientSearchFileSearchContext
 from hydrus.client.search import ClientSearchPredicate
 
 class EditDuplicatesAutoResolutionRulesPanel( ClientGUIScrolledPanels.EditPanel ):
@@ -105,7 +108,27 @@ class EditDuplicatesAutoResolutionRulesPanel( ClientGUIScrolledPanels.EditPanel 
         
         duplicates_auto_resolution_rule = ClientDuplicatesAutoResolution.DuplicatesAutoResolutionRule( name )
         
-        # TODO: set some good defaults
+        location_context = ClientLocation.LocationContext.STATICCreateSimple( CC.COMBINED_LOCAL_MEDIA_SERVICE_KEY )
+        
+        predicates = [
+            ClientSearchPredicate.Predicate( predicate_type = ClientSearchPredicate.PREDICATE_TYPE_SYSTEM_MIME, value = ( HC.GENERAL_IMAGE, ) ),
+            ClientSearchPredicate.Predicate( predicate_type = ClientSearchPredicate.PREDICATE_TYPE_SYSTEM_HEIGHT, value = ClientNumberTest.NumberTest.STATICCreateFromCharacters( '>', 128 ) ),
+            ClientSearchPredicate.Predicate( predicate_type = ClientSearchPredicate.PREDICATE_TYPE_SYSTEM_WIDTH, value = ClientNumberTest.NumberTest.STATICCreateFromCharacters( '>', 128 ) ),
+        ]
+        
+        file_search_context_1 = ClientSearchFileSearchContext.FileSearchContext(
+            location_context = location_context,
+            predicates = predicates
+        )
+        
+        potential_duplicates_search_context = ClientPotentialDuplicatesSearchContext.PotentialDuplicatesSearchContext()
+        
+        potential_duplicates_search_context.SetFileSearchContext1( file_search_context_1 )
+        potential_duplicates_search_context.SetDupeSearchType( ClientDuplicates.DUPE_SEARCH_BOTH_FILES_MATCH_ONE_SEARCH )
+        potential_duplicates_search_context.SetPixelDupesPreference( ClientDuplicates.SIMILAR_FILES_PIXEL_DUPES_ALLOWED )
+        potential_duplicates_search_context.SetMaxHammingDistance( 0 )
+        
+        duplicates_auto_resolution_rule.SetPotentialDuplicatesSearchContext( potential_duplicates_search_context )
         
         with ClientGUITopLevelWindowsPanels.DialogEdit( self, 'edit rule' ) as dlg:
             
@@ -670,6 +693,10 @@ class EditComparatorList( ClientGUIListBoxes.AddEditDeleteListBox ):
             ( 'OR Comparator', ClientDuplicatesAutoResolutionComparators.PairComparatorOR( [] ), 'A comparator that tests an OR of several sub-comparators.' )
         )
         
+        choice_tuples.append(
+            ( 'AND Comparator', ClientDuplicatesAutoResolutionComparators.PairComparatorAND( [] ), 'A comparator that tests an AND of several sub-comparators. Use when you need to mix several different comparators within an OR.' )
+        )
+        
         try:
             
             comparator = ClientGUIDialogsQuick.SelectFromListButtons( self, 'Which type of comparator?', choice_tuples )
@@ -684,7 +711,36 @@ class EditComparatorList( ClientGUIListBoxes.AddEditDeleteListBox ):
     
     def _EditComparator( self, comparator: ClientDuplicatesAutoResolutionComparators.PairComparator ):
         
-        with ClientGUITopLevelWindowsPanels.DialogEdit( self, 'edit comparator' ) as dlg:
+        if isinstance( comparator, ClientDuplicatesAutoResolutionComparators.PairComparatorOneFile ):
+            
+            title = 'edit one-file comparator'
+            
+        elif isinstance( comparator, ClientDuplicatesAutoResolutionComparators.PairComparatorRelativeFileInfo ):
+            
+            title = 'edit relative comparator'
+            
+        elif isinstance( comparator, ClientDuplicatesAutoResolutionComparators.PairComparatorRelativeVisualDuplicates ):
+            
+            title = 'edit visual duplicates comparator'
+            
+        elif isinstance( comparator, ClientDuplicatesAutoResolutionComparators.PairComparatorOR ):
+            
+            title = 'edit OR comparator'
+            
+        elif isinstance( comparator, ClientDuplicatesAutoResolutionComparators.PairComparatorAND ):
+            
+            title = 'edit AND comparator'
+            
+        elif isinstance( comparator, ClientDuplicatesAutoResolutionComparators.PairComparatorRelativeHardcoded ):
+            
+            return comparator
+            
+        else:
+            
+            raise NotImplementedError( 'Unknown comparator type!' )
+            
+        
+        with ClientGUITopLevelWindowsPanels.DialogEdit( self, title ) as dlg:
             
             if isinstance( comparator, ClientDuplicatesAutoResolutionComparators.PairComparatorOneFile ):
                 
@@ -702,9 +758,13 @@ class EditComparatorList( ClientGUIListBoxes.AddEditDeleteListBox ):
                 
                 panel = EditPairComparatorOR( dlg, comparator )
                 
-            elif isinstance( comparator, ClientDuplicatesAutoResolutionComparators.PairComparatorRelativeHardcoded ):
+            elif isinstance( comparator, ClientDuplicatesAutoResolutionComparators.PairComparatorAND ):
                 
-                return comparator
+                panel = EditPairComparatorAND( dlg, comparator )
+                
+            else:
+                
+                raise NotImplementedError( 'Unknown comparator type!' )
                 
             
             dlg.SetPanel( panel )
@@ -725,6 +785,35 @@ class EditComparatorList( ClientGUIListBoxes.AddEditDeleteListBox ):
     def _PairComparatorToPretty( self, pair_comparator: ClientDuplicatesAutoResolutionComparators.PairComparator ):
         
         return pair_comparator.GetSummary()
+        
+    
+
+class EditPairComparatorAND( ClientGUIScrolledPanels.EditPanel ):
+    
+    def __init__( self, parent, pair_comparator: ClientDuplicatesAutoResolutionComparators.PairComparatorAND ):
+        
+        super().__init__( parent )
+        
+        self._comparators = EditComparatorList( self )
+        
+        self._comparators.AddDatas( pair_comparator.GetComparators() )
+        
+        #
+        
+        vbox = QP.VBoxLayout()
+        
+        QP.AddToLayout( vbox, self._comparators, CC.FLAGS_EXPAND_BOTH_WAYS )
+        
+        self.widget().setLayout( vbox )
+        
+    
+    def GetValue( self ):
+        
+        comparators = self._comparators.GetData()
+        
+        pair_comparator = ClientDuplicatesAutoResolutionComparators.PairComparatorAND( comparators )
+        
+        return pair_comparator
         
     
 

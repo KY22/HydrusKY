@@ -7,6 +7,7 @@ import typing
 from hydrus.core import HydrusConstants as HC
 from hydrus.core import HydrusData
 from hydrus.core import HydrusExceptions
+from hydrus.core import HydrusLists
 from hydrus.core import HydrusNumbers
 from hydrus.core import HydrusSerialisable
 from hydrus.core import HydrusTime
@@ -61,6 +62,38 @@ duplicates_auto_resolution_rule_operation_mode_str_lookup = {
 }
 
 NEW_RULE_SESSION_ID = -1
+
+def ActionAutoResolutionReviewPairs( rule: "DuplicatesAutoResolutionRule", decisions, status_hook = None ):
+    
+    approve_pairs = [ ( decision.media_result_a, decision.media_result_b ) for decision in decisions if decision.approved ]
+    deny_pairs = [ ( decision.media_result_a, decision.media_result_b ) for decision in decisions if not decision.approved ]
+    
+    for ( num_done, num_to_do, chunk ) in HydrusLists.SplitListIntoChunksRich( approve_pairs, 4 ):
+        
+        message = f'approving: {HydrusNumbers.ValueRangeToPrettyString( num_done, num_to_do )}'
+        
+        if status_hook is not None:
+            
+            status_hook( message )
+            
+        
+        # this is safe to run on a bunch of related pairs like AB, AC, DB--the db figures that out
+        CG.client_controller.WriteSynchronous( 'duplicates_auto_resolution_approve_pending_pairs', rule, chunk )
+        
+    
+    for ( num_done, num_to_do, chunk ) in HydrusLists.SplitListIntoChunksRich( deny_pairs, 4 ):
+        
+        message = f'denying: {HydrusNumbers.ValueRangeToPrettyString( num_done, num_to_do )}'
+        
+        if status_hook is not None:
+            
+            status_hook( message )
+            
+        
+        # this is safe to run on a bunch of related pairs like AB, AC, DB--the db figures that out
+        CG.client_controller.WriteSynchronous( 'duplicates_auto_resolution_deny_pending_pairs', rule, chunk )
+        
+    
 
 class DuplicatesAutoResolutionRule( HydrusSerialisable.SerialisableBaseNamed ):
     
@@ -849,14 +882,41 @@ def GetDefaultRuleSuggestions() -> list[ DuplicatesAutoResolutionRule ]:
     
     comparators = []
     
-    comparator = ClientDuplicatesAutoResolutionComparators.PairComparatorRelativeFileInfo()
+    filesize_greater_than_comparator = ClientDuplicatesAutoResolutionComparators.PairComparatorRelativeFileInfo()
     
-    comparator.SetMultiplier( 1.00 )
-    comparator.SetDelta( 0 )
-    comparator.SetNumberTest( ClientNumberTest.NumberTest( operator = ClientNumberTest.NUMBER_TEST_OPERATOR_LESS_THAN ) )
-    comparator.SetSystemPredicate( ClientSearchPredicate.Predicate( predicate_type = ClientSearchPredicate.PREDICATE_TYPE_SYSTEM_SIZE ) )
+    filesize_greater_than_comparator.SetMultiplier( 1.00 )
+    filesize_greater_than_comparator.SetDelta( 0 )
+    filesize_greater_than_comparator.SetNumberTest( ClientNumberTest.NumberTest( operator = ClientNumberTest.NUMBER_TEST_OPERATOR_GREATER_THAN ) )
+    filesize_greater_than_comparator.SetSystemPredicate( ClientSearchPredicate.Predicate( predicate_type = ClientSearchPredicate.PREDICATE_TYPE_SYSTEM_SIZE ) )
     
-    comparators.append( comparator )
+    filesize_equal_comparator = ClientDuplicatesAutoResolutionComparators.PairComparatorRelativeFileInfo()
+    
+    filesize_equal_comparator.SetMultiplier( 1.00 )
+    filesize_equal_comparator.SetDelta( 0 )
+    filesize_equal_comparator.SetNumberTest( ClientNumberTest.NumberTest( operator = ClientNumberTest.NUMBER_TEST_OPERATOR_EQUAL ) )
+    filesize_equal_comparator.SetSystemPredicate( ClientSearchPredicate.Predicate( predicate_type = ClientSearchPredicate.PREDICATE_TYPE_SYSTEM_SIZE ) )
+    
+    imported_earlier_comparator = ClientDuplicatesAutoResolutionComparators.PairComparatorRelativeFileInfo()
+    
+    imported_earlier_comparator.SetMultiplier( 1.00 )
+    imported_earlier_comparator.SetDelta( 0 )
+    imported_earlier_comparator.SetNumberTest( ClientNumberTest.NumberTest( operator = ClientNumberTest.NUMBER_TEST_OPERATOR_LESS_THAN ) )
+    imported_earlier_comparator.SetSystemPredicate( ClientSearchPredicate.Predicate( predicate_type = ClientSearchPredicate.PREDICATE_TYPE_SYSTEM_IMPORT_TIME ) )
+    
+    and_comparator = ClientDuplicatesAutoResolutionComparators.PairComparatorAND(
+        [
+            filesize_equal_comparator,
+            imported_earlier_comparator
+        ]
+    )
+    
+    or_comparator = ClientDuplicatesAutoResolutionComparators.PairComparatorOR(
+        [
+            filesize_greater_than_comparator,
+            and_comparator
+        ]
+    )
+    comparators.append( or_comparator )
     
     comparator = ClientDuplicatesAutoResolutionComparators.PairComparatorRelativeHardcoded( hardcoded_type = ClientDuplicatesAutoResolutionComparators.HARDCODED_COMPARATOR_TYPE_FILETYPE_SAME )
     
@@ -915,34 +975,11 @@ def GetDefaultRuleSuggestions() -> list[ DuplicatesAutoResolutionRule ]:
     
     comparators.append( comparator )
     
-    filesize_comparator = ClientDuplicatesAutoResolutionComparators.PairComparatorRelativeFileInfo()
-    
-    filesize_comparator.SetMultiplier( 1.00 )
-    filesize_comparator.SetDelta( 0 )
-    filesize_comparator.SetNumberTest( ClientNumberTest.NumberTest( operator = ClientNumberTest.NUMBER_TEST_OPERATOR_GREATER_THAN ) )
-    filesize_comparator.SetSystemPredicate( ClientSearchPredicate.Predicate( predicate_type = ClientSearchPredicate.PREDICATE_TYPE_SYSTEM_SIZE ) )
-    
-    num_pixels_comparator = ClientDuplicatesAutoResolutionComparators.PairComparatorRelativeFileInfo()
-    
-    num_pixels_comparator.SetMultiplier( 1.00 )
-    num_pixels_comparator.SetDelta( 0 )
-    num_pixels_comparator.SetNumberTest( ClientNumberTest.NumberTest( operator = ClientNumberTest.NUMBER_TEST_OPERATOR_GREATER_THAN ) )
-    num_pixels_comparator.SetSystemPredicate( ClientSearchPredicate.Predicate( predicate_type = ClientSearchPredicate.PREDICATE_TYPE_SYSTEM_NUM_PIXELS ) )
-    
-    comparator = ClientDuplicatesAutoResolutionComparators.PairComparatorOR(
-        [
-            filesize_comparator,
-            num_pixels_comparator
-        ]
-    )
-    
-    comparators.append( comparator )
-    
     comparator = ClientDuplicatesAutoResolutionComparators.PairComparatorRelativeFileInfo()
     
     comparator.SetMultiplier( 1.00 )
     comparator.SetDelta( 0 )
-    comparator.SetNumberTest( ClientNumberTest.NumberTest( operator = ClientNumberTest.NUMBER_TEST_OPERATOR_GREATER_THAN_OR_EQUAL_TO ) )
+    comparator.SetNumberTest( ClientNumberTest.NumberTest( operator = ClientNumberTest.NUMBER_TEST_OPERATOR_GREATER_THAN ) )
     comparator.SetSystemPredicate( ClientSearchPredicate.Predicate( predicate_type = ClientSearchPredicate.PREDICATE_TYPE_SYSTEM_SIZE ) )
     
     comparators.append( comparator )
@@ -1127,7 +1164,7 @@ class DuplicatesAutoResolutionManager( ClientDaemons.ManagerWithMainLoop ):
                 wait_time = 10
                 
             
-            FORCED_WAIT_PERIOD = 0.25
+            FORCED_WAIT_PERIOD = 0.1
             
             if wait_time > FORCED_WAIT_PERIOD:
                 
@@ -1209,12 +1246,6 @@ class DuplicatesAutoResolutionManager( ClientDaemons.ManagerWithMainLoop ):
         else:
             
             rest_ratio = CG.client_controller.new_options.GetInteger( 'duplicates_auto_resolution_rest_percentage_active' ) / 100
-            
-        
-        if actual_work_period > expected_work_period * 10:
-            
-            # if suddenly a job blats the user for ten seconds or _ten minutes_ during normal time, we are going to take a big break
-            rest_ratio *= 30
             
         
         reasonable_work_period = min( 5 * expected_work_period, actual_work_period )

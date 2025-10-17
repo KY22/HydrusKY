@@ -40,6 +40,7 @@ from hydrus.client.gui.widgets import ClientGUIMenuButton
 from hydrus.client.media import ClientMedia
 from hydrus.client.metadata import ClientContentUpdates
 from hydrus.client.metadata import ClientTags
+from hydrus.client.search import ClientSearchTagContext
 
 class ManageTagsPanel( CAC.ApplicationCommandProcessorMixin, ClientGUIScrolledPanels.ManagePanel ):
     
@@ -110,7 +111,7 @@ class ManageTagsPanel( CAC.ApplicationCommandProcessorMixin, ClientGUIScrolledPa
             if service_key == default_tag_service_key:
                 
                 # Py 3.11/PyQt6 6.5.0/two tabs/total tab characters > ~12/select second tab during init = first tab disappears bug
-                CG.client_controller.CallAfter( self._tag_services, self._tag_services.setCurrentWidget, page )
+                CG.client_controller.CallAfterQtSafe( self._tag_services, self._tag_services.setCurrentWidget, page )
                 
             
         
@@ -127,7 +128,7 @@ class ManageTagsPanel( CAC.ApplicationCommandProcessorMixin, ClientGUIScrolledPa
         
         self.widget().setLayout( vbox )
         
-        CG.client_controller.CallAfter( self._tag_services, self._tag_services.currentChanged.connect, self.EventServiceChanged )
+        CG.client_controller.CallAfterQtSafe( self._tag_services, self._tag_services.currentChanged.connect, self.EventServiceChanged )
         
         if self._canvas_key is not None:
             
@@ -138,7 +139,7 @@ class ManageTagsPanel( CAC.ApplicationCommandProcessorMixin, ClientGUIScrolledPa
         
         self._UpdatePageTabNames()
         
-        CG.client_controller.CallAfter( self, self._SetSearchFocus )
+        CG.client_controller.CallAfterQtSafe( self, self._SetSearchFocus )
         
     
     def _GetContentUpdatePackages( self ):
@@ -236,11 +237,6 @@ class ManageTagsPanel( CAC.ApplicationCommandProcessorMixin, ClientGUIScrolledPa
     
     def EventServiceChanged( self, index ):
         
-        if not self or not QP.isValid( self ): # actually did get a runtime error here, on some Linux WM dialog shutdown
-            
-            return
-            
-        
         if self.sender() != self._tag_services:
             
             return
@@ -250,7 +246,7 @@ class ManageTagsPanel( CAC.ApplicationCommandProcessorMixin, ClientGUIScrolledPa
         
         if current_page is not None:
             
-            CG.client_controller.CallAfterQtSafe( current_page, 'setting page focus', current_page.SetTagBoxFocus )
+            CG.client_controller.CallAfterQtSafe( current_page, current_page.SetTagBoxFocus )
             
         
         if CG.client_controller.new_options.GetBoolean( 'save_default_tag_service_tab_on_change' ):
@@ -408,8 +404,6 @@ class ManageTagsPanel( CAC.ApplicationCommandProcessorMixin, ClientGUIScrolledPa
             self._copy_button = ClientGUICommon.IconButton( self._tags_box_sorter, CC.global_icons().copy, self._Copy )
             self._copy_button.setToolTip( ClientGUIFunctions.WrapToolTip( 'Copy selected tags to the clipboard. If none are selected, copies all.' ) )
             
-            self._show_deleted = False
-            
             menu_template_items = []
             
             check_manager = ClientGUICommon.CheckboxManagerOptions( 'allow_remove_on_manage_tags_input' )
@@ -423,10 +417,6 @@ class ManageTagsPanel( CAC.ApplicationCommandProcessorMixin, ClientGUIScrolledPa
             check_manager = ClientGUICommon.CheckboxManagerOptions( 'ac_select_first_with_count' )
             
             menu_template_items.append( ClientGUIMenuButton.MenuTemplateItemCheck( 'select the first tag result with actual count', 'If checked, when results come in, the typed entry, if it has no count, will be skipped.', check_manager ) )
-            
-            check_manager = ClientGUICommon.CheckboxManagerCalls( self._FlipShowDeleted, lambda: self._show_deleted )
-            
-            menu_template_items.append( ClientGUIMenuButton.MenuTemplateItemCheck( 'show deleted', 'Show deleted tags, if any.', check_manager ) )
             
             menu_template_items.append( ClientGUIMenuButton.MenuTemplateItemSeparator() )
             
@@ -450,6 +440,14 @@ class ManageTagsPanel( CAC.ApplicationCommandProcessorMixin, ClientGUIScrolledPa
             
             #
             
+            self._deleted_tags_panel = QW.QWidget( self._tags_box_sorter )
+            
+            self._deleted_tags_label = ClientGUICommon.BetterStaticText( self._deleted_tags_panel, label = '0 deleted tags' )
+            self._deleted_tags_label.setAlignment( QC.Qt.AlignmentFlag.AlignRight )
+            self._deleted_tags_show_button = ClientGUICommon.IconButton( self._deleted_tags_panel, CC.global_icons().eye, self._FlipShowDeleted )
+            
+            #
+            
             self._add_tag_box = ClientGUIACDropdown.AutoCompleteDropdownTagsWrite( tags_panel, self.AddTags, self._location_context, self._tag_service_key, show_paste_button = True )
             
             self._add_tag_box.movePageLeft.connect( self.movePageLeft )
@@ -467,6 +465,8 @@ class ManageTagsPanel( CAC.ApplicationCommandProcessorMixin, ClientGUIScrolledPa
             
             self._suggested_tags = ClientGUITagSuggestions.SuggestedTagsPanel( self, self._tag_service_key, self._tag_presentation_location, len( media ) == 1, self.AddTags )
             
+            self._UpdateShowDeleted() # before setmedia
+            
             self.SetMedia( media )
             
             button_hbox = QP.HBoxLayout()
@@ -474,9 +474,18 @@ class ManageTagsPanel( CAC.ApplicationCommandProcessorMixin, ClientGUIScrolledPa
             QP.AddToLayout( button_hbox, self._remove_tags, CC.FLAGS_CENTER_PERPENDICULAR )
             QP.AddToLayout( button_hbox, self._copy_button, CC.FLAGS_CENTER_PERPENDICULAR )
             QP.AddToLayout( button_hbox, self._incremental_tagging_button, CC.FLAGS_CENTER_PERPENDICULAR )
-            QP.AddToLayout( button_hbox, self._cog_button, CC.FLAGS_CENTER )
+            QP.AddToLayout( button_hbox, self._cog_button, CC.FLAGS_CENTER_PERPENDICULAR )
             
             self._tags_box_sorter.Add( button_hbox, CC.FLAGS_ON_RIGHT )
+            
+            deleted_tags_hbox = QP.HBoxLayout( margin = 0 )
+            
+            QP.AddToLayout( deleted_tags_hbox, self._deleted_tags_label, CC.FLAGS_CENTER_PERPENDICULAR_EXPAND_DEPTH )
+            QP.AddToLayout( deleted_tags_hbox, self._deleted_tags_show_button, CC.FLAGS_CENTER_PERPENDICULAR )
+            
+            self._deleted_tags_panel.setLayout( deleted_tags_hbox )
+            
+            self._tags_box_sorter.Add( self._deleted_tags_panel, CC.FLAGS_EXPAND_SIZER_PERPENDICULAR )
             
             vbox = QP.VBoxLayout()
             
@@ -871,6 +880,8 @@ class ManageTagsPanel( CAC.ApplicationCommandProcessorMixin, ClientGUIScrolledPa
             
             self._tags_box.SetTagsByMedia( self._media )
             
+            self._UpdateDeletedMappingsLabelAndVisibility()
+            
             self.valueChanged.emit()
             
         
@@ -928,9 +939,9 @@ class ManageTagsPanel( CAC.ApplicationCommandProcessorMixin, ClientGUIScrolledPa
         
         def _FlipShowDeleted( self ):
             
-            self._show_deleted = not self._show_deleted
+            CG.client_controller.new_options.FlipBoolean( 'manage_tags_show_deleted_mappings' )
             
-            self._tags_box.SetShow( 'deleted', self._show_deleted )
+            self._UpdateShowDeleted()
             
         
         def _MigrateTags( self ):
@@ -953,7 +964,7 @@ class ManageTagsPanel( CAC.ApplicationCommandProcessorMixin, ClientGUIScrolledPa
                 frame.SetPanel( panel )
                 
             
-            CG.client_controller.CallAfter( self, do_it, self._tag_service_key, hashes )
+            CG.client_controller.CallAfterQtSafe( self, do_it, self._tag_service_key, hashes )
             
             self.OK()
             
@@ -1025,6 +1036,30 @@ class ManageTagsPanel( CAC.ApplicationCommandProcessorMixin, ClientGUIScrolledPa
             self.RemoveTags( tags_to_remove )
             
         
+        def _UpdateDeletedMappingsLabelAndVisibility( self ):
+            
+            tag_context = ClientSearchTagContext.TagContext( service_key = self._tag_service_key )
+            
+            num_deleted_mappings = sum( ( m.GetTagsManager().GetNumDeletedMappings( tag_context, ClientTags.TAG_DISPLAY_STORAGE ) for m in self._media ) )
+            
+            self._deleted_tags_label.setText( f'{HydrusNumbers.ToHumanInt( num_deleted_mappings )} deleted mappings' )
+            
+            self._deleted_tags_panel.setVisible( num_deleted_mappings > 0 )
+            
+        
+        def _UpdateShowDeleted( self ):
+            
+            manage_tags_show_deleted_mappings = CG.client_controller.new_options.GetBoolean( 'manage_tags_show_deleted_mappings' )
+            
+            self._tags_box.SetShow( 'deleted', manage_tags_show_deleted_mappings )
+            
+            icon = CC.global_icons().eye if manage_tags_show_deleted_mappings else CC.global_icons().eye_closed
+            tooltip = 'hide deleted mappings' if manage_tags_show_deleted_mappings else 'show deleted mappings'
+            
+            self._deleted_tags_show_button.SetIconSmart( icon )
+            self._deleted_tags_show_button.setToolTip( ClientGUIFunctions.WrapToolTip( tooltip ) )
+            
+        
         def AddTags( self, tags, only_add = False ):
             
             if not self._new_options.GetBoolean( 'allow_remove_on_manage_tags_input' ):
@@ -1074,6 +1109,11 @@ class ManageTagsPanel( CAC.ApplicationCommandProcessorMixin, ClientGUIScrolledPa
         def HasChanges( self ):
             
             return len( self._pending_content_update_packages ) > 0
+            
+        
+        def NotifyTagDisplaySettingsChanged( self ):
+            
+            self._tags_box.update()
             
         
         def OK( self ):
@@ -1132,6 +1172,8 @@ class ManageTagsPanel( CAC.ApplicationCommandProcessorMixin, ClientGUIScrolledPa
             
             self._tags_box.SetTagsByMedia( self._media )
             
+            self._UpdateDeletedMappingsLabelAndVisibility()
+            
             self.valueChanged.emit()
             
             self._suggested_tags.MediaUpdated()
@@ -1176,6 +1218,8 @@ class ManageTagsPanel( CAC.ApplicationCommandProcessorMixin, ClientGUIScrolledPa
             self._media = media
             
             self._tags_box.SetTagsByMedia( self._media )
+            
+            self._UpdateDeletedMappingsLabelAndVisibility()
             
             self.valueChanged.emit()
             

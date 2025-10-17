@@ -63,6 +63,7 @@ media_load_report_mode = False
 gui_report_mode = False
 shortcut_report_mode = False
 cache_report_mode = False
+idle_report_mode = False
 subprocess_report_mode = False
 subscription_report_mode = False
 hover_window_report_mode = False
@@ -73,6 +74,8 @@ network_report_mode_silent = False
 pubsub_report_mode = False
 daemon_report_mode = False
 mpv_report_mode = False
+
+mpv_allow_crashy_files = False
 
 fake_petition_mode = False
 

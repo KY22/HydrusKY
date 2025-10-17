@@ -43,6 +43,7 @@ class ReviewActionsPanel( ClientGUIScrolledPanels.ReviewPanel ):
         
         self._we_have_done_actions = False
         self._we_have_done_declines = False
+        self._we_have_done_undos = False
         
         self._main_notebook = ClientGUICommon.BetterNotebook( self )
         
@@ -190,6 +191,12 @@ class ReviewActionsPanel( ClientGUIScrolledPanels.ReviewPanel ):
         self._RefetchDeclinedPairs()
         
         CG.client_controller.sub( self, 'CloseFromEditDialog', 'edit_duplicates_auto_resolution_rules_dialog_opening' )
+        CG.client_controller.sub( self, '_RefetchPendingActionPairs', 'notify_duplicate_filter_non_blocking_commit_complete' )
+        
+        if rule.GetOperationMode() != ClientDuplicatesAutoResolution.DUPLICATES_AUTO_RESOLUTION_RULE_OPERATION_MODE_WORK_BUT_NO_ACTION:
+            
+            self._main_notebook.setCurrentWidget( self._actioned_pairs_panel )
+            
         
     
     def _ActionedRowActivated( self, model_index: QC.QModelIndex ):
@@ -220,6 +227,16 @@ class ReviewActionsPanel( ClientGUIScrolledPanels.ReviewPanel ):
             return
             
         
+        decisions = [ ClientPotentialDuplicatesPairFactory.DuplicatePairDecisionApproveDeny(
+            media_result_a,
+            media_result_b,
+            True
+            ) for (
+                media_result_a,
+                media_result_b
+            ) in selected_pairs
+        ]
+        
         earliest_selected_row_index = min( ( index.row() for index in indices ) )
         
         if len( selected_pairs ) > 5:
@@ -243,15 +260,13 @@ class ReviewActionsPanel( ClientGUIScrolledPanels.ReviewPanel ):
         
         def work_callable():
             
-            for ( num_done, num_to_do, chunk ) in HydrusLists.SplitListIntoChunksRich( selected_pairs, 4 ):
-                
-                message = f'approving: {HydrusNumbers.ValueRangeToPrettyString( num_done, num_to_do )}'
-                
-                CG.client_controller.CallAfterQtSafe( self, 'approve pairs status hook', status_hook, message )
-                
-                # this is safe to run on a bunch of related pairs like AB, AC, DB--the db figures that out
-                CG.client_controller.WriteSynchronous( 'duplicates_auto_resolution_approve_pending_pairs', rule, chunk )
-                
+            wrapped_status_hook = lambda message: CG.client_controller.CallAfterQtSafe( self, status_hook, message )
+            
+            ClientDuplicatesAutoResolution.ActionAutoResolutionReviewPairs(
+                rule,
+                decisions,
+                status_hook = wrapped_status_hook
+            )
             
             return 1
             
@@ -311,9 +326,11 @@ class ReviewActionsPanel( ClientGUIScrolledPanels.ReviewPanel ):
         
         if page == self._pending_actions_panel:
             
-            if len( self._pending_action_pairs ) == 0:
+            if len( self._pending_action_pairs ) == 0 or self._we_have_done_undos:
                 
                 self._RefetchPendingActionPairs()
+                
+                self._we_have_done_undos
                 
             
         elif page == self._actioned_pairs_panel:
@@ -322,7 +339,7 @@ class ReviewActionsPanel( ClientGUIScrolledPanels.ReviewPanel ):
                 
                 self._RefetchActionedPairs()
                 
-                self._we_have_done_declines = False
+                self._we_have_done_actions = False
                 
             
         elif page == self._declined_pairs_panel:
@@ -364,6 +381,16 @@ class ReviewActionsPanel( ClientGUIScrolledPanels.ReviewPanel ):
             return
             
         
+        decisions = [ ClientPotentialDuplicatesPairFactory.DuplicatePairDecisionApproveDeny(
+            media_result_a,
+            media_result_b,
+            False
+            ) for (
+                media_result_a,
+                media_result_b
+            ) in selected_pairs
+        ]
+        
         earliest_selected_row_index = min( ( index.row() for index in indices ) )
         
         if len( selected_pairs ) > 5:
@@ -387,15 +414,13 @@ class ReviewActionsPanel( ClientGUIScrolledPanels.ReviewPanel ):
         
         def work_callable():
             
-            for ( num_done, num_to_do, chunk ) in HydrusLists.SplitListIntoChunksRich( selected_pairs, 4 ):
-                
-                message = f'denying: {HydrusNumbers.ValueRangeToPrettyString( num_done, num_to_do )}'
-                
-                CG.client_controller.CallAfterQtSafe( self, 'deny pairs status hook', status_hook, message )
-                
-                # this is safe to run on a bunch of related pairs like AB, AC, DB--the db figures that out
-                CG.client_controller.WriteSynchronous( 'duplicates_auto_resolution_deny_pending_pairs', rule, chunk )
-                
+            wrapped_status_hook = lambda message: CG.client_controller.CallAfterQtSafe( self, status_hook, message )
+            
+            ClientDuplicatesAutoResolution.ActionAutoResolutionReviewPairs(
+                rule,
+                decisions,
+                status_hook = wrapped_status_hook
+            )
             
             return 1
             
@@ -463,7 +488,7 @@ class ReviewActionsPanel( ClientGUIScrolledPanels.ReviewPanel ):
             return
             
         
-        media_result_pairs = [ ( m1, m2 ) for ( m1, m2 ) in media_result_pairs if m1.GetLocationsManager().IsLocal() and m2.GetLocationsManager().IsLocal() ]
+        media_result_pairs = [ ( m_a, m_b ) for ( m_a, m_b ) in media_result_pairs if m_a.GetLocationsManager().IsLocal() and m_b.GetLocationsManager().IsLocal() ]
         
         if len( media_result_pairs ) == 0:
             
@@ -474,7 +499,7 @@ class ReviewActionsPanel( ClientGUIScrolledPanels.ReviewPanel ):
         
         # with a bit of jiggling I can probably deliver the real distance, but w/e for now, not important
         
-        media_result_pairs_and_fake_distances = [ ( m1, m2, 0 ) for ( m1, m2 ) in media_result_pairs ]
+        media_result_pairs_and_fake_distances = [ ( m_a, m_b, 0 ) for ( m_a, m_b ) in media_result_pairs ]
         
         potential_duplicate_media_result_pairs_and_distances = ClientPotentialDuplicatesSearchContext.PotentialDuplicateMediaResultPairsAndDistances( media_result_pairs_and_fake_distances )
         
@@ -589,12 +614,11 @@ class ReviewActionsPanel( ClientGUIScrolledPanels.ReviewPanel ):
         
         canvas_frame = ClientGUICanvasFrame.CanvasFrame( self.window(), set_parent = True )
         
-        potential_duplicate_pair_factory = ClientPotentialDuplicatesPairFactory.PotentialDuplicatePairFactoryMediaResults( potential_duplicate_media_result_pairs_and_distances )
+        potential_duplicate_pair_factory = ClientPotentialDuplicatesPairFactory.PotentialDuplicatePairFactoryAutoResolutionReview( potential_duplicate_media_result_pairs_and_distances, self._rule )
         
         canvas_window = ClientGUICanvasDuplicates.CanvasFilterDuplicates( canvas_frame, potential_duplicate_pair_factory )
         
         canvas_window.canvasWithHoversExiting.connect( CG.client_controller.gui.NotifyMediaViewerExiting )
-        canvas_window.duplicateCanvasExitingAfterWorkDone.connect( self._RefetchPendingActionPairs )
         canvas_window.showPairInPage.connect( self._ShowPairInPage )
         
         canvas_frame.SetCanvas( canvas_window )
@@ -647,7 +671,7 @@ class ReviewActionsPanel( ClientGUIScrolledPanels.ReviewPanel ):
         
         all_hashes = set( itertools.chain.from_iterable( [ ( media_result_1.GetHash(), media_result_2.GetHash() ) for ( media_result_1, media_result_2 ) in selected_pairs ] ) )
         
-        message = f'Are you sure you want to undo the auto-resolution actions covering these {HydrusNumbers.ToHumanInt( len( all_hashes ) )} files? This is a serious action.\n\nThe only way to do this reliably is to completely dissolve the respective duplicate group(s), which may undo many other decisions. All the files in the duplicate group(s) (not just what you selected) will be queued up for search in the potential duplicates system once more. Any files that are in trash will be undeleted. This action will not remove the entries from this audit log nor undo any content merge.'
+        message = f'Are you sure you want to undo the auto-resolution actions covering these {HydrusNumbers.ToHumanInt( len( all_hashes ) )} files? This is a serious action and will reset all the duplicate file relationships these files have.\n\nThe only way to do this reliably is to completely dissolve the respective duplicate group(s), which may undo many other decisions. All the files in the duplicate group(s) (not just what you selected) will be queued up for search in the potential duplicates system once more. Any files that are in trash will be undeleted. This action will not remove the entries from this audit log nor undo any content merge.'
         
         result = ClientGUIDialogsQuick.GetYesNo( self, message )
         
@@ -660,7 +684,9 @@ class ReviewActionsPanel( ClientGUIScrolledPanels.ReviewPanel ):
         
         CG.client_controller.WriteSynchronous( 'dissolve_duplicates_group', all_hashes )
         
-        self._RefetchActionedPairs()
+        self._we_have_done_undos = True
+        
+        # don't do a 'refresh actioned' thing here--the entries will not be removed!
         
     
     def _UndoSelectedDeclined( self ):
@@ -685,6 +711,8 @@ class ReviewActionsPanel( ClientGUIScrolledPanels.ReviewPanel ):
             
         
         CG.client_controller.WriteSynchronous( 'duplicates_auto_resolution_rescind_declined_pairs', self._rule, selected_pairs )
+        
+        self._we_have_done_undos = True
         
         self._RefetchDeclinedPairs()
         
