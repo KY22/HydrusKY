@@ -25,7 +25,8 @@ fi
 #
 # --depending on your needs!
 
-python hydrus_client.py "$@"
+python hydrus_client.py -d="/home/lan/Datos/data/hydrus/db/" "$@"
+
 
 deactivate
 
