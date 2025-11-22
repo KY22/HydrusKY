@@ -40,7 +40,7 @@ class TagAutocompleteOptions( HydrusSerialisable.SerialisableBase ):
         
         if service_key == CC.DEFAULT_LOCAL_TAG_SERVICE_KEY:
             
-            self._write_autocomplete_location_context = ClientLocation.LocationContext.STATICCreateSimple( CC.COMBINED_LOCAL_MEDIA_SERVICE_KEY )
+            self._write_autocomplete_location_context = ClientLocation.LocationContext.STATICCreateSimple( CC.COMBINED_LOCAL_FILE_DOMAINS_SERVICE_KEY )
             
         else:
             
@@ -560,9 +560,9 @@ class TagDisplayMaintenanceManager( ClientDaemons.ManagerWithMainLoop ):
                     
                 except HydrusExceptions.NotFoundException:
                     
-                    self._wake_event.wait( 5 )
+                    # oh, there's actually no work to do
                     
-                    self._wake_event.clear()
+                    time.sleep( 1 )
                     
                     continue
                     
@@ -583,8 +583,11 @@ class TagDisplayMaintenanceManager( ClientDaemons.ManagerWithMainLoop ):
                 
                 self._last_loop_work_period = expected_work_period
                 
+                wake_event = self._wake_from_work_sleep_event
+                
             else:
                 
+                wake_event = self._wake_from_idle_sleep_event
                 wait_time = 10
                 
             
@@ -593,9 +596,10 @@ class TagDisplayMaintenanceManager( ClientDaemons.ManagerWithMainLoop ):
                 self._CheckShutdown()
                 
             
-            self._wake_event.wait( wait_time )
+            wake_event.wait( wait_time )
             
-            self._wake_event.clear()
+            self._wake_from_work_sleep_event.clear()
+            self._wake_from_idle_sleep_event.clear()
             
             if self._new_data_event.is_set():
                 

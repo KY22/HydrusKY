@@ -37,7 +37,7 @@ def compare_content_update_packages( ut: unittest.TestCase, content_update_packa
         
     
 
-def GetFakeMediaResult( hash: bytes, mime = None ):
+def GetFakeMediaResult( hash: bytes, mime = None, include_some_tags = True ):
     
     hash_id = random.randint( 0, 200 * ( 1024 ** 2 ) )
     
@@ -59,10 +59,14 @@ def GetFakeMediaResult( hash: bytes, mime = None ):
     file_info_manager.has_icc_profile = True
     
     service_keys_to_statuses_to_tags = collections.defaultdict( HydrusData.default_dict_set )
-    service_keys_to_statuses_to_tags[ CC.DEFAULT_LOCAL_TAG_SERVICE_KEY ].update( { HC.CONTENT_STATUS_CURRENT : { 'blue_eyes', 'blonde_hair' }, HC.CONTENT_STATUS_PENDING : { 'bodysuit' } } )
     
     service_keys_to_statuses_to_display_tags = collections.defaultdict( HydrusData.default_dict_set )
-    service_keys_to_statuses_to_display_tags[ CC.DEFAULT_LOCAL_TAG_SERVICE_KEY ].update( { HC.CONTENT_STATUS_CURRENT : { 'blue eyes', 'blonde hair' }, HC.CONTENT_STATUS_PENDING : { 'bodysuit', 'clothing' } } )
+    
+    if include_some_tags:
+        
+        service_keys_to_statuses_to_tags[ CC.DEFAULT_LOCAL_TAG_SERVICE_KEY ].update( { HC.CONTENT_STATUS_CURRENT : { 'blue_eyes', 'blonde_hair' }, HC.CONTENT_STATUS_PENDING : { 'bodysuit' } } )
+        service_keys_to_statuses_to_display_tags[ CC.DEFAULT_LOCAL_TAG_SERVICE_KEY ].update( { HC.CONTENT_STATUS_CURRENT : { 'blue eyes', 'blonde hair' }, HC.CONTENT_STATUS_PENDING : { 'bodysuit', 'clothing' } } )
+        
     
     service_keys_to_filenames = {}
     
@@ -76,7 +80,7 @@ def GetFakeMediaResult( hash: bytes, mime = None ):
     
     times_manager.SetFileModifiedTimestampMS( file_modified_timestamp_ms )
     
-    current_to_timestamps_ms = { CC.HYDRUS_LOCAL_FILE_STORAGE_SERVICE_KEY : import_timestamp_ms, CC.COMBINED_LOCAL_MEDIA_SERVICE_KEY : import_timestamp_ms, CC.LOCAL_FILE_SERVICE_KEY : import_timestamp_ms }
+    current_to_timestamps_ms = { CC.HYDRUS_LOCAL_FILE_STORAGE_SERVICE_KEY : import_timestamp_ms, CC.COMBINED_LOCAL_FILE_DOMAINS_SERVICE_KEY : import_timestamp_ms, CC.LOCAL_FILE_SERVICE_KEY : import_timestamp_ms }
     
     times_manager.SetImportedTimestampsMS( current_to_timestamps_ms )
     

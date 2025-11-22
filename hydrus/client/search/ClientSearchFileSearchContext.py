@@ -57,8 +57,6 @@ class FileSystemPredicates( object ):
         
         self._file_viewing_stats_predicates = []
         
-        new_options = CG.client_controller.new_options
-        
         for predicate in system_predicates:
             
             predicate_type = predicate.GetType()
@@ -575,7 +573,7 @@ class FileSearchContext( HydrusSerialisable.SerialisableBase ):
         
         if location_context is None:
             
-            location_context = ClientLocation.LocationContext.STATICCreateSimple( CC.COMBINED_LOCAL_MEDIA_SERVICE_KEY )
+            location_context = ClientLocation.LocationContext.STATICCreateSimple( CC.COMBINED_LOCAL_FILE_DOMAINS_SERVICE_KEY )
             
         
         if tag_context is None:
