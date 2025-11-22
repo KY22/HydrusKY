@@ -35,6 +35,88 @@
             <h1 id="changelog"><a href="#changelog">changelog</a></h1>
             <ul>
                 <li>
+                    <h2 id="version_648"><a href="#version_648">version 648</a></h2>
+                    <ul>
+                        <li><h3>misc</h3></li>
+                        <li>I have disabled animated jxl parsing. some/many jxls are causing ffmpeg to go into an infinite loop when I ask it to see if the file is animated. I will harden the ffmpeg calling system and fix this for next week</li>
+                        <li>the 'update selected with current options' buttons that appear in the gallery and watcher download pages now pop in below the import options rather than squashing in beside. before, just clicking the 'file limit' checkbox with some of the list selected would often cause the sidebar width to overflow and make a horizontal scrollbar etc..</li>
+                        <li>system:duration now allows 'equal' and 'not equal'</li>
+                        <li>system:framerate no longer allows 'less/greater than or equal to' in its edit panel, and there is a label mentioning how fuzzy framerate is. the hardcoded quick-select framerate system preds in the 'system:duration' panel are now +/-1. I used to have a hack in the db search code to handle the fuzziness, but that was removed when I moved to the new number test system. I have not yet decided, but I may change all framerate calculations to be to the nearest integer, since that's pretty much what we display in UI</li>
+                        <li>fixed an error-raising typo when the database is trying to do a large db job based on a tag filter that has a namespace blacklisted. an example of this would be a `tags-&gt;migrate tags` for 'all tags except title: tags'</li>
+                        <li>if a user loads up a thumbnail grid that wants to have a virtual height greater than the Qt max (~16.7 million pixels, 2^24-1), I now pop up a one-time warning about it. these pages 'work' for ctrl+a type stuff, but you can't scroll below the magic line, and I suspect they are unstable</li>
+                        <li>fixed an instabality bug in the regular file right-click menu, when non-sha2356 hashes are async-populated in the menu after a db fetch (issue #1908)</li>
+                        <li><h3>duplicates auto-resolution</h3></li>
+                        <li>'test A or B' comparators now support the spectrum of normal tag predicates: tags, namespace:anything, and wildcards. all their negated versions are also supported (-creator:anything, etc..). the search domain here is fixed at 'combined local file domains'/'all known tags'</li>
+                        <li>'test A or B' comparators now support 'system:number of tags'. it works on 'all known tags'</li>
+                        <li>'test A or B' comparators now support 'system:duration', 'system:framerate', and 'system:num frames', all under the 'system:duration' stub in the edit panel</li>
+                        <li>'test A or B' comparators now support 'has audio', 'has forced filetype', and 'has transparency', and 'has duration', and all the 'has/has no' guys are now collapsed to the regular 'system:file properties' like in a normal search</li>
+                        <li>'system:known url' and 'system:num urls' are collapsed in the edit panel down to 'system:urls'</li>
+                        <li>'test A against B' comparators now support 'system:framerate'. a note in the edit panel reminds that these numbers are blurry, so you need padding</li>
+                        <li>the various 'test A against B' tests that are non-time based now accept a null value for a property and treat it as zero for comparisons. for instance, an image with null duration will now have less duration than a video with duration 3s. previously, if either file had a null value for the system pred in question, the comparator would fail, which is not how the rest of the search tech works in the program</li>
+                        <li><h3>boring stuff</h3></li>
+                        <li>fixed an instability bug in the new async defaulterrback handling when the main window has died</li>
+                        <li>if the user is running from source, the 'ffmpeg failed to render' exception now recommends that users try updating ffmpeg before doing anything else</li>
+                        <li>I cleaned up some autocomplete dropdown behind the scenes stuff. these guys have been rewritten and reworked so many times, they aren't beautiful</li>
+                        <li>all framerate calculations on media results now happen in one central location</li>
+                        <li><h3>boring duplicates auto-resolution stuff</h3></li>
+                        <li>the duplicates manager is now stricter about the order it clears work. it now clears the search work and then immediately the resolution work for each rule in clever-alphabetical turn. no more interleaved work</li>
+                        <li>the duplicates manager can now pack more search work into each work slot, and it reports the 'searching' state for a rule more reliably</li>
+                        <li>my mainloop daemons now have two sleep modes and differentiated wake signals to ensure they take forced breaks more reliably. I'm hoping to finally quash the problem of some workers (like duplicates auto-resolution) waking up too early and thus working far too hard when there are lots of other things (e.g. import queues) telling them there are various updates</li>
+                        <li>similarly, the potential pair discovery manager now uses this nicer wake system and will not hammer potential discovery work while file imports are going on. it previously had a system that said 'if caught up, ok to hammer'. now it keeps pace with its maintenance work time preferences, waking immediately if idle but otherwise smoothing out a rush of new work over a few seconds rather than going bananas</li>
+                        <li>duplicate auto-resolution rules now render themselves to a nice string with name and id when in various debugging modes</li>
+                        <li>when you open a one-file comparator edit dialog, the focus now starts on the tag text input box</li>
+                        <li>added unit tests for the normal tag metadata conditional file tests</li>
+                        <li>added unit tests for the num_tags metadata conditional file tests</li>
+                        <li>added unit tests for duration, framerate, num_frames metadata conditional file tests</li>
+                        <li>added unit tests for framerate media result value extraction</li>
+                    </ul>
+                </li>
+                <li>
+                    <h2 id="version_647"><a href="#version_647">version 647</a></h2>
+                    <ul>
+                        <li><h3>misc</h3></li>
+                        <li>if the selected subtags have any whitespace, all taglist menus now offer 'copy (selected subtags with underscores)'!</li>
+                        <li>all existing users will see 'all local files' renamed to 'hydrus local file storage'. I did this for new users a couple weeks ago and we had no obvious problems, so now everyone gets it</li>
+                        <li>the similarly not-excellently-named 'all my files' is renamed for new users to 'combined local file domains'. I'll do everyone else in a couple weeks if no problems</li>
+                        <li>a file import options now has two 'do this if file is already in db' checkboxes--one for the auto-archive option, which now disables in the panel if you aren't auto-archiving, and the other to specifically say whether 'already in db' files should be re-sent to the stated import destinations, which matters for clients with multiple local file domains. this latter question is typically more annoying than helpful, so it is now default off **and will move to off, on update, for all file import options you have**. if you use multiple local file domains and want your 'already in db' files to be re-sent to a particular domain somewhere (I'm guessing we'd be talking a special import folder, rather than always), please go into that import context and edit the file import options back</li>
+                        <li>thanks to a user, 'system:ratio' and 'system:rating' predicates can now produce inverted copies of themself, so they can invert on a ctrl+double-click (also available in the predicate menu under `search-&gt;require`) and can auto-exclude clearly mutually exclusive predicates (you may not have noticed, but see what happens when you add system:inbox to a query with system:archive. this happens with a bunch of stuff). when you have something like 'system:ratio is 16:9', you'll now be able to replace it with 'system:ratio is not 16:9'. for ratings, you'll similarly get 'rated' and 'not rated' and like/dislike flips. they will also do taller/wider and 'less than/greater than' numerical or inc/dec ratings, but since these predicates do not yet support `&gt;=` or `&lt;=`, the inversion is imperfect. this will be fixed in future when I eventually migrate these guys to the newer object that, for instance, 'system:number of frames' uses (issue #1777)</li>
+                        <li>the default pixiv downloaders now say a more clear 'no support for pixiv ugoiras yet' when they veto an ugoira URL</li>
+                        <li>the 'notes' and 'zoom - index' in a navigable media viewer window are now background-drawn in the 'media viewer text' colour, matching the top file info text and the top-right stuff</li>
+                        <li>the command palette now displays and searches long page names without 'eliding...'</li>
+                        <li>the 'edit gallery url generator' panel now shows separate text boxes for the raw url generated and the post-normalised url if there is a matching url class</li>
+                        <li><h3>duplicates</h3></li>
+                        <li>duplicate auto-resolution rules now have a separate paused status and operation mode. it was not ultimately helpful to go for paused/semi/automatic; now it is paused/unpaused, semi/automatic. any rule that was previously paused is now paused and semi-automatic</li>
+                        <li>you can now pause/play rules from the normal duplicates page list with a button. you don't have to go into the edit dialog to pause or resume a rule</li>
+                        <li>I wrote a new hardcoded comparator for 'A has a clearly higher jpeg quality than B'. just a simple thing for now, no testing of specific value or anything, but maybe that'll come in future</li>
+                        <li>the rule edit UI now explictly says 'hey these work in name order so name them "1 - ", "2 - ", if you want to force one to have precedence'</li>
+                        <li>the sort order here is now my clever human sort (so '3 - ' is earlier than '10 - '), and the list in the edit and review panels sort the name column that way too</li>
+                        <li>deleted the 'pixel-perfect pairs - keep EXIF or ICC data' suggested rule--this is generally now covered by the 'pixel-perfect pairs' rule</li>
+                        <li>after a user suggestion, added 'near-perfect jpegs vs pngs' suggested rule. this guy uses a 'visual duplicates' comparator in 'near perfect' mode to check for what is for practical purposes a pixel-perfect jpeg/png pair, but with a couple extra caveats in the rule to ensure we don't throw out a useful png. it has comparators to select the jpeg that is of same or higher resolution (obvious), of smaller filesize (so we don't select a wastefully high quality jpeg of a vector or flat screenshot that is better as png), where the png doesn't uniquely have EXIF data (to err on the side of originality). also added a note about this guy in the help</li>
+                        <li>tweaked my visual duplicates algorthim, the edge detection part in particular, to better filter out heavy jpeg artifacts</li>
+                        <li>the cog icon beside a potential duplicate pair search context panel's count now has `allow single slow search optimisation when seeing low hit-rate`, which turns off my new optimisation. it looks like it performs very badly in some complicated edge cases, so now you can turn it off. I will gather more information and revisit this</li>
+                        <li>just to be a little more human, some arbitrary user-facing numbers around here are moved from 4,096/512/256/128 to 4,000/500/250/100</li>
+                        <li>to stay sane with the file search logic here, potential duplicate pair searches will no longer let you select a 'multiple locations' domain. just a single local file domain or the 'all my files'/'combined local file domains' umbrella</li>
+                        <li>fixed up a number of update-signals that bounce around the duplicates auto-resolution system. some maintenance tasks now correctly update all duplicate pages lists, not just for the page that started the job, and different jobs are careful to emit the correct 'rules changed' vs 'state changed' so various things update more efficiently</li>
+                        <li>duplicate auto-resolution sub-pages now only update their rules or rule number display when they are in view (or switched to)</li>
+                        <li><h3>client api</h3></li>
+                        <li>thanks to a user, the `/manage_pages/get_page_info` call now returns file selection data: `num_files_selected`, `hash_ids_selected`, and in non-simple mode, `hashes_selected`</li>
+                        <li>clarified in the help (and checked in code) that sending a client api file delete call to 'hydrus local file storage' will work on any local file, anywhere, as a 'permanent delete now' command. I wasn't sure if it would only work on currently trashed files, but we are good</li>
+                        <li>client api version is now 82</li>
+                        <li><h3>blocking ui calls and a memory leak</h3></li>
+                        <li>I discovered a long-time memory leak for busy clients at the last minute last week. I patched it just before release, and this week I have polished my patch. any time that an asynchronous 'thread to ui' job that waits on the ui to do something fails due to the attached ui widget dying early (think closing a dialog before an update routine finishes) now handles this situation appropriately to the caller and yields back the thread, in all cases (previously it could get stuck in a loop waiting forever for the dead window to respond, tying up that thread worker until program exit, and, in critical situations, when there were more than 200 current ongoing jobs, block other work indefinitely). there's about sixty of these calls across the code, including a bunch in the Client API when asking about pages, and some were not coping with all error situations nicely--they now do</li>
+                        <li>many of these calls also now navigate to a last-ditch ui widget anchor correctly (e.g. when they are doing something during boot/shutdown, when the main gui isn't available)</li>
+                        <li>reporting to a custom async errback is also now handled more gracefully. if the ui panel dies before a custom errback can be called, we now fallback to the default errback</li>
+                        <li>also did some smart typing here so an IDE can figure out what is supposed to be coming back from one of these</li>
+                        <li><h3>boring stuff</h3></li>
+                        <li>mpv file load error reporting is nicer, and simple missing file errors have their own hook</li>
+                        <li>fixed a logical issue in the new potential duplicates debug report mode, where it'd error out if you started the mode while a long job was still working</li>
+                        <li>fixed some bad newlines and old text in the running from source help</li>
+                        <li>cleaned up the default auto-resolution rule definitions, which was turning into a monolith</li>
+                        <li>I think/hope I have fixed an issue with loading the client when URL Domain Masks have bad data</li>
+                        <li>did some misc type linting, particularly around some non-beautiful clientside service juggling</li>
+                    </ul>
+                </li>
+                <li>
                     <h2 id="version_646"><a href="#version_646">version 646</a></h2>
                     <ul>
                         <li><h3>misc</h3></li>
@@ -2460,7 +2542,7 @@
                         <li>the tag `right-click-&gt;search` menu, on a multiple selection of non-OR predicates that exists in its entirely in the current search context, now has `replace selected with their OR`, which removes the selection and replaces it with an OR of them all!</li>
                         <li>the system predicate parser no longer removes all underscores from to-be-parsed text. this fixes parsing for namespaces, URLs, service names, etc.. with underscores in (issue #1610)</li>
                         <li>fixed some bad layout in the edit predicates dialog for system:hash (issue #1590)</li>
-                        <li>fixed some content update logic for the advanced delete choices of 'delete from all local file domains' and 'physically delete now', where the UI-side thumbnail logic was not removing the file from the 'all my files' or 'all local files' domains respectively, which caused some funny thumbnail display and hide/show rules until a restart rebuilt the media object from the (correct) db source</li>
+                        <li>fixed some content update logic for the advanced delete choices of 'delete from combined local file domains' and 'physically delete now', where the UI-side thumbnail logic was not removing the file from the 'all my files' or 'all local files' domains respectively, which caused some funny thumbnail display and hide/show rules until a restart rebuilt the media object from the (correct) db source</li>
                         <li>if you physically delete a file, I no longer force-remove it from view so enthusiastically. if you are looking at 'all known files', it should generally still display after the delete (and now it will properly recognise it is now non-local)</li>
                         <li>I may have fixed an issue with page tab bar clicks on the very new Qt 6.8, which has been rolling out this week</li>
                         <li>wrote out my two rules for tagging (don't be perfect, only tag what you search) to the 'getting started - more tags' help page: https://hydrusnetwork.github.io/hydrus/getting_started_more_tags.html#tags_are_for_searching_not_describing</li>
@@ -3996,7 +4078,7 @@
                         <li>_database->db maintenance->clear orphan file records_ is now able to recover file records where A) the file is in a service component but not the master, B) the file exists on disk. it copies the import timestamp from the specific to the umbrella domain and spams all the repaired files to a new page for user review. this maintenance routine isn't used all that much, but when you have a damaged database, it is nice to recover as much as possible rather than having to export (with clear orphan file records+clear orphan files) and then reimport and lose archive/inbox status and import timestamps</li>
                         <li>repository update files now have a 'delete from repository updates' entry in their right-click menu</li>
                         <li>this area of the code appears to be related to the PTR 404 issue some users have had (it seems to be repository update records not beeing added/deleted/updated correctly), so I am likely to revisit this</li>
-                        <li>deleting a file from 'all local files' (which happens for repository update files) now correctly updates the UI-level media object to recognise that the file is fully deleted from all local file domains beneath the umbrella, removing the 'delete from x' commands from their menu, and in the right view contexts removing them from view completely</li>
+                        <li>deleting a file from 'all local files' (which happens for repository update files) now correctly updates the UI-level media object to recognise that the file is fully deleted from combined local file domains beneath the umbrella, removing the 'delete from x' commands from their menu, and in the right view contexts removing them from view completely</li>
                     </ul>
                 </li>
                 <li>
@@ -15242,7 +15324,7 @@
                 <li>
                     <h2 id="version_237"><a href="#version_237">version 237</a></h2>
                     <ul>
-                        <li>added 'all local files' service that spans all local file domains</li>
+                        <li>added 'all local files' service that spans combined local file domains</li>
                         <li>improved trash service code</li>
                         <li>trashed files now report their trashed timestamp in right-click menus</li>
                         <li>trash views will sort oldest/newest by the trash timestamp</li>
