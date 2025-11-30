@@ -45,6 +45,7 @@ class FileSystemPredicates( object ):
         self._excluded_file_service_statuses = collections.defaultdict( set )
         
         self._ratings_predicates = []
+        self._advanced_ratings_predicates = []
         
         self._num_tags_predicates = []
         self._num_urls_predicates = []
@@ -269,6 +270,11 @@ class FileSystemPredicates( object ):
                 self._num_tags_predicates.append( predicate )
                 
             
+            if predicate_type == ClientSearchPredicate.PREDICATE_TYPE_SYSTEM_RATING_ADVANCED:
+                
+                self._advanced_ratings_predicates.append( predicate )
+                
+            
             if predicate_type == ClientSearchPredicate.PREDICATE_TYPE_SYSTEM_RATING:
                 
                 ( operator, value, service_key ) = value
@@ -449,6 +455,11 @@ class FileSystemPredicates( object ):
     def GetAdvancedTagPredicates( self ):
         
         return self._advanced_tag_predicates
+        
+    
+    def GetAdvancedRatingsPredicates( self ):
+        
+        return self._advanced_ratings_predicates
         
     
     def GetAllowedFiletypes( self ):

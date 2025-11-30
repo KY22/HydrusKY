@@ -191,7 +191,7 @@ When it does this, it gives you this structure, typically under a `services` key
   "c6f63616c2074616773" : {
     "name" : "my tags",
     "type": 5,
-    "type_pretty" : "local tag service"
+    "type_pretty" : "local tag domain"
   },
   "5674450950748cfb28778b511024cfbf0f9f67355cf833de632244078b5a6f8d" : {
     "name" : "example tag repo",
@@ -216,28 +216,28 @@ When it does this, it gives you this structure, typically under a `services` key
   "616c6c206c6f63616c2066696c6573" : {
     "name" : "hydrus local file storage",
     "type": 15,
-    "type_pretty" : "virtual combined local file service"
+    "type_pretty" : "virtual combined local file domain"
   },
   "616c6c206c6f63616c206d65646961" : {
     "name" : "combined local file domains",
     "type" : 21,
-    "type_pretty" : "virtual combined local media service"
+    "type_pretty" : "virtual combined local media domain"
   },
   "616c6c206b6e6f776e2066696c6573" : {
     "name" : "all known files",
     "type" : 11,
-    "type_pretty" : "virtual combined file service"
+    "type_pretty" : "virtual combined file domain"
   },
   "616c6c206b6e6f776e2074616773" : {
     "name" : "all known tags",
     "type": 10,
-    "type_pretty" : "virtual combined tag service"
+    "type_pretty" : "virtual combined tag domain"
   },
   "74d52c6238d25f846d579174c11856b1aaccdb04a185cb2c79f0d0e499284f2c" : {
     "name" : "example local rating like service",
     "type" : 7,
     "type_pretty" : "local like/dislike rating service",
-    "star_shape" : "circle"
+    "star_shape" : "svg"
   },
   "90769255dae5c205c975fc4ce2efff796b8be8a421f786c1737f87f98187ffaf" : {
     "name" : "example local rating numerical service",
@@ -265,7 +265,7 @@ I hope you recognise some of the information here. But what's that hex key on ea
 All services have these properties:
 
 - `name` - A mutable human-friendly name like 'my tags'. You can use this to present the service to the user--they should recognise it.
-- `type` - An integer enum saying whether the service is a local tag service or like/dislike rating service or whatever. This cannot change.
+- `type` - An integer enum saying whether the service is a local tag domain or like/dislike rating or whatever. This cannot change.
 - `service_key` - The true 'id' of the service. It is a string of hex, sometimes just twenty or so characters but in many cases 64 characters. This cannot change, and it is how we will refer to different services.
 
 This `service_key` is important. A user can rename their services, so `name` is not an excellent identifier, and definitely not something you should save to any permanent config file.
@@ -505,7 +505,7 @@ Response:
     "name" : "my tags",
     "service_key" : "6c6f63616c2074616773",
     "type" : 5,
-    "type_pretty" : "local tag service"
+    "type_pretty" : "local tag domain"
   }
 }
 ```
@@ -538,6 +538,39 @@ This now primarily uses [The Services Object](#services_object).
 
 !!! note
     If you do the request and look at the actual response, you will see a lot more data under different keys--this is deprecated, and will be deleted in 2024. If you use the old structure, please move over!
+
+### **GET `/get_service_rating_svg`** { id="get_service_rating_svg" }
+
+_Ask the client for the SVG star shape for a ratings service. Use this when a rating service in [The Services Object](#services_object) has a `star_shape` of `svg`._
+
+Restricted access: 
+:   YES. At least one of Add Files, Add Tags, Manage Pages, or Search Files permission needed.
+    
+Required Headers: n/a
+    
+Arguments:
+:       
+    *   `service_name`: (selective, string, the name of the service)
+    *   `service_key`: (selective, hex string, the service key of the service)
+
+Example requests:
+:   
+    ```title="Example requests"
+    /get_service_rating_svg?service_name=example%20local%20rating%20like%20service
+    /get_service_rating_svg?service_key=74d52c6238d25f846d579174c11856b1aaccdb04a185cb2c79f0d0e499284f2c
+    ```
+
+Response:
+:  Returns an image/svg+xml to be rendered by a browser.
+
+```http title="Example response"
+Content-Type: image/svg+xml
+```
+```svg
+<svg xmlns="http://www.w3.org/2000/svg" xml:space="preserve" width="512" height="512"><path d="M364.842 44.305c-37.937.575-72.915 18.49-91.705 51.035-1.088-.989-10.822 25.476-20.965 26.664-9.396 1.1-11.295-14.946-18.06-23.934-36.163-48.039-101.573-66.684-160.33-32.76C15.022 99.236-.822 164.909 21.985 220.544c28.648 69.88 35.985 82.604 121.912 192 8.38 10.668 49.137 47.437 95.221 53.812 36.165 7.366 79.734-15.941 121.496-55.474 48.473-45.886 122.43-145.012 134.79-195.97 13.98-57.64-3.18-118.407-61.938-152.33-22.035-12.722-45.863-18.621-68.625-18.276zM174.088 206.77c8.45-.295 16.45 5.9 18.9 15.256l.325 1.235c2.8 10.692-2.744 21.343-12.428 23.879l-70.822 18.545c-9.685 2.535-19.738-4.03-22.538-14.723l-.322-1.234c-2.8-10.693 2.744-21.342 12.428-23.877l70.824-18.545a16.613 16.613 0 0 1 3.633-.536zm163.824 5.34c1.207.043 2.424.218 3.635.535l70.822 18.547c9.684 2.536 15.228 13.185 12.428 23.877l-.322 1.233c-2.8 10.692-12.85 17.26-22.534 14.724l-70.826-18.547c-9.684-2.535-15.227-13.186-12.428-23.878l.325-1.235c2.45-9.356 10.45-15.551 18.9-15.256zm-122.168 60.965c1.075.021 2.217.702 3.227 2.408 1.468 2.483 2.659 7.136 4.285 10.23 1.626 3.096 3.688 4.633 5.681 5.542 1.994.909 3.916 1.187 6.713.715 2.798-.472 6.47-1.696 9.407-3.27 2.937-1.573 5.14-3.494 7.185-5.33 2.046-1.836 3.936-3.585 5.877-3.463 1.94.123 3.932 2.114 6.223 4.055 2.29 1.94 4.877 3.83 7.78 5.21a26.974 26.974 0 0 0 9.458 2.518c3.34.263 6.803-.086 10.09-.855 3.287-.77 6.4-1.96 8.97-2.711 2.57-.752 4.598-1.066 6.434-.926 1.836.14 3.48.735 4.266 1.96.787 1.223.717 3.075 0 4.841s-2.082 3.444-4.652 5.07c-2.57 1.626-6.346 3.2-9.458 4.272-3.11 1.072-5.557 1.642-8.793 1.828-3.235.185-7.26-.013-10.828-.508-3.567-.495-6.677-1.287-9.228-2.242-2.552-.955-4.547-2.072-6.235-3.934-1.687-1.862-3.067-4.467-4.746-4.59-1.678-.122-3.653 2.238-6.232 4.118-2.579 1.88-5.763 3.279-8.945 4.363-3.182 1.084-6.363 1.852-9.563 1.555-3.2-.298-6.414-1.661-9.037-3.2-2.623-1.538-4.652-3.253-6.453-5.7-1.801-2.449-3.375-5.63-4.406-8.637-1.032-3.008-1.522-5.841-1.225-8.149.297-2.308 1.38-4.09 2.797-4.824.443-.23.92-.356 1.408-.346z" style="display:inline;opacity:1;stroke-width:2.71885;stroke-linecap:round;stroke-linejoin:round;fill:#000"/></svg>
+```
+
+If the service does not exist or doesn't actually have an SVG for its icon, you will get the corresponding error.
 
 ## Importing and Deleting Files
 
@@ -621,7 +654,7 @@ Response:
 !!! note "Careful"
     `combined local file domains` and `hydrus local file storage` are different!
     
-    - Deleting from `combined local file domains` sends files straight to the trash, no matter how many local file services they are in.
+    - Deleting from `combined local file domains` sends files straight to the trash, no matter how many local file domains they are in.
     - Deleting from `hydrus local file storage` removes files from any local domain, including trash, and triggers an immediate physical delete.
     
     Check [here](advanced_multiple_local_file_services.md#meta_file_domains) for more info.
@@ -653,7 +686,7 @@ Arguments (in JSON):
 Response: 
 :   200 and no content.
 
-This is the reverse of a delete_files--restoring files back to where they came from. If you specify a file service, the files will only be undeleted to there (if they have a delete record, otherwise this is nullipotent). The default, 'combined local file domains', undeletes to all the local file services for which there are deletion records.
+This is the reverse of a delete_files--restoring files back to where they came from. If you specify a file service, the files will only be undeleted to there (if they have a delete record, otherwise this is nullipotent). The default, 'combined local file domains', undeletes to all the local file domains for which there are deletion records.
 
 This operation will only occur on files that are currently in your file store (i.e. in 'hydrus local file storage', and maybe, but not necessarily, in 'trash'). You cannot 'undelete' something you do not have!
 
@@ -710,7 +743,7 @@ Arguments (in JSON):
 Response:
 :   200 and no content.
 
-This is only appropriate if the user has multiple local file services. It does the same as the media _files->add to->domain_ menu action. If the files are originally in local file domain A, and you say to add to B, then afterwards they will be in both A and B. You can say 'B and C' to add to multiple domains at once, if needed. The action is idempotent and will not overwrite 'already in' files with fresh timestamps or anything.
+This is only appropriate if the user has multiple local file domains. It does the same as the media _files->add to->domain_ menu action. If the files are originally in local file domain A, and you say to add to B, then afterwards they will be in both A and B. You can say 'B and C' to add to multiple domains at once, if needed. The action is idempotent and will not overwrite 'already in' files with fresh timestamps or anything.
 
 If you need to do a 'move' migrate, then please follow this command with a delete from wherever you need to remove from.
 
@@ -1274,8 +1307,8 @@ Arguments (in JSON):
     
     The permitted 'actions' are:
 
-    *   0 - Add to a local tag service.
-    *   1 - Delete from a local tag service.
+    *   0 - Add to a local tag domain.
+    *   1 - Delete from a local tag domain.
     *   2 - Pend to a tag repository.
     *   3 - Rescind a pend from a tag repository.
     *   4 - Petition from a tag repository. (This is special)

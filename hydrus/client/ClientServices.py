@@ -194,6 +194,157 @@ def GenerateService( service_key, service_type, name, dictionary = None ):
     
     return cl( service_key, service_type, name, dictionary )
     
+
+class ServiceSpecifier( HydrusSerialisable.SerialisableBase ):
+    
+    SERIALISABLE_TYPE = HydrusSerialisable.SERIALISABLE_TYPE_SERVICE_SPECIFIER
+    SERIALISABLE_NAME = 'Service Specifier'
+    SERIALISABLE_VERSION = 1
+    
+    def __init__( self, service_types = None, service_keys = None ):
+        
+        if service_types is None:
+            
+            service_types = set()
+            
+        
+        if service_keys is None:
+            
+            service_keys = set()
+            
+        
+        super().__init__()
+        
+        self._service_types = set( service_types )
+        self._service_keys = set( service_keys )
+        
+    
+    def __eq__( self, other ):
+        
+        if isinstance( other, ServiceSpecifier ):
+            
+            return self.__hash__() == other.__hash__()
+            
+        
+        return NotImplemented
+        
+    
+    def __hash__( self ):
+        
+        return ( tuple( sorted( self._service_types ) ), tuple( sorted( self._service_keys ) ) ).__hash__()
+        
+    
+    def _GetSerialisableInfo( self ):
+        
+        serialisable_service_types = sorted( self._service_types )
+        serialisable_service_keys = sorted( ( key.hex() for key in self._service_keys ) )
+        
+        return ( serialisable_service_types, serialisable_service_keys )
+        
+    
+    def _InitialiseFromSerialisableInfo( self, serialisable_info ):
+        
+        ( serialisable_service_types, serialisable_service_keys ) = serialisable_info
+        
+        self._service_types = set( serialisable_service_types )
+        self._service_keys = { bytes.fromhex( key_hex ) for key_hex in serialisable_service_keys }
+        
+    
+    def GetServiceKeys( self ):
+        
+        return self._service_keys
+        
+    
+    def GetServiceTypes( self ):
+        
+        return self._service_types
+        
+    
+    def GetSpecificKeys( self ) -> set[ bytes ]:
+        
+        try:
+            
+            if len( self._service_types ) > 0:
+                
+                service_keys = CG.client_controller.services_manager.GetServiceKeys( self._service_types )
+                
+            else:
+                
+                service_keys = CG.client_controller.services_manager.FilterValidServiceKeys( self._service_keys )
+                
+                if len( service_keys ) != self._service_keys:
+                    
+                    self._service_keys = set( service_keys )
+                    
+                
+            
+        except:
+            
+            service_keys = set()
+            
+        
+        return set( service_keys )
+        
+    
+    def IsAllRatings( self ):
+        
+        return self._service_types == set( HC.LOCAL_RATINGS_SERVICES )
+        
+    
+    def IsEmpty( self ):
+        
+        return len( self._service_types ) == 0 and len( self._service_keys ) == 0
+        
+    
+    def IsOneServiceKey( self ):
+        
+        return len( self._service_types ) == 0 and len( self._service_keys ) == 1
+        
+    
+    def ToString( self ) -> str:
+        
+        if self.IsEmpty():
+            
+            return '(no services selected)'
+            
+        elif len( self._service_types ) > 0:
+            
+            if self.IsAllRatings():
+                
+                return 'ratings'
+                
+            else:
+                
+                return ', '.join( sorted( ( HC.service_string_lookup_short[ service_type ] for service_type in self._service_types ) ) )
+                
+            
+        else:
+            
+            if len( self._service_keys ) == 1:
+                
+                try:
+                    
+                    ( service_key, ) = self._service_keys
+                    
+                    name = CG.client_controller.services_manager.GetServiceName( service_key )
+                    
+                except:
+                    
+                    name = 'unknown service'
+                    
+                
+            else:
+                
+                name = f'{HydrusNumbers.ToHumanInt(len(self._service_keys))} services'
+                
+            
+            return name
+            
+        
+    
+
+HydrusSerialisable.SERIALISABLE_TYPES_TO_OBJECT_TYPES[ HydrusSerialisable.SERIALISABLE_TYPE_SERVICE_SPECIFIER ] = ServiceSpecifier
+
 class Service( object ):
     
     def __init__( self, service_key, service_type, name, dictionary = None ):
@@ -538,6 +689,14 @@ class ServiceLocalRating( Service ):
             return self._colours[ rating_state ]
             
         
+    def GetColours( self ):
+        
+        with self._lock:
+            
+            return dict( self._colours )
+            
+        
+    
 
     def GetShowInThumbnail( self ):
         
@@ -631,6 +790,7 @@ class ServiceLocalRatingStars( ServiceLocalRating ):
             
         
     
+
 class ServiceLocalRatingLike( ServiceLocalRatingStars ):
     
     def ConvertNoneableRatingToString( self, rating: typing.Optional[ float ] ):
@@ -678,6 +838,7 @@ class ServiceLocalRatingLike( ServiceLocalRatingStars ):
             
         
     
+
 class ServiceLocalRatingNumerical( ServiceLocalRatingStars ):
     
     def _GetSerialisableDictionary( self ):
@@ -3243,6 +3404,7 @@ class ServicesManager( object ):
         self._keys_to_services = { service.GetServiceKey() : service for service in services }
         
         self._keys_to_services[ CC.TEST_SERVICE_KEY ] = GenerateService( CC.TEST_SERVICE_KEY, HC.TEST_SERVICE, 'test service' )
+        self._keys_to_services[ CC.PREVIEW_RATINGS_SERVICE_KEY ] = GenerateService( CC.PREVIEW_RATINGS_SERVICE_KEY, HC.LOCAL_RATING_NUMERICAL, 'preview rating object service' )
         
         key = lambda s: s.GetName().lower()
         
@@ -3405,6 +3567,18 @@ class ServicesManager( object ):
         with self._lock:
             
             return service_key in self._keys_to_services
+            
+        
+    
+    def SetTestServiceData( self, service_key: bytes, service_type: int, data: dict, name: str = 'test service' ):
+        
+        with self._lock:
+            
+            if service_key not in [ CC.TEST_SERVICE_KEY, CC.PREVIEW_RATINGS_SERVICE_KEY ]:
+                
+                raise HydrusExceptions.TooComplicatedM8( 'Please don\'t directly set any non system services!' )
+                
+            self._keys_to_services[ service_key ] = GenerateService( service_key, service_type, name, data )
             
         
     

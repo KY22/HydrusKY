@@ -172,6 +172,7 @@ class ClientOptions( HydrusSerialisable.SerialisableBase ):
             'import_page_progress_display' : True,
             'rename_page_of_pages_on_pick_new' : False,
             'rename_page_of_pages_on_send' : False,
+            'decorate_page_of_pages_tab_names' : True,
             'process_subs_in_random_order' : True,
             'ac_select_first_with_count' : False,
             'saving_sash_positions_on_exit' : True,
@@ -275,6 +276,8 @@ class ClientOptions( HydrusSerialisable.SerialisableBase ):
             'media_viewer_lock_current_zoom_type': False,
             'media_viewer_lock_current_zoom': False,
             'media_viewer_lock_current_pan': False,
+            'media_viewer_set_default_viewer_zoom_type_from_menu': False,
+            'media_viewer_recenter_media_on_window_resize': True,
             'allow_blurhash_fallback' : True,
             'fade_thumbnails' : True,
             'slideshow_always_play_duration_media_once_through' : False,
@@ -284,6 +287,9 @@ class ClientOptions( HydrusSerialisable.SerialisableBase ):
             'do_sleep_check' : True,
             'override_stylesheet_colours' : False,
             'command_palette_show_page_of_pages' : False,
+            'command_palette_initially_show_all_pages' : True,
+            'command_palette_initially_show_history' : True,
+            'command_palette_initially_show_favourite_searches' : False,
             'command_palette_show_main_menu' : False,
             'command_palette_show_media_menu' : False,
             'disallow_media_drags_on_duration_media' : False,
@@ -422,6 +428,7 @@ class ClientOptions( HydrusSerialisable.SerialisableBase ):
         from hydrus.client.gui.widgets import ClientGUIPainterShapes
         from hydrus.core.files.images import HydrusImageHandling
         from hydrus.core.files.images import HydrusImageColours
+        from hydrus.client.metadata import ClientTags
         
         self._dictionary[ 'integers' ] = {
             'notebook_tab_alignment' : CC.DIRECTION_UP,
@@ -478,11 +485,10 @@ class ClientOptions( HydrusSerialisable.SerialisableBase ):
             'image_cache_timeout' : 600,
             'image_tile_cache_timeout' : 300,
             'image_cache_storage_limit_percentage' : 25,
-            'image_cache_prefetch_limit_percentage' : 15,
-            'media_viewer_prefetch_delay_base_ms' : 100,
+            'image_cache_prefetch_limit_percentage' : 25,
             'media_viewer_prefetch_num_previous' : 2,
             'media_viewer_prefetch_num_next' : 3,
-            'duplicate_filter_prefetch_num_pairs' : 5,
+            'duplicate_filter_prefetch_num_pairs' : 3,
             'thumbnail_border' : 1,
             'thumbnail_margin' : 2,
             'thumbnail_dpr_percent' : 100,
@@ -538,6 +544,9 @@ class ClientOptions( HydrusSerialisable.SerialisableBase ):
             'preview_default_zoom_type_override' : ClientGUICanvasMedia.MEDIA_VIEWER_ZOOM_TYPE_DEFAULT_FOR_FILETYPE,
             'export_filename_character_limit' : 220,
             'file_has_transparency_strictness' : HydrusImageColours.HAS_TRANSPARENCY_STRICTNESS_HUMAN,
+            'page_nav_history_max_entries' : 100,
+            'tag_list_tag_display_type_sidebar' : ClientTags.TAG_DISPLAY_SELECTION_LIST,
+            'tag_list_tag_display_type_media_viewer_hover' : ClientTags.TAG_DISPLAY_SINGLE_MEDIA,
         }
         
         self._dictionary[ 'floats' ] = {
@@ -560,7 +569,8 @@ class ClientOptions( HydrusSerialisable.SerialisableBase ):
         self._dictionary[ 'keys' ] = {
             'default_tag_service_tab' : CC.DEFAULT_LOCAL_TAG_SERVICE_KEY.hex(),
             'default_tag_service_search_page' : CC.COMBINED_TAG_SERVICE_KEY.hex(),
-            'default_gug_key' : HydrusData.GenerateKey().hex()
+            'default_gug_key' : HydrusData.GenerateKey().hex(),
+            'options_ratings_panel_template_service_key' : CC.PREVIEW_RATINGS_SERVICE_KEY.hex(),
         }
         
         self._dictionary[ 'key_list' ] = {}
@@ -592,6 +602,9 @@ class ClientOptions( HydrusSerialisable.SerialisableBase ):
             'number_of_unselected_medias_to_present_tags_for' : 4096,
             'export_path_character_limit' : None,
             'export_dirname_character_limit' : None,
+            'command_palette_limit_page_results' : None,
+            'command_palette_limit_history_results' : 10,
+            'command_palette_limit_favourite_searches_results' : None,
         }
         
         #
@@ -637,7 +650,8 @@ class ClientOptions( HydrusSerialisable.SerialisableBase ):
             'last_incremental_tagging_namespace' : 'page',
             'last_incremental_tagging_prefix' : '',
             'last_incremental_tagging_suffix' : '',
-            'last_options_window_panel' : 'gui'
+            'last_options_window_panel' : 'gui',
+            'page_of_pages_decorator' : ' \u2193',
         }
         
         self._dictionary[ 'string_list' ] = {
@@ -648,7 +662,8 @@ class ClientOptions( HydrusSerialisable.SerialisableBase ):
         }
         
         self._dictionary[ 'integer_list' ] = {
-            'file_viewing_stats_interesting_canvas_types' : [ CC.CANVAS_MEDIA_VIEWER, CC.CANVAS_CLIENT_API ]
+            'file_viewing_stats_interesting_canvas_types' : [ CC.CANVAS_MEDIA_VIEWER, CC.CANVAS_CLIENT_API ],
+            'command_palette_provider_order' : [ CC.COMMAND_PALETTE_PROVIDER_CALCULATOR, CC.COMMAND_PALETTE_PROVIDER_MAIN_MENU, CC.COMMAND_PALETTE_PROVIDER_MEDIA_MENU, CC.COMMAND_PALETTE_PROVIDER_PAGES_HISTORY, CC.COMMAND_PALETTE_PROVIDER_PAGES, CC.COMMAND_PALETTE_PROVIDER_FAVOURITE_SEARCH ],
         }
         
         #
