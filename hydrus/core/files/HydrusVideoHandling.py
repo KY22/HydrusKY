@@ -70,14 +70,14 @@ def GetFFMPEGInfoLines( path, count_frames_manually = False, only_first_second =
         
     except FileNotFoundError as e:
         
-        HydrusFFMPEG.HandleFFMPEGFileNotFound( e, path )
+        raise HydrusFFMPEG.HandleFFMPEGFileNotFoundAndGenerateException( e, path )
         
     
     text = stderr
     
-    if len( text ) == 0:
+    if text is None or len( text ) == 0:
         
-        HydrusFFMPEG.HandleFFMPEGNoContent( path, stdout, stderr )
+        raise HydrusFFMPEG.HandleFFMPEGNoContentAndGenerateException( path, stdout, stderr )
         
     
     lines = text.splitlines()
@@ -767,6 +767,17 @@ def ParseFFMPEGVideoResolution( lines, png_ok = False ) -> tuple[ int, int ]:
             width //= sar_height
             
         
+        # some vids are rotated, you get this line in the video stream section:
+        #     Side data:
+        #       displaymatrix: rotation of (-)90.00 degrees
+        
+        rotation_lines = [ line for line in lines if re.search( 'displaymatrix: rotation of -?90.00 degrees', line ) is not None ]
+        
+        if len( rotation_lines ) > 0:
+            
+            ( width, height ) = ( height, width )
+            
+        
         return ( width, height )
         
     except:
@@ -820,7 +831,7 @@ def VideoHasAudio( path, info_lines ) -> bool:
         
     except FileNotFoundError as e:
         
-        HydrusFFMPEG.HandleFFMPEGFileNotFound( e, path )
+        raise HydrusFFMPEG.HandleFFMPEGFileNotFoundAndGenerateException( e, path )
         
     
 
@@ -970,7 +981,7 @@ class VideoRendererFFMPEG( object ):
             
         except FileNotFoundError as e:
             
-            HydrusFFMPEG.HandleFFMPEGFileNotFound( e, self._path )
+            raise HydrusFFMPEG.HandleFFMPEGFileNotFoundAndGenerateException( e, self._path )
             
         
         if skip_frames > 0:

@@ -141,6 +141,10 @@ class QLocatorTitleWidget(QW.QWidget):
 class QLocatorResultWidget(QW.QWidget):
     up = QC.Signal()
     down = QC.Signal()
+    pageUp = QC.Signal()
+    pageDown = QC.Signal()
+    home = QC.Signal()
+    end = QC.Signal()
     activated = QC.Signal(int, int, bool)
     entered = QC.Signal()
     def __init__(self, keyEventTarget: QW.QWidget, height: int, primaryTextWidth: int, secondaryTextWidth: int, parent = None):
@@ -180,7 +184,15 @@ class QLocatorResultWidget(QW.QWidget):
         self.upShortcut.setContext(QC.Qt.ShortcutContext.WidgetShortcut)
         self.downShortcut = QW.QShortcut(QG.QKeySequence(QC.Qt.Key.Key_Down), self)
         self.downShortcut.setContext(QC.Qt.ShortcutContext.WidgetShortcut)
-
+        self.pageUpShortcut = QW.QShortcut( QG.QKeySequence( QC.Qt.Key.Key_PageUp ), self )
+        self.pageUpShortcut.setContext( QC.Qt.ShortcutContext.WidgetShortcut )
+        self.pageDownShortcut = QW.QShortcut( QG.QKeySequence( QC.Qt.Key.Key_PageDown ), self )
+        self.pageDownShortcut.setContext( QC.Qt.ShortcutContext.WidgetShortcut )
+        self.homeShortcut = QW.QShortcut( QG.QKeySequence( QC.Qt.Key.Key_Home ), self )
+        self.homeShortcut.setContext( QC.Qt.ShortcutContext.WidgetShortcut )
+        self.endShortcut = QW.QShortcut( QG.QKeySequence( QC.Qt.Key.Key_End ), self )
+        self.endShortcut.setContext( QC.Qt.ShortcutContext.WidgetShortcut )
+        
         self.selectedPalette = self.palette()
         self.selectedPalette.setColor(QG.QPalette.ColorRole.Window, QG.QPalette().color(QG.QPalette.ColorRole.WindowText))
         self.selectedPalette.setColor(QG.QPalette.ColorRole.WindowText, QG.QPalette().color(QG.QPalette.ColorRole.Window))
@@ -197,8 +209,12 @@ class QLocatorResultWidget(QW.QWidget):
         self.activateEnterShortcut.activated.connect(self.activate)
         self.activateReturnShortcut.activated.connect(self.activate)
 
-        self.upShortcut.activated.connect(self.up)
-        self.downShortcut.activated.connect(self.down)
+        self.upShortcut.activated.connect( self.up )
+        self.downShortcut.activated.connect( self.down )
+        self.pageUpShortcut.activated.connect( self.pageUp )
+        self.pageDownShortcut.activated.connect( self.pageDown )
+        self.homeShortcut.activated.connect( self.home )
+        self.endShortcut.activated.connect( self.end )
 
     def paintEvent(self, event):
         opt = QW.QStyleOption()
@@ -388,9 +404,11 @@ class QCalculatorSearchProvider(QAbstractLocatorSearchProvider):
     def iconPath(self):
         return str()
 
+# hydev tore the selection and navigation stuff apart and rewrote it
+# also added char threshold
 class QLocatorWidget(QW.QWidget):
     finished = QC.Signal()
-    def __init__(self, parent = None, width: int = 600, resultHeight: int = 36, titleHeight: int = 36, primaryTextWidth: int = 320, secondaryTextWidth: int = 200, maxVisibleItemCount: int = 8):
+    def __init__(self, parent = None, width: int = 600, resultHeight: int = 36, titleHeight: int = 36, primaryTextWidth: int = 320, secondaryTextWidth: int = 200, maxVisibleItemCount: int = 8, numCharsForResultsThreshold: int = 0):
         super().__init__(parent)
         
         self.alignment = QC.Qt.AlignmentFlag.AlignCenter
@@ -400,6 +418,7 @@ class QLocatorWidget(QW.QWidget):
         self.locator = None
         self.secondaryTextWidth = secondaryTextWidth
         self.maxVisibleItemCount = maxVisibleItemCount
+        self.numCharsForResultsThreshold = numCharsForResultsThreshold
         self.reservedItemCounts = []
         self.visibleResultItemCounts = []
         self.currentJobIds = []
@@ -431,10 +450,22 @@ class QLocatorWidget(QW.QWidget):
         self.resultList.setSizeAdjustPolicy(QW.QAbstractScrollArea.SizeAdjustPolicy.AdjustToContents)
         self.setSizePolicy(QW.QSizePolicy.Policy.Fixed, QW.QSizePolicy.Policy.Maximum)
         self.setEscapeShortcuts([QC.Qt.Key.Key_Escape])
+        self.editorUpShortcut = QW.QShortcut( QG.QKeySequence( QC.Qt.Key.Key_Up ), self.searchEdit )
+        self.editorUpShortcut.setContext( QC.Qt.ShortcutContext.WidgetShortcut )
+        self.editorUpShortcut.activated.connect( self.handleEditorUp )
         self.editorDownShortcut = QW.QShortcut(QG.QKeySequence(QC.Qt.Key.Key_Down), self.searchEdit)
         self.editorDownShortcut.setContext(QC.Qt.ShortcutContext.WidgetShortcut)
         self.editorDownShortcut.activated.connect(self.handleEditorDown)
-
+        self.editorPageUpShortcut = QW.QShortcut( QG.QKeySequence( QC.Qt.Key.Key_PageUp ), self.searchEdit )
+        self.editorPageUpShortcut.setContext( QC.Qt.ShortcutContext.WidgetShortcut )
+        self.editorPageUpShortcut.activated.connect( self.handleEditorPageUp )
+        self.editorPageDownShortcut = QW.QShortcut( QG.QKeySequence( QC.Qt.Key.Key_PageDown ), self.searchEdit )
+        self.editorPageDownShortcut.setContext( QC.Qt.ShortcutContext.WidgetShortcut )
+        self.editorPageDownShortcut.activated.connect( self.handleEditorPageDown )
+        self.editorEndShortcut = QW.QShortcut( QG.QKeySequence( QC.Qt.Key.Key_End ), self.searchEdit )
+        self.editorEndShortcut.setContext( QC.Qt.ShortcutContext.WidgetShortcut )
+        self.editorEndShortcut.activated.connect( self.handleResultPageEnd )
+        
         def handleTextEdited():
             for i in range(len(self.resultItems)):
                 for it in self.resultItems[i]: self.setResultVisible(it, False)
@@ -465,7 +496,80 @@ class QLocatorWidget(QW.QWidget):
         self.searchEdit.textEdited.connect(self.queryLocator)
 
         self.updateResultListHeight()
-
+        
+    
+    def _selectBottommostItem( self ):
+        
+        for i in range( self.resultLayout.count() - 1, -1, -1 ):
+            
+            widget = self.resultLayout.itemAt( i ).widget()
+            
+            if widget and widget.isVisible():
+                
+                if isinstance( widget, QLocatorResultWidget ):
+                    
+                    self._selectItem( i )
+                    
+                    break
+                    
+                
+            
+        
+    
+    def _selectItem( self, index: int ):
+        
+        if self.selectedLayoutItemIndex != index:
+            
+            old_selected_layout_item = self.resultLayout.itemAt( self.selectedLayoutItemIndex )
+            
+            if old_selected_layout_item is not None:
+                
+                old_selected_widget = old_selected_layout_item.widget()
+                
+                if isinstance( old_selected_widget, QLocatorResultWidget ):
+                    
+                    old_selected_widget.setSelected( False )
+                    
+                
+            
+        
+        widget = self.resultLayout.itemAt( index ).widget()
+        
+        if isinstance( widget, QLocatorResultWidget ):
+            
+            self.selectedLayoutItemIndex = index
+            
+            widget.setSelected( True )
+            
+            self.resultList.ensureVisible( 0, widget.pos().y(), 0, 0 )
+            self.resultList.ensureVisible( 0, widget.pos().y() + widget.height(), 0, 0 )
+            
+        
+    
+    def _selectTopmostItem( self ):
+        
+        # ensure we are scrolled to the very top so a non-selectable title is visible
+        
+        self.resultList.ensureVisible( 0, 0, 0, 0 )
+        
+        # select the topmost selectable item
+        
+        for i in range( self.resultLayout.count() ):
+            
+            widget = self.resultLayout.itemAt( i ).widget()
+            
+            if widget and widget.isVisible():
+                
+                if isinstance( widget, QLocatorResultWidget ):
+                    
+                    self._selectItem( i )
+                    
+                    break
+                    
+                
+            
+        
+    
     def setAlignment( self, alignment ):
         if alignment == QC.Qt.AlignmentFlag.AlignCenter:
             self.alignment = alignment
@@ -697,50 +801,166 @@ class QLocatorWidget(QW.QWidget):
         if not self.locator: return
         if self.currentJobIds:
             self.locator.stopJobs(self.currentJobIds)
+        
+        if len( query ) < self.numCharsForResultsThreshold:
+            
+            return
+            
+        
         self.lastQuery = query
         self.queryTimer.start()
-
-    def handleResultUp(self):
-        resultWidget = self.sender()
-        resultWidget = typing.cast( QLocatorResultWidget, resultWidget )
-        resultWidget.setSelected(False)
+    
+    def handleResultUp( self ):
+        
         i = self.selectedLayoutItemIndex - 1
+        
         while i > 0:
-            widget = self.resultLayout.itemAt(i).widget()
+            
+            widget = self.resultLayout.itemAt( i ).widget()
+            
             if widget and widget.isVisible():
-                if isinstance(widget, QLocatorResultWidget):
-                    self.selectedLayoutItemIndex = i
-                    widget.setSelected(True)
-                    self.resultList.ensureVisible(0, widget.pos().y(), 0, 0)
+                
+                if isinstance( widget, QLocatorResultWidget ):
+                    
+                    self._selectItem( i )
+                    
                     return
+                    
+                
+            
             i = i - 1
+            
+        
+        # nothing selectable above the current item, so let's scroll to top to show any title and focus the input
+        
+        self.resultList.ensureVisible( 0, 0, 0, 0 )
         self.searchEdit.setFocus()
-        self.resultList.ensureVisible(0, 0, 0, 0)
-
-    def handleResultDown(self):
-        resultWidget = self.sender()
-        resultWidget = typing.cast( QLocatorResultWidget, resultWidget )
+        
+    
+    def handleResultDown( self ):
+        
         i = self.selectedLayoutItemIndex + 1
+        
         while i < self.resultLayout.count():
-            widget = self.resultLayout.itemAt(i).widget()
+            
+            widget = self.resultLayout.itemAt( i ).widget()
+            
             if widget and widget.isVisible():
-                if isinstance(widget, QLocatorResultWidget):
-                    self.selectedLayoutItemIndex = i
-                    resultWidget.setSelected(False)
-                    widget.setSelected(True)
-                    self.resultList.ensureVisible(0, widget.pos().y() + widget.height(), 0, 0)
-                    break
+                
+                if isinstance( widget, QLocatorResultWidget ):
+                    
+                    self._selectItem( i )
+                    
+                    return
+                    
+                
+            
             i = i + 1
-
-    def handleEditorDown(self):
-        for i in range(self.resultLayout.count()):
-            widget = self.resultLayout.itemAt(i).widget()
+            
+        
+        # nothing selectable below the current item, so let's wraparound and select the top item
+        
+        self._selectTopmostItem()
+        
+    
+    def handleResultPageUp( self ):
+        
+        pageSize = self.getVisibleItems()
+        
+        i = self.selectedLayoutItemIndex - 1
+        
+        num_items_jumped = 1
+        
+        while i >= 0:
+            
+            widget = self.resultLayout.itemAt( i ).widget()
+            
             if widget and widget.isVisible():
-                if isinstance(widget, QLocatorResultWidget):
-                    self.selectedLayoutItemIndex = i
-                    widget.setSelected(True)
-                    break
-
+                
+                num_items_jumped += 1
+                
+                if num_items_jumped >= pageSize and isinstance( widget, QLocatorResultWidget ):
+                    
+                    self._selectItem( i )
+                    
+                    return
+                    
+                
+            
+            i = i - 1
+            
+        
+        # we rolled over the end of the list and should clip to the topmost guy
+        
+        self._selectTopmostItem()
+        
+    
+    def handleResultPageDown( self ):
+        
+        pageSize = self.getVisibleItems()
+        
+        i = self.selectedLayoutItemIndex + 1
+        
+        num_items_jumped = 1
+        
+        last_item_index = self.resultLayout.count() - 1
+        
+        while i <= last_item_index:
+            
+            widget = self.resultLayout.itemAt( i ).widget()
+            
+            if widget and widget.isVisible():
+                
+                num_items_jumped += 1
+                
+                if num_items_jumped >= pageSize and isinstance( widget, QLocatorResultWidget ):
+                    
+                    self._selectItem( i )
+                    
+                    return
+                    
+                
+            
+            i = i + 1
+            
+        
+        # we rolled over the end of the list and should clip to the bottommost guy
+        
+        self._selectBottommostItem()
+        
+    
+    def handleResultPageEnd( self ):
+        
+        self._selectBottommostItem()
+        
+    
+    def handleResultPageHome( self ):
+        
+        self._selectTopmostItem()
+        
+    
+    def handleEditorDown( self ):
+        
+        self._selectTopmostItem()
+        
+    
+    def handleEditorUp(self):
+        
+        self._selectBottommostItem()
+        
+    
+    def handleEditorPageDown( self ):
+        
+        self._selectTopmostItem()
+        self.handleResultPageDown()
+        
+    
+    def handleEditorPageUp( self ):
+        
+        self._selectBottommostItem()
+        self.handleResultPageUp()
+        
+    
     def handleEntered(self):
         resultWidget = self.sender()
         i = 0
@@ -748,8 +968,7 @@ class QLocatorWidget(QW.QWidget):
             widget = self.resultLayout.itemAt(i).widget()
             if widget and widget.isVisible() and isinstance(widget, QLocatorResultWidget):
                 if widget == resultWidget:
-                    self.selectedLayoutItemIndex = i
-                    widget.setSelected(True)
+                    self._selectItem( i )
                 else:
                     widget.setSelected(False)
             i = i + 1
@@ -796,21 +1015,91 @@ class QLocatorWidget(QW.QWidget):
                 k += 1
             self.resultItems[i] = self.resultItems[i][:self.reservedItemCounts[i]]
 
-    def getVisibleHeight(self) -> int:
+    def getVisibleHeight( self ) -> int:
+        
+        height, _ = self.getVisibleNums()
+        return height
+        
+    
+    def getVisibleItems( self ) -> int:
+        
+        _, itemCount = self.getVisibleNums()
+        return itemCount
+        
+    
+    def getVisibleNums( self ) -> tuple[ int, int ]:
+        
         itemCount = 0
         height = 0
-        for i in range(len(self.titleItems)):
-            if itemCount >= self.maxVisibleItemCount: break
+        
+        for i in range( len( self.titleItems ) ):
+            
+            if itemCount >= self.maxVisibleItemCount: 
+                
+                break
+                
+            
             if self.visibleResultItemCounts[i] > 0:
+                
                 if not self.titleItems[i].shouldRemainHidden:
+                    
                     itemCount += 1
                     height += self.titleHeight
-                if itemCount >= self.maxVisibleItemCount: break
-                visibleItems = min(self.visibleResultItemCounts[i], self.maxVisibleItemCount - itemCount)
+                    
+                
+                if itemCount >= self.maxVisibleItemCount: 
+                    
+                    break
+                    
+                visibleItems = min( self.visibleResultItemCounts[i], self.maxVisibleItemCount - itemCount )
                 itemCount += visibleItems
                 height += self.resultHeight * visibleItems
-        return height
-
+                
+            
+        return height, itemCount
+        
+    
+    def getFirstVisibleResult( self ) -> typing.Optional[ int ]:
+        
+        for index in range( self.resultLayout.count() ):
+            
+            widget = self.resultLayout.itemAt( index ).widget()
+            
+            if widget and widget.isVisible():
+                
+                if isinstance( widget, QLocatorResultWidget ):
+                    
+                    return index
+                    
+                
+            
+        
+        return None
+        
+    
+    def getLastVisibleResult( self ) -> typing.Optional[ int ]:
+        
+        for index in range( self.resultLayout.count() - 1, -1, -1 ):
+            
+            widget = self.resultLayout.itemAt( index ).widget()
+            
+            if widget and widget.isVisible():
+                
+                if isinstance( widget, QLocatorResultWidget ):
+                    
+                    return index
+                    
+                
+            
+        
+        return None
+        
+    
+    def setNumCharsForResultsThreshold( self, numCharsForResultsThreshold: int ):
+        
+        self.numCharsForResultsThreshold = numCharsForResultsThreshold
+        
+    
     def setResultVisible(self, widget: QW.QWidget, visible: bool):
         if widget.isVisible() and not visible:
             widget.setVisible(False)
@@ -847,6 +1136,10 @@ class QLocatorWidget(QW.QWidget):
     def setupResultWidget(self, widget):
         widget.up.connect(self.handleResultUp)
         widget.down.connect(self.handleResultDown)
+        widget.pageUp.connect( self.handleResultPageUp )
+        widget.pageDown.connect( self.handleResultPageDown )
+        widget.home.connect( self.handleResultPageHome )
+        widget.end.connect( self.handleResultPageEnd )
         widget.activated.connect(self.handleResultActivated)
         widget.entered.connect(self.handleEntered)
         widget.setDefaultStylingEnabled(self.defaultStylingEnabled)
@@ -923,6 +1216,7 @@ class QLocator(QC.QObject):
             
             self.jobIDCounter += 1
             
+        
         return jobIDs
     
     

@@ -255,6 +255,7 @@ class ClientOptions( HydrusSerialisable.SerialisableBase ):
             'draw_transparency_checkerboard_as_greenscreen' : False,
             'menu_choice_buttons_can_mouse_scroll' : True,
             'remember_options_window_panel' : True,
+            'options_search_bar_top_of_window' : True,
             'focus_preview_on_ctrl_click' : False,
             'focus_preview_on_ctrl_click_only_static' : False,
             'focus_preview_on_shift_click' : False,
@@ -290,6 +291,7 @@ class ClientOptions( HydrusSerialisable.SerialisableBase ):
             'command_palette_initially_show_all_pages' : True,
             'command_palette_initially_show_history' : True,
             'command_palette_initially_show_favourite_searches' : False,
+            'command_palette_fav_searches_open_new_page' : True,
             'command_palette_show_main_menu' : False,
             'command_palette_show_media_menu' : False,
             'disallow_media_drags_on_duration_media' : False,
@@ -330,6 +332,7 @@ class ClientOptions( HydrusSerialisable.SerialisableBase ):
             'potential_duplicate_pairs_search_can_do_file_search_based_optimisation' : True,
             'manage_tags_show_deleted_mappings' : False,
             'mpv_destruction_test' : False,
+            'hover_window_duplicates_always_on_top' : True,
         }
         
         #
@@ -547,6 +550,7 @@ class ClientOptions( HydrusSerialisable.SerialisableBase ):
             'page_nav_history_max_entries' : 100,
             'tag_list_tag_display_type_sidebar' : ClientTags.TAG_DISPLAY_SELECTION_LIST,
             'tag_list_tag_display_type_media_viewer_hover' : ClientTags.TAG_DISPLAY_SINGLE_MEDIA,
+            'command_palette_num_chars_for_results_threshold' : 0,
         }
         
         self._dictionary[ 'floats' ] = {
