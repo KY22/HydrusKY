@@ -31,7 +31,7 @@ fi
 # unset WAYLAND_DISPLAY
 #
 
-python hydrus_client.py -d="/home/lan/Datos/WDC/data/hydrus/db/" "$@"
+python hydrus_client.py -d="/home/lan/Datos/data/hydrus/db/" "$@"
 
 deactivate
 
