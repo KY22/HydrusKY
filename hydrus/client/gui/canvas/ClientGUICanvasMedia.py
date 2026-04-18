@@ -23,6 +23,7 @@ from hydrus.client.gui import ClientGUIExceptionHandling
 from hydrus.client.gui import ClientGUIFunctions
 from hydrus.client.gui import ClientGUIMenus
 from hydrus.client.gui import ClientGUIShortcuts
+from hydrus.client.gui import ClientGUITopLevelWindows
 from hydrus.client.gui import QtPorting as QP
 from hydrus.client.gui.canvas import ClientGUIMPV
 from hydrus.client.gui.canvas import ClientGUIQtMediaPlayer
@@ -2629,7 +2630,12 @@ class MediaContainer( QW.QWidget ):
         window_geometry = self.window().geometry()
         title_bar_offset = frame_geometry.top() - window_geometry.top()
         
-        adjusted_pos = QC.QPoint(media_win_pos.x(), media_win_pos.y() + title_bar_offset)
+        adjusted_pos = QC.QPoint( media_win_pos.x(), media_win_pos.y() + title_bar_offset )
+        
+        if not CG.client_controller.new_options.GetBoolean( 'disable_get_safe_position_test' ):
+            
+            ( adjusted_pos, silenced_message ) = ClientGUITopLevelWindows.GetSafePosition( adjusted_pos, 'media_window_size_self_to_media' )
+            
         
         self.window().showNormal()
         

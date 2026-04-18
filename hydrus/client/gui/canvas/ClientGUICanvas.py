@@ -795,6 +795,16 @@ class Canvas( CAC.ApplicationCommandProcessorMixin, QW.QWidget ):
         pass
         
     
+    def IsAlwaysOnTop( self ):
+        
+        return False
+        
+    
+    def IsHidingWindowFrame( self ):
+        
+        return False
+        
+    
     def ManageNotes( self, canvas_key, name_to_start_on = None ):
         
         if canvas_key == self._canvas_key:
@@ -2282,6 +2292,19 @@ class CanvasWithHovers( Canvas ):
         
         #
         
+        self._window_always_on_top = False
+        self._hide_window_frame = False # should always start with titlebar/frame (to establish taskbar gubbins?)
+        
+        if CG.client_controller.new_options.GetBoolean( 'always_start_media_viewers_always_on_top' ):
+            
+            CG.client_controller.CallLaterQtSafe( self, 0.1, 'setting media viewer window on top', self._FlipWindowAlwaysOnTop )
+            
+        
+        if CG.client_controller.new_options.GetBoolean( 'always_start_media_viewers_frameless' ):
+            
+            CG.client_controller.CallLaterQtSafe( self, 0.1, 'removing titlebar from media viewer', self._FlipShowHideWindowFrame )
+            
+        
         self._cursor_autohide_timer = QC.QTimer( self )
         self._last_cursor_autohide_touch_time = HydrusTime.GetNowFloat()
         
@@ -2299,6 +2322,27 @@ class CanvasWithHovers( Canvas ):
         self._cursor_autohide_timer.start( 100 )
         
         self._RestartCursorHideWait()
+        
+    
+    def _DoShowHideWindowFrame( self ):
+        
+        window_real_geom = self.window().geometry()
+        
+        self.window().setWindowFlag( QC.Qt.WindowType.FramelessWindowHint, self._hide_window_frame )
+        
+        self.window().setGeometry( window_real_geom )
+        
+        self.window().show()
+        self.update()
+        
+    
+    def _DoWindowAlwaysOnTop( self ):
+        
+        self.window().setWindowFlag( QC.Qt.WindowType.WindowStaysOnTopHint, self._window_always_on_top )
+        
+        self.window().show()
+        
+        self.update()
         
     
     def _DrawAdditionalTopMiddleInfo( self, painter: QG.QPainter, current_y ):
@@ -2852,6 +2896,20 @@ class CanvasWithHovers( Canvas ):
             
         
     
+    def _FlipShowHideWindowFrame( self ):
+        
+        self._hide_window_frame = not self._hide_window_frame
+        
+        self._DoShowHideWindowFrame()
+        
+    
+    def _FlipWindowAlwaysOnTop( self ):
+        
+        self._window_always_on_top = not self._window_always_on_top
+        
+        self._DoWindowAlwaysOnTop()
+        
+    
     def _GenerateHoverTopFrame( self ) -> ClientGUICanvasHoverFrames.CanvasHoverFrameTop:
         
         raise NotImplementedError()
@@ -3084,6 +3142,16 @@ class CanvasWithHovers( Canvas ):
         return self._canvas_type
         
     
+    def IsAlwaysOnTop( self ):
+        
+        return self._window_always_on_top
+        
+    
+    def IsHidingWindowFrame( self ):
+        
+        return self._hide_window_frame
+        
+    
     def NotifyWeAreClosing( self ):
         
         pass
@@ -3124,6 +3192,23 @@ class CanvasWithHovers( Canvas ):
             elif action == CAC.SIMPLE_SWITCH_BETWEEN_FULLSCREEN_BORDERLESS_AND_REGULAR_FRAMED_WINDOW:
                 
                 self.parentWidget().FullscreenSwitch()
+                
+            elif action in ( CAC.SIMPLE_WINDOW_ALWAYS_ON_TOP_FLIP, CAC.SIMPLE_WINDOW_ALWAYS_ON_TOP_ON, CAC.SIMPLE_WINDOW_ALWAYS_ON_TOP_OFF ):
+                
+                if action == CAC.SIMPLE_WINDOW_ALWAYS_ON_TOP_ON:
+                    
+                    self._window_always_on_top = False
+                    
+                elif action == CAC.SIMPLE_WINDOW_ALWAYS_ON_TOP_OFF:
+                    
+                    self._window_always_on_top = True
+                    
+                
+                self._FlipWindowAlwaysOnTop()
+                
+            elif action == CAC.SIMPLE_WINDOW_FRAMELESS_FLIP:
+                
+                self._FlipShowHideWindowFrame()
                 
             else:
                 

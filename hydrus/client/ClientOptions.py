@@ -151,7 +151,9 @@ class ClientOptions( HydrusSerialisable.SerialisableBase ):
             'use_native_menubar' : HC.PLATFORM_MACOS,
             'shortcuts_merge_non_number_numpad' : True,
             'disable_get_safe_position_test' : False,
-            'save_window_size_and_position_on_close' : False,
+            'fuzzy_relocate_on_get_safe_position_test' : True,
+            'fuzzy_relocate_on_get_safe_position_test_only_for_self_sizing_media_viewer_canvas' : False,
+            'save_media_viewer_window_size_and_position_on_close' : False,
             'freeze_message_manager_when_mouse_on_other_monitor' : False,
             'freeze_message_manager_when_main_gui_minimised' : False,
             'load_images_with_pil' : True,
@@ -516,6 +518,7 @@ class ClientOptions( HydrusSerialisable.SerialisableBase ):
             'thumbnail_border' : 1,
             'thumbnail_margin' : 2,
             'thumbnail_dpr_percent' : 100,
+            'forgive_frame_gubbins_fuzzy_padding' : 40,
             'file_maintenance_idle_throttle_files' : 1,
             'file_maintenance_idle_throttle_time_delta' : 2,
             'file_maintenance_active_throttle_files' : 1,
@@ -573,7 +576,13 @@ class ClientOptions( HydrusSerialisable.SerialisableBase ):
             'tag_list_tag_display_type_sidebar' : ClientTags.TAG_DISPLAY_SELECTION_LIST,
             'tag_list_tag_display_type_media_viewer_hover' : ClientTags.TAG_DISPLAY_SINGLE_MEDIA,
             'command_palette_num_chars_for_results_threshold' : 1,
-            'last_selected_import_options_container_panel_options_type' : ImportOptionsContainer.IMPORT_OPTIONS_TYPE_TAGS
+            'last_selected_import_options_container_panel_options_type' : ImportOptionsContainer.IMPORT_OPTIONS_TYPE_TAGS,
+            'thread_slots_misc' : 10,
+            'thread_slots_gallery_files' : 15,
+            'thread_slots_gallery_search' : 5,
+            'thread_slots_watcher_files' : 15,
+            'thread_slots_watcher_check' : 5,
+            'ffmpeg_subprocess_timeout' : 15,
         }
         
         self._dictionary[ 'floats' ] = {
