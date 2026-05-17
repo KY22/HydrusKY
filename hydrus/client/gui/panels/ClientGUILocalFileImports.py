@@ -27,12 +27,13 @@ from hydrus.client.gui import ClientGUIFunctions
 from hydrus.client.gui import ClientGUITopLevelWindowsPanels
 from hydrus.client.gui import QtPorting as QP
 from hydrus.client.gui.importing import ClientGUIImport
-from hydrus.client.gui.importing import ClientGUIImportOptionsLegacy
+from hydrus.client.gui.importing import ClientGUIImportOptionsContainerButton
 from hydrus.client.gui.lists import ClientGUIListConstants as CGLC
 from hydrus.client.gui.lists import ClientGUIListCtrl
 from hydrus.client.gui.panels import ClientGUIScrolledPanels
 from hydrus.client.gui.widgets import ClientGUICommon
-from hydrus.client.importing.options import FileImportOptionsLegacy
+from hydrus.client.importing.options import ImportOptionsConstants as IOC
+from hydrus.client.importing.options import ImportOptionsContainer
 from hydrus.client.metadata import ClientTags
 
 RESULT_NOT_PARSED = 0
@@ -146,15 +147,9 @@ class ReviewLocalFileImports( ClientGUIScrolledPanels.ReviewPanel ):
         self._progress_cancel = ClientGUICommon.IconButton( self, CC.global_icons().stop, self.Cancel )
         self._progress_cancel.setEnabled( False )
         
-        file_import_options = FileImportOptionsLegacy.FileImportOptionsLegacy()
-        file_import_options.SetIsDefault( True )
+        import_options_container = ImportOptionsContainer.ImportOptionsContainer()
         
-        show_downloader_options = False
-        allow_default_selection = True
-        
-        self._import_options_button = ClientGUIImportOptionsLegacy.ImportOptionsButton( self, show_downloader_options, allow_default_selection )
-        
-        self._import_options_button.SetFileImportOptions( file_import_options )
+        self._import_options_container_button = ClientGUIImportOptionsContainerButton.SpecificImportOptionsContainerButton( self, IOC.IMPORT_OPTIONS_CALLER_TYPE_LOCAL_IMPORT, import_options_container )
         
         self._delete_after_success_st = ClientGUICommon.BetterStaticText( self )
         self._delete_after_success_st.setAlignment( QC.Qt.AlignmentFlag.AlignRight | QC.Qt.AlignmentFlag.AlignVCenter )
@@ -184,7 +179,7 @@ class ReviewLocalFileImports( ClientGUIScrolledPanels.ReviewPanel ):
         
         import_options_buttons = QP.HBoxLayout()
         
-        QP.AddToLayout( import_options_buttons, self._import_options_button, CC.FLAGS_CENTER )
+        QP.AddToLayout( import_options_buttons, self._import_options_container_button, CC.FLAGS_CENTER )
         
         buttons = QP.HBoxLayout()
         
@@ -247,7 +242,7 @@ class ReviewLocalFileImports( ClientGUIScrolledPanels.ReviewPanel ):
         
         if len( good_paths ) > 0:
             
-            file_import_options = self._import_options_button.GetFileImportOptions()
+            import_options_container = self._import_options_container_button.GetValue()
             
             with ClientGUITopLevelWindowsPanels.DialogEdit( self, 'filename tagging', frame_key = 'local_import_filename_tagging' ) as dlg:
                 
@@ -261,7 +256,7 @@ class ReviewLocalFileImports( ClientGUIScrolledPanels.ReviewPanel ):
                     
                     delete_after_success = self._delete_after_success.isChecked()
                     
-                    CG.client_controller.pub( 'new_hdd_import', good_paths, file_import_options, metadata_routers, paths_to_additional_service_keys_to_tags, delete_after_success )
+                    CG.client_controller.pub( 'new_hdd_import', good_paths, import_options_container, metadata_routers, paths_to_additional_service_keys_to_tags, delete_after_success )
                     
                     self._OKParent()
                     
@@ -309,14 +304,14 @@ class ReviewLocalFileImports( ClientGUIScrolledPanels.ReviewPanel ):
         
         if len( good_paths ) > 0:
             
-            file_import_options = self._import_options_button.GetFileImportOptions()
+            import_options_container = self._import_options_container_button.GetValue()
             
             metadata_routers = []
             paths_to_additional_service_keys_to_tags = collections.defaultdict( ClientTags.ServiceKeysToTags )
             
             delete_after_success = self._delete_after_success.isChecked()
             
-            CG.client_controller.pub( 'new_hdd_import', good_paths, file_import_options, metadata_routers, paths_to_additional_service_keys_to_tags, delete_after_success )
+            CG.client_controller.pub( 'new_hdd_import', good_paths, import_options_container, metadata_routers, paths_to_additional_service_keys_to_tags, delete_after_success )
             
         
         self._OKParent()

@@ -1,34 +1,6 @@
-import collections.abc
-
 from hydrus.core import HydrusNumbers
 from hydrus.core import HydrusSerialisable
 from hydrus.core import HydrusTime
-
-from hydrus.client.media import ClientMediaResult
-from hydrus.client.metadata import ClientTags
-
-def FilterCurrentTagHashes( service_key: bytes, media_results: collections.abc.Collection[ ClientMediaResult.MediaResult ], tag: str ):
-    
-    hashes = { media_result.GetHash() for media_result in media_results if tag in media_result.GetTagsManager().GetCurrent( service_key, ClientTags.TAG_DISPLAY_STORAGE ) }
-    
-    return hashes
-    
-
-def FilterNotPreviouslyDeletedTags( service_key: bytes, media_result: ClientMediaResult.MediaResult, tags: collections.abc.Iterable[ str ] ):
-    
-    deleted_tags = set( media_result.GetTagsManager().GetDeleted( service_key, ClientTags.TAG_DISPLAY_STORAGE ) )
-    
-    tags = set( tags ).difference( deleted_tags )
-    
-    return tags
-    
-
-def FilterNotPreviouslyDeletedTagHashes( service_key: bytes, media_results: collections.abc.Collection[ ClientMediaResult.MediaResult ], tag: str ):
-    
-    hashes = { media_result.GetHash() for media_result in media_results if tag not in set( media_result.GetTagsManager().GetDeleted( service_key, ClientTags.TAG_DISPLAY_STORAGE ) ) }
-    
-    return hashes
-    
 
 class CheckerOptions( HydrusSerialisable.SerialisableBase ):
     

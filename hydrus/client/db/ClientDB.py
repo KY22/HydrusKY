@@ -31,7 +31,6 @@ from hydrus.client import ClientConstants as CC
 from hydrus.client import ClientDefaults
 from hydrus.client import ClientGlobals as CG
 from hydrus.client import ClientLocation
-from hydrus.client import ClientOptions
 from hydrus.client import ClientServices
 from hydrus.client import ClientThreading
 from hydrus.client import ClientTime
@@ -1246,6 +1245,8 @@ class DB( HydrusDB.HydrusDB ):
             self._AddService( service_key, service_type, name, dictionary )
             
         
+        from hydrus.client import ClientOptions
+        
         new_options = ClientOptions.ClientOptions()
         
         new_options.SetSimpleDownloaderFormulae( ClientDefaults.GetDefaultSimpleDownloaderFormulae() )
@@ -1347,6 +1348,12 @@ class DB( HydrusDB.HydrusDB ):
         column_list_manager = ClientGUIListManager.ColumnListManager()
         
         self.modules_serialisable.SetJSONDump( column_list_manager )
+        
+        from hydrus.client.importing.options import ImportOptionsManager
+        
+        import_options_manager = ImportOptionsManager.ImportOptionsManager.STATICGetDefaultInitialisedManager()
+        
+        self.modules_serialisable.SetJSONDump( import_options_manager )
         
     
     def _DeletePending( self, service_key ):
@@ -6273,6 +6280,8 @@ class DB( HydrusDB.HydrusDB ):
             
             self._controller.BlockingSafeShowMessage( message )
             
+            from hydrus.client import ClientOptions
+            
             new_options = ClientOptions.ClientOptions()
             
             new_options.SetSimpleDownloaderFormulae( ClientDefaults.GetDefaultSimpleDownloaderFormulae() )
@@ -8168,6 +8177,59 @@ class DB( HydrusDB.HydrusDB ):
                 self.pub_initial_message( message )
                 
             
+        
+        if version == 670:
+            
+            try:
+                
+                possible_import_options_manager = self.modules_serialisable.GetJSONDump( HydrusSerialisable.SERIALISABLE_TYPE_IMPORT_OPTIONS_MANAGER )
+                
+                if possible_import_options_manager is None:
+                    
+                    new_options = self.modules_serialisable.GetJSONDump( HydrusSerialisable.SERIALISABLE_TYPE_CLIENT_OPTIONS )
+                    
+                    from hydrus.client.importing.options import FileImportOptionsLegacy
+                    from hydrus.client.importing.options import ImportOptionsContainerMigration
+                    
+                    domain_manager = self.modules_serialisable.GetJSONDump( HydrusSerialisable.SERIALISABLE_TYPE_NETWORK_DOMAIN_MANAGER )
+                    
+                    domain_manager.Initialise()
+                    
+                    ( file_post_default_tag_import_options, watchable_default_tag_import_options, url_class_keys_to_default_tag_import_options ) = domain_manager.GetDefaultTagImportOptions()
+                    ( file_post_default_note_import_options, watchable_default_note_import_options, url_class_keys_to_default_note_import_options ) = domain_manager.GetDefaultNoteImportOptions()
+                    
+                    import_options_manager = ImportOptionsContainerMigration.GenerateImportOptionsManagerFromOldSystem(
+                        file_post_default_tag_import_options,
+                        watchable_default_tag_import_options,
+                        url_class_keys_to_default_tag_import_options,
+                        file_post_default_note_import_options,
+                        watchable_default_note_import_options,
+                        url_class_keys_to_default_note_import_options,
+                        new_options.GetDefaultFileImportOptions( FileImportOptionsLegacy.IMPORT_TYPE_QUIET ),
+                        new_options.GetDefaultFileImportOptions( FileImportOptionsLegacy.IMPORT_TYPE_LOUD ),
+                    )
+                    
+                    self.modules_serialisable.SetJSONDump( import_options_manager )
+                    
+                    new_options.DeleteDefaultFileImportOptions()
+                    
+                    self.modules_serialisable.SetJSONDump( new_options )
+                    
+                    domain_manager.DeleteDefaultImportOptions()
+                    
+                    self.modules_serialisable.SetJSONDump( domain_manager )
+                    
+                
+            except Exception as e:
+                
+                HydrusData.Print( 'Problem doing the import options migration! Please forward this error to hydev and roll back to v670:' )
+                HydrusData.PrintException( e, do_wait = False )
+                
+                raise Exception( f'The import options migration had a problem! Please check your logfile for the full error and send it to hydev, and then roll back to v670! Error summary:\n\n{e}' )
+                
+            
+        
+        #
         
         self._controller.frame_splash_status.SetTitleText( 'updated db to v{}'.format( HydrusNumbers.ToHumanInt( version + 1 ) ) )
         

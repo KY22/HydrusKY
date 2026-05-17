@@ -11,6 +11,7 @@ from hydrus.core import HydrusData
 from hydrus.core import HydrusExceptions
 from hydrus.core import HydrusNumbers
 from hydrus.core import HydrusSerialisable
+from hydrus.core import HydrusTemp
 from hydrus.core import HydrusText
 from hydrus.core import HydrusTime
 from hydrus.core.networking import HydrusNetworking
@@ -1619,6 +1620,43 @@ class ReviewNetworkSessionsPanel( ClientGUIScrolledPanels.ReviewPanel ):
             try:
                 
                 cj.load( path, ignore_discard = True, ignore_expires = True )
+                
+            except UnicodeDecodeError as e:
+                
+                try:
+                    
+                    cj = http.cookiejar.MozillaCookieJar()
+                    
+                    with open( path, 'r', encoding = 'utf-8' ) as f:
+                        
+                        cookies_text = f.read()
+                        
+                    
+                    ( os_file_handle, temp_path ) = HydrusTemp.GetTempPath( 'example_data' )
+                    
+                    try:
+                        
+                        # this selects the local locale, which http.cookiejar will soon ask for
+                        with open( temp_path, 'w' ) as f:
+                            
+                            f.write( cookies_text )
+                            
+                        
+                        cj.load( temp_path, ignore_discard = True, ignore_expires = True )
+                        
+                    finally:
+                        
+                        HydrusTemp.CleanUpTempPath( os_file_handle, temp_path )
+                        
+                    
+                except Exception as e2:
+                    
+                    HydrusData.ShowException( e2 )
+                    
+                    ClientGUIDialogsMessage.ShowCritical( self, 'Problem loading!', 'It looks like that cookies.txt failed to load due to an encoding issue. I tried to recover from the situation but could not!' )
+                    
+                    return
+                    
                 
             except Exception as e:
                 

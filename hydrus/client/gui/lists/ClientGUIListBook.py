@@ -72,6 +72,12 @@ class ListBook( QW.QWidget ):
             self._page_list.verticalScrollBar().setEnabled( False ) # this disables mouse wheel too
             
         
+        if list_chars_height is not None:
+            
+            self._page_list.setHorizontalScrollBarPolicy( QC.Qt.ScrollBarPolicy.ScrollBarAlwaysOff )
+            self._page_list.horizontalScrollBar().setEnabled( False ) # this disables mouse wheel too
+            
+        
         self._widget_stack = QW.QStackedWidget( self )
         
         #

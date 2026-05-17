@@ -688,7 +688,7 @@ Response:
     *   4 - File failed to import
     *   7 - File vetoed
     
-    A file 'veto' is caused by the file import options (which in this case is the 'quiet' set under the client's _options->importing_) stopping the file due to its resolution or minimum file size rules, etc...
+    A file 'veto' (aka 'ignored') is caused by the file import options (which in this case is the 'client api' set under the client's _options->import options_) stopping the file due to its resolution or minimum file size rules, etc...
     
     'hash' is the file's SHA256 hash in hexadecimal, and 'note' is any additional human-readable text appropriate to the file status that you may recognise from hydrus's normal import workflow. For an outright import error, it will be a summary of the exception that you can present to the user, and a new field `traceback` will have the full trace for debugging purposes.
      

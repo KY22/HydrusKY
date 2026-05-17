@@ -40,6 +40,7 @@ from hydrus.client.gui import ClientGUISplash
 from hydrus.client.gui import QtPorting as QP
 from hydrus.client.gui.lists import ClientGUIListManager
 from hydrus.client.importing import ClientImportFiles
+from hydrus.client.importing.options import ImportOptionsManager
 from hydrus.client.media import ClientMediaResultCache
 from hydrus.client.metadata import ClientTagsHandling
 from hydrus.client.networking import ClientNetworking
@@ -395,6 +396,8 @@ class Controller( object ):
         self.CallToThreadLongRunning( self.network_engine.MainLoop )
         
         self.tag_display_manager = ClientTagsHandling.TagDisplayManager()
+        
+        self.import_options_manager = ImportOptionsManager.ImportOptionsManager.STATICGetDefaultInitialisedManager()
         
         self.duplicates_auto_resolution_manager = ClientDuplicatesAutoResolution.DuplicatesAutoResolutionManager( self )
         

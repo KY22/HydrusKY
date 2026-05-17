@@ -279,12 +279,33 @@ def PILImageIsPNGWithGammaAndChromaticity( pil_image: PILImage.Image ):
         
         linear_gamma = pil_image.info[ 'gamma' ]
         
-        if linear_gamma == 0.0:
+        try:
+            
+            if linear_gamma == 0.0:
+                
+                return False
+                
+            
+        except Exception as e:
             
             return False
             
         
-        if 0.0 in pil_image.info[ 'chromaticity' ]:
+        chromaticity = pil_image.info[ 'chromaticity' ]
+        
+        if isinstance( chromaticity, str ):
+            
+            return False
+            
+        
+        try:
+            
+            if 0.0 in chromaticity:
+                
+                return False
+                
+            
+        except Exception as e:
             
             return False
             

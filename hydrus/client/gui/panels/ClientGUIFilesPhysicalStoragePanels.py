@@ -148,7 +148,7 @@ class ReviewGranularityPanel( ClientGUIScrolledPanels.ReviewPanel ):
             
         else:
             
-            ClientGUIDialogsMessage.ShowCritical( 'error!', 'This process was started with a granularity other than 2 or 3! Something went wrong, please tell hydev!' )
+            ClientGUIDialogsMessage.ShowCritical( 'error!', 'Granularity init error!', 'This process was started with a granularity other than 2 or 3! Something went wrong, please tell hydev!' )
             
             return
             
