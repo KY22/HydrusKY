@@ -477,11 +477,11 @@ class Page( QW.QWidget ):
         CG.client_controller.ReleasePageKey( self._page_key )
         
     
-    def EnterPredicates( self, predicates ):
+    def EnterPredicates( self, predicates: list[ ClientSearchPredicate.Predicate ] ):
         
-        self._sidebar.EnterPredicates( self._page_key, predicates )
+        self._sidebar.EnterPredicates( predicates )
         
-        
+    
     def EventPreviewUnsplit( self, event ):
         
         QP.Unsplit( self._search_preview_split, self._preview_panel )

@@ -43,16 +43,14 @@ def ColourIsGreyish( colour: QG.QColor ):
 NUM_CHARS_FOR_WIDTH_CALCULATIONS = 32
 MAGIC_TEXT_PADDING = 1.1
 
-def GetOneCharacterPixelHeight( window ) -> float:
+def GetOneCharacterPixelHeight( window: QW.QWidget ) -> float:
     
     return window.fontMetrics().height() * MAGIC_TEXT_PADDING
     
 
-def GetOneCharacterPixelWidth( window ) -> float:
+def GetOneCharacterPixelWidth( window: QW.QWidget ) -> float:
     
-    char_block_width = window.fontMetrics().boundingRect( NUM_CHARS_FOR_WIDTH_CALCULATIONS * 'x' ).width() * MAGIC_TEXT_PADDING
-    
-    one_char_width = char_block_width / NUM_CHARS_FOR_WIDTH_CALCULATIONS
+    one_char_width = window.fontMetrics().averageCharWidth() * MAGIC_TEXT_PADDING
     
     return one_char_width
     

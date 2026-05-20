@@ -774,11 +774,11 @@ class ImportFolder( HydrusSerialisable.SerialisableBaseNamed ):
         # num_to_do is num currently unknown
         num_total = self._file_seed_cache.GetFileSeedCount( CC.STATUS_UNKNOWN )
         
-        file_seed = None
+        file_seed: ClientImportFileSeeds.FileSeed | None = None
         
         while True:
             
-            previous_file_seed = file_seed
+            previous_file_seed: ClientImportFileSeeds.FileSeed | None = file_seed
             
             file_seed = self._file_seed_cache.GetNextFileSeed( CC.STATUS_UNKNOWN )
             

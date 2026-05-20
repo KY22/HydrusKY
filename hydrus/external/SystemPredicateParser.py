@@ -653,6 +653,11 @@ def parse_value( parse_result: SystemPredParseResult, spec ):
             
             dt = dateparser.parse( string )
             
+            if dt is None:
+                
+                raise ValueError( 'Could not parse that date!' )
+                
+            
             if not string_looks_like_date( string ):
                 
                 # a time delta

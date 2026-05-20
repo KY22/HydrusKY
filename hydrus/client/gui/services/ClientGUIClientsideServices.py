@@ -1837,6 +1837,8 @@ class ReviewServicePanel( QW.QWidget ):
         
         service_key = self._service.GetServiceKey()
         
+        self._id_button.setEnabled( False )
+        
         def work_callable():
             
             service_id = CG.client_controller.Read( 'service_id', service_key )
@@ -1851,7 +1853,28 @@ class ReviewServicePanel( QW.QWidget ):
             ClientGUIDialogsMessage.ShowInformation( self, message )
             
         
-        job = ClientGUIAsync.AsyncQtJob( self, work_callable, publish_callable )
+        def errback_callable( etype, value, tb ):
+            
+            if etype == HydrusExceptions.DataMissing:
+                
+                message = 'Sorry, it looks like that service is missing! Did you recently delete it?'
+                
+            else:
+                
+                message = 'Sorry, had trouble fetching the service id! Error should be in a new popup!'
+                
+            
+            ClientGUIDialogsMessage.ShowWarning( self, message )
+            
+            HydrusData.ShowExceptionTuple( etype, value, tb, do_wait = False )
+            
+        
+        def ui_restoration_callable():
+            
+            self._id_button.setEnabled( True )
+            
+        
+        job = ClientGUIAsync.AsyncQtJob( self, work_callable, publish_callable, errback_callable = errback_callable, ui_restoration_callable = ui_restoration_callable )
         
         job.start()
         

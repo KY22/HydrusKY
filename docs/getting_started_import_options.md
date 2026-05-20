@@ -34,12 +34,81 @@ If you would like to learn more now, then know that every file import is assigne
 
 Every single import has every one of these, but in many cases the specific options set will have nothing interesting to say or the import may not need to consult it. A local file import, from your hard drive, will not consider the Prefetch Import Options.
 
+## Some simple examples
+
+Before we get into the complex stuff, let's look at some simple scenarios:
+
+### Reimporting deleted files
+
+Let's say you imported a folder of images yesterday and deleted some things, and now you realise you deleted things you didn't mean to. You recover the original files from your recycle bin, and you want to re-import them all to try the whole thing over again, but when you actually try to import them to hydrus, it says 'previously deleted'. What do you do?
+
+Every importer has an 'import options' button somewhere. Click it, and you will see how that importer is set up at the moment. Every importer starts in an 'all default' state, which means it uses all the stuff set up in `options->import options`.
+
+[![](images/import_options_example_1_1.png)](images/import_options_example_1_1.png)
+
+The defaults exclude previously deleted files, which we want to override. Click that 'use the default import options' dropdown, and select 'use custom import options'. It will load up whatever the defaults actually were, which you can then edit. Here, we uncheck the checkbox to allow previously deleted files:
+
+[![](images/import_options_example_1_2.png)](images/import_options_example_1_2.png)
+
+Hit apply, and then proceed with the import. Any file that would have been recognised as being 'previously deleted' will now be imported.
+
+Note that the panel here says your 'Location Import Options' and 'Presentation Import Options' stay as 'default ... (global)'. Although we set one type of custom options here, we did not affect the others. This system is designed for setting up 'do everything as normal, except for this part' situations.
+
+### Sending tags somewhere else
+
+Let's say you have found a nice place to download from, but it has some pretty terrible tags. You decide you want to put those tags in a special place and filter out the bad stuff. You need to do a test download to test a new import options setup.
+
+By default, hydrus grabs all available tags from normal gallery-like sites and puts them in the 'downloader tags' local tag domain. For this example, we will say that you have hit up `services->manage services` and created a new local tag domain, "unreliable tags".
+
+Opening up a new gallery downloader page, here is our default state for 'tag import options':
+
+[![](images/import_options_example_2_1.png)](images/import_options_example_2_1.png)
+
+This says 'get everything the downloader provides and put it in "downloader tags"'. Let's update it:
+
+[![](images/import_options_example_2_2.png)](images/import_options_example_2_2.png)
+
+We:
+
+- Unchecked 'get tags' for "downloader tags"
+- Checked 'get tags' for "unreliable tags"
+- Opened the tag filter for "unreliable tags", and--  
+    - Unchecked 'namespaced' and 'unnamespaced' from the whitelist.
+    - Added "creator:", "series:", "character:" to the whitelist.
+
+This tag import options will now take the creator, series, and character tags from the downloader and add them to "unreliable tags".
+
+### Redownloading tags
+
+Let's say you have a nice tag parsing setup, but it took a few experiments to get there. You try to run a gallery search for a second time, trying to get the correct tags for some files you downloaded before, but rather than adding tags to those files, it just skips through the list real quick, setting the file results as 'already in db' with no changes. What to do?
+
+#### The easy way
+
+Just select the files and hit `right-click->force metadata refetch->these files' x urls`.
+
+#### The manual way
+
+Open up the prefetch import options:
+
+[![](images/import_options_example_3_1.png)](images/import_options_example_3_1.png)
+
+Checking the two 'force metadata refetch even if hash/url...' settings tells hydrus 'even if you are confident you have the file already, I want the downloader to grab any associated html/xml/json data it can fetch, like it normally would for a new file'. The downloader will not redownload the file itself--that's what the top two settings control--but it will run a little slower as it fetches some data from the site. Usually about one second per file.
+
+Each import object now will be populated with tags and notes and source times and so on from the site itself before it is assigned 'already in db'. When a file import job is finishing up (no matter whether it was successful, already in db, or previously deleted), it looks at the metadata it has learned and saves it to that file according to its import options.
+
+If you do a 'force metadata refetch' from the thumbnail menu, you'll see it sets exactly these Prefetch Import Options up for you.
+
+!!! warning "ONLY SET THIS FOR ONE-TIME JOBS"
+    Hydrus skips work for good reason. Redownloading metadata is wasteful and rarely produces anything new; redownloading files even moreso.
+    
+    The only time it is appropriate to set these options is when a previous download job had bad settings or you know that the URL store is messed up for n files and thus the 'already in db/previously deleted' outcomes you are getting are false positive. This panel holds the exceptional, "no, just do it anyway" tools, and they should be used sparingly.
+
 ## The Defaults System
 
 !!! note "You are in control"
     This is another one of those hydrus systems that has some reasonable defaults but is very user-configurable. You can go down a rabbit hole here, and I won't stop you. Some people need the specificity of URL Class Import Options; most do not. Figure out what works for your situation, and don't put time into anything that isn't broken.
 
-So, how are these Import Options set up for a particular file import? It would be too annoying to set up a whole set of import options every time for each new importer, so instead Hydrus has a sophisticated _defaults_ system, where the different types of import can all add their suggestion on what they thing should happen, so you might say 'in general, all imports should send files to "my files"' and 'in general, all gallery downloads should grab all available tags and send them here'. At the moment of import, the system looks at what is going on, for instance, "we are importing from this URL through this type of page", looks at which suggestions are the most appropriate, and freezes a mix-and-match of the various defined default settings and goes ahead.
+You obviously do not want to set up a custom tag import options every time you open up a new gallery page, so, how are the default Import Options set up for a particular file import? There are not one set of defaults, but instead several _layers_, where the different types of import can all add their suggestion on what they think should happen. They might say 'in general, all imports should send files to "my files"' and 'in general, all gallery downloads should grab all available tags and send them here' while simultaneously, in a different place, saying 'in general, watcher downloads should not grab any tags'. At the moment of import, the system looks at what is going on, for instance, "we are importing from this URL through a subscription", looks at which suggestions are the most appropriate, and freezes a mix-and-match of the various defaults and goes ahead.
 
 **Importantly**, a setting here can abstain, saying, for instance: "subscriptions have no custom note import options". When a layer of options says this, which it does by saying 'use default', it is telling the system to defer to the next most general layer for actual settings to use. Most of the options structure starts like this, not setting anything, and thus most imports will by default use the base 'global' settings.
 
@@ -47,7 +116,9 @@ The 'global' set of Import Options are the backstop that will be used if nothing
 
 [![](images/import_options_stack_chart_1.png)](images/import_options_stack_chart_1.png)
 
-This is the default situation for a local hard drive import page. By default, the 'local hard drive import' type has no custom options. Similarly, while every new import context has a "specific import options" attached that _can_ override the defaults, it starts empty every time. Imagine, though, if you did this (and let's say unchecking the 'exclude deleted' checkbox):
+This is the default situation for a local hard drive import page. By default, the 'local hard drive import' type has no custom options.
+
+Recall our simple example from before, where we set to allow previously deleted files. This was achieved by setting the "specific import options" that each downloader holds:
 
 [![](images/import_options_setting_specific_file_filtering.png)](images/import_options_setting_specific_file_filtering.png)
 
@@ -205,6 +276,24 @@ If you need to set up the same options for twelve URL Classes in a row, set up e
 If you have a common setup (for instance, 'import to x local file domain and auto-archive', save it to your favourites! You can load it up quickly to any importer:
 
 [![](images/import_options_favourites_load.png)](images/import_options_favourites_load.png)
+
+## An URL Class Example
+
+Let's say you want to set up tag parsing for a particular site. Maybe you also want to add a tag to say that a file came from that site. Let's do it:
+
+[![](images/import_options_example_4_1.png)](images/import_options_example_4_1.png)
+
+URL Class defaults override everything except the custom settings a specific downloader might have, so now, any time a normal, 'use the defaults' URL Downloader Page, Gallery Downloader Page, or Subscription works on an URL that matches that URL Class, it will use those altered Tag Import Options, and the 'source:somebooru' will be added. You could similarly set a custom tag blacklist, choose a different import location, exclude all large gifs--whatever makes sense for that site.
+
+If another site has similar needs, you can copy/paste easily:
+
+[![](images/import_options_example_4_2.png)](images/import_options_example_4_2.png)
+
+As I say above, the pasting can get complicated if you need to do a clever merge, but `replace-paste` works fine when you just need to make the thing you are pasting into look exactly like the thing you copied from.
+
+In this case, of course, you'd probably want to go in and edit that Tag Import Options to add 'source:otherbooru' instead. When you set up custom import options on URL Classes, be careful of falling into a trap of things like 'source:site'--it may sound good to start, but you might just be making a lot more work for yourself, when simply using 'system:known url: otherbooru file page' would have done the job.
+
+Keep things simple!
 
 ## Advanced URL Class Logic
 

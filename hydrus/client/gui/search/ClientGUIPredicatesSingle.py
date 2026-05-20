@@ -1251,6 +1251,10 @@ class PanelPredicateSystemHash( PanelPredicateSystemSingle ):
                 
                 we_split_some = True
                 
+            else:
+                
+                stripped_hashes.append( line )
+                
             
         
         if we_split_some and len( seen_prefixes ) == 1:

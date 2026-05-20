@@ -1,8 +1,10 @@
+import collections.abc
 import typing
 
 from qtpy import QtCore as QC
 from qtpy import QtWidgets as QW
 
+from hydrus.core import HydrusConstants as HC
 from hydrus.core import HydrusData
 from hydrus.core import HydrusExceptions
 from hydrus.core import HydrusSerialisable
@@ -376,6 +378,16 @@ class EditImportOptionsContainerPanel( ClientGUIScrolledPanels.EditPanel ):
         self._url_class_keys = url_class_keys
         self._simple_mode = simple_mode
         
+        menu_template_items = []
+        
+        page_func = HydrusData.Call( ClientGUIDialogsQuick.OpenDocumentation, self, HC.DOCUMENTATION_IMPORT_OPTIONS )
+        
+        menu_template_items.append( ClientGUIMenuButton.MenuTemplateItemCall( 'open the import options help', 'Open the HTML help that talks about this whole system.', page_func ) )
+        
+        help_button = ClientGUIMenuButton.MenuIconButton( self, CC.global_icons().help, menu_template_items )
+        
+        help_hbox = ClientGUICommon.WrapInText( help_button, self, 'help for this panel -->', object_name = 'HydrusIndeterminate' )
+        
         if self._simple_mode:
             
             import_options_types_to_list_here = list( IOC.IMPORT_OPTIONS_TYPES_SIMPLE_MODE_LOOKUP[ self._import_options_caller_type ] )
@@ -457,7 +469,7 @@ class EditImportOptionsContainerPanel( ClientGUIScrolledPanels.EditPanel ):
         self._paste_button = ClientGUIMenuButton.MenuIconButton( self, CC.global_icons().paste, menu_template_items )
         self._paste_button.setToolTip( ClientGUIFunctions.WrapToolTip( 'Paste an entire set of import options.' ) )
         
-        self._favourites_button = ImportOptionsContainerFavouritesButton( self, self._import_options_container_manager, edit_allowed = self._import_options_caller_type != IOC.IMPORT_OPTIONS_CALLER_TYPE_FAVOURITES )
+        self._favourites_button = ImportOptionsContainerFavouritesButton( self, self._import_options_container_manager, edit_allowed = self._import_options_caller_type != IOC.IMPORT_OPTIONS_CALLER_TYPE_FAVOURITES, current_value_callable = self.GetValue )
         
         self._listbook = ClientGUIListBook.ListBook( self, list_chars_height = len( import_options_types_to_list_here ), orientation = QC.Qt.Orientation.Vertical, no_vertical_scrollbar = True )
         
@@ -517,6 +529,7 @@ class EditImportOptionsContainerPanel( ClientGUIScrolledPanels.EditPanel ):
         
         vbox = QP.VBoxLayout()
         
+        QP.AddToLayout( vbox, help_hbox, CC.FLAGS_EXPAND_PERPENDICULAR )
         QP.AddToLayout( vbox, self._description_label, CC.FLAGS_EXPAND_PERPENDICULAR )
         QP.AddToLayout( vbox, self._name_edit_panel, CC.FLAGS_EXPAND_PERPENDICULAR )
         QP.AddToLayout( vbox, button_hbox, CC.FLAGS_ON_RIGHT )
@@ -780,7 +793,7 @@ class ImportOptionsContainerFavouritesButton( ClientGUICommon.IconButton ):
     loadFavouriteCustom = QC.Signal( ImportOptionsContainer.ImportOptionsContainer )
     loadFavourite = QC.Signal( ImportOptionsContainer.ImportOptionsContainer )
     
-    def __init__( self, parent: QW.QWidget, import_options_container_manager: ImportOptionsManager.ImportOptionsManager, edit_allowed = True ):
+    def __init__( self, parent: QW.QWidget, import_options_container_manager: ImportOptionsManager.ImportOptionsManager, edit_allowed = True, current_value_callable: collections.abc.Callable[ [], ImportOptionsContainer.ImportOptionsContainer ] | None = None ):
         
         super().__init__( parent, CC.global_icons().star, self._ShowMenu )
         
@@ -788,6 +801,7 @@ class ImportOptionsContainerFavouritesButton( ClientGUICommon.IconButton ):
         
         self._import_options_container_manager = import_options_container_manager
         self._edit_allowed = edit_allowed
+        self._current_value_callable = current_value_callable
         
         if not self._edit_allowed and len( self._import_options_container_manager.GetFavouriteImportOptionContainers() ) == 0:
             
@@ -875,6 +889,36 @@ class ImportOptionsContainerFavouritesButton( ClientGUICommon.IconButton ):
         self.loadFavouriteCustom.emit( import_options_container )
         
     
+    def _SaveCurrentValueAsNew( self ):
+        
+        if self._current_value_callable is None:
+            
+            return
+            
+        
+        name = 'import options'
+        
+        try:
+            
+            import_options_container = self._current_value_callable()
+            
+        except HydrusExceptions.CancelledException:
+            
+            return
+            
+        
+        try:
+            
+            name = ClientGUIDialogsQuick.EnterText( self, 'Please enter a name for the new favourite.', default = name, placeholder = 'Name for import options favourite entry.' )
+            
+        except HydrusExceptions.CancelledException:
+            
+            return
+            
+        
+        self._import_options_container_manager.AddFavourite( name, import_options_container )
+        
+    
     def _ShowMenu( self ):
         
         names_to_favourite_options_containers = self._import_options_container_manager.GetFavouriteImportOptionContainers()
@@ -926,6 +970,11 @@ class ImportOptionsContainerFavouritesButton( ClientGUICommon.IconButton ):
                     
                     summary = import_options_container.GetSummary( import_options_caller_type_for_summaries )
                     
+                    if summary == '':
+                        
+                        summary = 'all default'
+                        
+                    
                     ClientGUIMenus.AppendMenuItem( edit_menu, f'{name} - {summary}', 'copy this import options container to clipboard', self._Edit, name, import_options_container )
                     
                 
@@ -933,6 +982,11 @@ class ImportOptionsContainerFavouritesButton( ClientGUICommon.IconButton ):
                 
             
             ClientGUIMenus.AppendMenuItem( edit_menu, 'add new favourite', 'Create an empty favourite', self._Add )
+            
+            if self._current_value_callable is not None:
+                
+                ClientGUIMenus.AppendMenuItem( edit_menu, 'save current value as new favourite', 'Create a new favourite', self._SaveCurrentValueAsNew )
+                
             
             ClientGUIMenus.AppendMenu( menu, edit_menu, 'edit/add' )
             

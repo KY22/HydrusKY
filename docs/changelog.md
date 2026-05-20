@@ -7,6 +7,47 @@ title: Changelog
 !!! note
     This is the new changelog, only the most recent builds. For all versions, see the [old changelog](old_changelog.html).
 
+## [Version 672](https://github.com/hydrusnetwork/hydrus/releases/tag/v672)
+
+### misc
+
+* fixed a stupid error where the new-ish `media playback->ffmpeg call timeout` setting was not hooked up correctly on options dialog ok and was not saving! sorry for the trouble, I don't know how this slipped through testing
+* fixed an issue where edit-pasting a prefixed 'sha256:abcd...'-style hash into an existing 'system:hashes' would wipe out the existing hashes (issue #2015)
+* fixed the 'is this video rotated 90 degrees?' test in my ffmpeg output parsing for ffmpeg 8.1.x (which the windows builds moved to recently) (issue #1377)
+* improved the speed and precision of the core call in the 'hey roughly how wide is 16 characters for this widget?' size calculations used by stuff across the program. system:hash panel should fit better in different fonts and sizes now. this may make some tight multi-column lists (like the one in duplicate page, auto-resolution tab) go a bit wide, requiring you to shrink them a little manually to hide new horizontal scrollbars--forgive me
+* if a PNG file has chromaticity data but not gamma data, I now sub in a gamma of 0.45455 (which works well as a best-case fallback), and continue with the new ICC Profile-based chromaticity correction. thanks to the user who noticed this in the duplicate filter and had example files to test that rendered with a slightly different glow but were inexplicably marked, in an older version of the client, as pixel dupes
+
+### duplicates auto-resolution
+
+* the cog icon of the potential duplicate par search panel (which you see on dupe pages and a couple other places in auto-resolution UI) has a new 'start new potential duplicate pair search panels paused' entry. if you use a bunch of these and wrestling with the pause status is annoying, try it out
+* you can now use 'system:number of pixels' in the single-file 'test A or B using search terms' comparator
+* you can now use 'system:ratio' in the single-file 'test A or B using search terms' comparator
+* you can now use 'system:ratio' in the 'test A against B using file info' comparator, but the UI for it shows some default operator labels; `<` instead of `taller than`. the comparator summary label should work though
+* the system pred dropdown in that edit panel (this is the Metadata Conditional edit panel) collapses system:width, height, num_pixels, and ratio down to 'system:dimensions', like in a normal search page
+* added unit tests for the new comparators
+
+### some import options follow-up
+
+* added three simple examples to the top of the new import options help for 'setting up import previously deleted'; 'sending some tags elsewhere'; and 'forcing a tag redownload' as a stepping stone between 'ignore this whole system m8' and 'how to harmonically conjunct the polyhierarchic metalateral defaults'
+* also added an example of how to customise and clone URL Class defaults
+* added a 'help for this panel' button that links to the html help to the regular edit import options panel
+* the regular edit import options panel's favourite button has a new 'save current value as new favourite' entry in its menu, under edit/add
+* in the new import options system, the 'locations' import options now shows for post urls, watcher urls, and the subs defaults in simple mode
+
+### client api
+
+* added `/client_info`, accessible to all valid access keys, which provides a random hex `boot_id`, a float `boot_time`, and `currently_idle` bool, for tracking client restarts and throttling decisions
+* Client API version is now 92
+
+### boring cleanup
+
+* the 'fetch service id' button in review services has nicer error handling and now disables the button while it works
+* cleaned up how the 'set forced mimetype to these files' operation works behind the scenes
+* reworked how the sidebar taglist broadcasts tag changes to the current search; moving from an old pubsub to a newer Qt signal
+* fixed an issue with dissolving an OR predicate from the active predicates menu where the signal was being double-sent
+* reworked the `NumberTest` rendering tech to better handle custom number and operator rendering
+* the Number Tests across the program, which power a bunch of the newer system predicates where you can say 'width is approx 400 +/- 15%' are no longer coerced to integers behind the scenes. this doesn't affect much, but in the duplicates auto-resolution system, where you can do `A has height > 1.8x B`, that multiplier can now result in a float. in the trivial case of B height `1`, `1 * 1.8` is now less than `2`, rather than being rounded up
+
 ## [Version 671](https://github.com/hydrusnetwork/hydrus/releases/tag/v671)
 
 ### import options overhaul

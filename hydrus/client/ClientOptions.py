@@ -342,6 +342,7 @@ class ClientOptions( HydrusSerialisable.SerialisableBase ):
             'use_legacy_mpv_mediator' : False,
             'potential_duplicate_pairs_search_context_panel_stops_to_estimate' : True,
             'potential_duplicate_pairs_search_can_do_file_search_based_optimisation' : True,
+            'potential_duplicate_pairs_search_starts_paused' : False,
             'manage_tags_show_deleted_mappings' : False,
             'mpv_destruction_test' : False,
             'hover_window_duplicates_always_on_top' : True,

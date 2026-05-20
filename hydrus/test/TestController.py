@@ -193,6 +193,12 @@ class Controller( object ):
         self.run_finished = False
         self.was_successful = False
         
+        self._timestamps_lock = threading.Lock()
+        
+        self._timestamps_ms = collections.defaultdict( lambda: 0 )
+        
+        self._boot_id = HydrusData.GenerateKey()
+        
         self.main_qt_thread = self.app.thread()
         
         self.call_after_catcher = ClientGUICallAfter.CallAfterEventCatcher( QW.QApplication.instance() )
@@ -671,6 +677,11 @@ class Controller( object ):
         return False
         
     
+    def GetBootId( self ):
+        
+        return self._boot_id
+        
+    
     def GetCurrentSessionPageAPIInfoDict( self ):
         
         return {
@@ -720,6 +731,11 @@ class Controller( object ):
         return self._server_files_dir
         
     
+    def GetHydrusTempDir( self ):
+        
+        return self._hydrus_temp_dir
+        
+    
     def GetMainGUI( self ):
         
         return self.win
@@ -759,9 +775,12 @@ class Controller( object ):
         return read
         
     
-    def GetHydrusTempDir( self ):
+    def GetTimestampMS( self, name: str ) -> int:
         
-        return self._hydrus_temp_dir
+        with self._timestamps_lock:
+            
+            return self._timestamps_ms[ name ]
+            
         
     
     def GetWrite( self, name ):

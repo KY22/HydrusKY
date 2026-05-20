@@ -76,7 +76,7 @@ import_options_type_str_lookup = {
 }
 
 import_options_type_desc_lookup = {
-    IMPORT_OPTIONS_TYPE_PREFETCH : 'Hydrus tries to save bandwidth. In most cases, it will not redownload a file page (HTML/JSON) or the file itself if it can correctly identify that it already has the file, or, in conjunction with file filtering options, wishes to exclude previously deleted files. Adjusting these settings can and will waste bandwidth and are only appropriate for one-off jobs where some forced recheck is needed.',
+    IMPORT_OPTIONS_TYPE_PREFETCH : 'Hydrus tries to save bandwidth. In most cases, it will not redownload a file page (HTML/JSON) or the file itself if it can correctly identify that it already has the file, or, in conjunction with file filtering options, wishes to exclude previously deleted files. Adjusting these settings can and will waste bandwidth and is only appropriate for one-off jobs where some forced recheck is needed.',
     IMPORT_OPTIONS_TYPE_FILE_FILTERING : 'Before a file is imported, it can be checked against these rules. If it fails one of these rules, it will get an "ignored" status.',
     IMPORT_OPTIONS_TYPE_TAG_FILTERING : 'Before a file is imported, its tags can be checked against a tag blacklist and/or whitelist. If a tag hits the blacklist, or no tag hits the whitelist, the import will get an "ignored" status. Only the tags that are parsed as part of the download are used in these tests.',
     IMPORT_OPTIONS_TYPE_LOCATIONS : 'If you have multiple local file services, you can choose to place incoming files in a different location than your default (probably "my files"). You can also send them to multiple locations.',
@@ -105,10 +105,10 @@ IMPORT_OPTIONS_TYPES_CANONICAL_ORDER = [
 IMPORT_OPTIONS_TYPES_SIMPLE_MODE_LOOKUP = {
     IMPORT_OPTIONS_CALLER_TYPE_GLOBAL : IMPORT_OPTIONS_TYPES_CANONICAL_ORDER,
     IMPORT_OPTIONS_CALLER_TYPE_LOCAL_IMPORT : [ IMPORT_OPTIONS_TYPE_FILE_FILTERING, IMPORT_OPTIONS_TYPE_LOCATIONS, IMPORT_OPTIONS_TYPE_PRESENTATION ],
-    IMPORT_OPTIONS_CALLER_TYPE_LOCAL_IMPORT_FOLDER : [ IMPORT_OPTIONS_TYPE_PRESENTATION ],
-    IMPORT_OPTIONS_CALLER_TYPE_SUBSCRIPTION : [ IMPORT_OPTIONS_TYPE_PRESENTATION ],
-    IMPORT_OPTIONS_CALLER_TYPE_POST_URLS : [ IMPORT_OPTIONS_TYPE_FILE_FILTERING, IMPORT_OPTIONS_TYPE_TAG_FILTERING, IMPORT_OPTIONS_TYPE_TAGS, IMPORT_OPTIONS_TYPE_NOTES, IMPORT_OPTIONS_TYPE_PRESENTATION ],
-    IMPORT_OPTIONS_CALLER_TYPE_WATCHER_URLS : [ IMPORT_OPTIONS_TYPE_FILE_FILTERING, IMPORT_OPTIONS_TYPE_TAG_FILTERING, IMPORT_OPTIONS_TYPE_TAGS, IMPORT_OPTIONS_TYPE_NOTES, IMPORT_OPTIONS_TYPE_PRESENTATION ],
+    IMPORT_OPTIONS_CALLER_TYPE_LOCAL_IMPORT_FOLDER : [ IMPORT_OPTIONS_TYPE_LOCATIONS, IMPORT_OPTIONS_TYPE_PRESENTATION ],
+    IMPORT_OPTIONS_CALLER_TYPE_SUBSCRIPTION : [ IMPORT_OPTIONS_TYPE_LOCATIONS, IMPORT_OPTIONS_TYPE_PRESENTATION ],
+    IMPORT_OPTIONS_CALLER_TYPE_POST_URLS : [ IMPORT_OPTIONS_TYPE_FILE_FILTERING, IMPORT_OPTIONS_TYPE_TAG_FILTERING, IMPORT_OPTIONS_TYPE_LOCATIONS, IMPORT_OPTIONS_TYPE_TAGS, IMPORT_OPTIONS_TYPE_NOTES, IMPORT_OPTIONS_TYPE_PRESENTATION ],
+    IMPORT_OPTIONS_CALLER_TYPE_WATCHER_URLS : [ IMPORT_OPTIONS_TYPE_FILE_FILTERING, IMPORT_OPTIONS_TYPE_TAG_FILTERING, IMPORT_OPTIONS_TYPE_LOCATIONS, IMPORT_OPTIONS_TYPE_TAGS, IMPORT_OPTIONS_TYPE_NOTES, IMPORT_OPTIONS_TYPE_PRESENTATION ],
     IMPORT_OPTIONS_CALLER_TYPE_URL_CLASS : [ IMPORT_OPTIONS_TYPE_PREFETCH, IMPORT_OPTIONS_TYPE_FILE_FILTERING, IMPORT_OPTIONS_TYPE_TAG_FILTERING, IMPORT_OPTIONS_TYPE_LOCATIONS, IMPORT_OPTIONS_TYPE_TAGS, IMPORT_OPTIONS_TYPE_NOTES ],
     IMPORT_OPTIONS_CALLER_TYPE_CLIENT_API : [ IMPORT_OPTIONS_TYPE_FILE_FILTERING, IMPORT_OPTIONS_TYPE_LOCATIONS ],
     IMPORT_OPTIONS_CALLER_TYPE_SPECIFIC_IMPORTER : IMPORT_OPTIONS_TYPES_CANONICAL_ORDER,
