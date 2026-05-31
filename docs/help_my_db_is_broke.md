@@ -1,11 +1,16 @@
-*** The purpose of this document ***
+---
+title: Help My DB Is Broke
+---
+
+# Help My DB Is Broke
+
+## The purpose of this document
 
 This is mostly an explainer for a specific error some databases encounter, 'database image is malformed'. The cloning and repair steps only relate to this specific problem, but as this problem is caused by hard drive damage, users who have other hard drive problems are pointed here as background reading.
 
 Please take a breath and read carefully. Search online if there is anything you don't understand, and plan out what you are going to do. Whatever the problem, do not try to rush it while you are stressed out, since that often causes mistakes.
 
-
-*** Malformed Database ***
+## Malformed Database
 
 If you are getting weird but serious-sounding errors like 'database image is malformed', your database may be corrupt!
 
@@ -17,32 +22,36 @@ Malformed errors are a very serious problem. Software cannot cause it. If you do
 
 For a small database, this whole repair process may take an hour. For a larger, expect it to take much longer. You may want to do it in several sessions. I am always contactable if you need help.
 
-
-*** first, shut everything down ***
+### first, shut everything down
 
 Close the client immediately.
 
 If you are on Windows, open task manager (Ctrl+Shift+Esc) and wait for hydrus_client.exe to disappear from the list. If it takes more than a couple of minutes, forcibly close it with task manager.
 
-
-*** check integrity ***
+### check integrity
 
 Then check your hard drive's integrity.
 
 To bring up command line on older Windows:
 
+```
 Win+R to get Run dialog
 Type 'cmd'
+```
 
 To bring up command line on newer Windows:
 
+```
 Win+X to get Power Menu
 Select Command Prompt (Admin) or PowerShell (Admin)
+```
 
 Then, type:
 
+```
 D: (where 'D' is the drive your hydrus is on)
 chkdsk
+```
 
 Chkdsk will now scan your drive.
 
@@ -52,8 +61,7 @@ On Windows, you can tell chkdsk to try to fix the problems it found by running i
 
 Another good tool is CrystalDiskInfo, which checks hard drive health at the physical level. If your drive is having trouble reading or seeking or it is piling up uncorrectable sectors, it is time to abandon ship!
 
-
-*** now what? ***
+### now what?
 
 If the drive seems healthy, keep working on it. But if the drive is bad, we can't trust it with heavy recovery work, so find a new workspace.
 
@@ -65,30 +73,34 @@ If you do not have a clean backup, you'll have to try recovering what data you c
 
 First of all, make a _new_ backup of the corrupted db, just in case something goes wrong with the recovery and we need to try again. You can just copy the client*.db files.
 
+#### sqlite3 executable
 
-*** sqlite3 executable ***
-
-We are going to talk to the database files directly, using SQL. I bundle 'sqlite3.exe' in the normal install, which is the Windows version of the SQLite terminal. If you are on Linux or macOS, you will want to look for your equivalent of the 'command-line tools' here: https://www.sqlite.org/download.html
+We are going to talk to the database files directly, using SQL. I bundle 'sqlite3.exe' in the normal install, which is the Windows version of the SQLite terminal. If you are on Linux or macOS, you will want to look for your equivalent of the 'command-line tools' [here](https://www.sqlite.org/download.html).
 
 Or, look for a program like SQLiteStudio, which is a much richer UI that, if you dig around a bit, will let you run direct SQL commands on a particular db file.
 
-
-*** integrity checks ***
+#### integrity checks
 
 To see if a file is not malformed, you need to run an integrity check. Go to the db directory and run the sqlite3 executable, and it'll bring up a terminal. Type or copy/paste this:
 
+```
 .open client.db
 PRAGMA integrity_check;
+```
 
 And when you are ready to close the shell cleanly, go:
 
+```
 .exit
+```
 
 It can be slow. A few MB a second is typical on an HDD (SSDs obviously faster), so expect a 10GB file to take a while. A 60GB mappings.db may take two hours. If it takes way way too long, and your Task Manager suggests only 50KB/s read, consider again if your hard drive is healthy or not.
 
 Please note that newer versions of SQLite support a second check command:
 
+```
 PRAGMA quick_check;
+```
 
 You can swap this in place of any 'integrity_check'. It does most of the work of the full check and runs significantly faster, so you may like to run it first just to see if your databases have any critical damage. If your SQLite supports this command, it will say 'ok' (or error information) after a delay; if it does not support it, it will immediately return with a new prompt line, no response.
 
@@ -96,34 +108,40 @@ The integrity check doesn't correct anything, but it lets you know the magnitude
 
 (Do each of these in fresh new shells of sqlite3--you can usually also copy/paste multiple lines)
 
+```
 .open client.caches.db
 PRAGMA integrity_check;
 .exit
+```
 
+```
 .open client.master.db
 PRAGMA integrity_check;
 .exit
+```
 
 (this one can take ages simply because of the size of the file, so only do it if you really need to check; if you know it is broke, just move on to cloning now, no need to waste time confirming it)
+```
 .open client.mappings.db
 PRAGMA integrity_check;
 .exit
+```
 
 The four files are separate, so if one is broken but the other three are fine, you only need to work on the one that is broken. There is no point cloning or recovering a database that passes an integrity check. This is sometimes confusing, and it can be a pain to type everything out exact, so I will copy all recovery routines for all filenames, so you can copy/paste quickly.
 
-
-*** fix the problem ***
+#### fix the problem
 
 There are three known repair operations. Try one and see if you can pass an integrity_check on the broken file. Clone works well for almost all simple problems, but the others have better success in different situations.
 
-
-** clone **
+##### clone
 
 This instructs the database to copy itself to a new file. When it comes across damaged data, it will attempt to cleanly correct or nullify the broken links. The new file should be clean, but missing some data. It typically loses anywhere from 15-75%, which you can see by filesize. Losing 1-5% is normal because a clone includes an implicit vacuum.
 
+```
 .open client.db
 .clone client_new.db
 .exit
+```
 
 And wait a bit. It'll report its progress as it tries to copy your db. It will be slow. Remember to go '.exit' once it is done to close the shell neatly.
 
@@ -137,82 +155,95 @@ If the clone operation is successful, rename client.db to client_old.db and clie
 
 If a different file is broken, then use of these:
 
+```
 .open client.caches.db
 .clone client.caches_new.db
 .exit
+```
 
+```
 .open client.master.db
 .clone client.master_new.db
 .exit
+```
 
+```
 .open client.mappings.db
 .clone client.mappings_new.db
 .exit
+```
 
 Do not delete your original files for now. Just rename them to 'old' and move them somewhere safe. Also be careful not to lose track of which is which (filesize and creation date can help here)! Make sure your new cloned files are all named right and then try running the client!
 
 You do not have to do an integrity_check after you clone. If you know your current hard drive is good, you can assume a clone works to create a 'clean' database.
 
-
-** repair **
+##### repair
 
 This command tries to fix a database file in place. I do not recommend it as it works very very slowly--I have heard of users running .recover on a client.mappings.db and it not being finished a whole week later! While it may be able to recover some rows a clones would lose, it cannot fix everything and may leave you with a database that is still malformed, so you'll want to run integrity_check again and do a clone if needed.
 
 It is very important you have a backup copy of the broken file(s) here, as this edits the file in place.
 
+```
 .open client.db
 .recover
 .exit
+```
 
+```
 .open client.caches.db
 .recover
 .exit
+```
 
+```
 .open client.master.db
 .recover
 .exit
+```
 
+```
 .open client.mappings.db
 .recover
 .exit
+```
 
 If the recovery works, do the integrity_check. If that is also good, you are good to try to boot.
 
-
-** manual export and import **
+##### manual export and import
 
 This dumps the db to a (potentially huge) sql file and then reads it back into a new file. This seems to use slightly different access routines to clone and recover, but is extremely slow (think 25-100KB/s), so only try it in desperation. It comes thanks to a user, whose notes I have edited.
 
 The example is for client.mappings.db, but obviously swap in a different name if a different file is broken for you.
 
 1. Create an SQL dump file:
-
-Run sqlite3, then enter this:
-
-.open client.mappings.db
-.mode insert
-.output client.mappings.db.sql
-.dump
-.exit
+    
+    Run sqlite3, then enter this:
+    
+    ```
+    .open client.mappings.db
+    .mode insert
+    .output client.mappings.db.sql
+    .dump
+    .exit
+    ```
 
 2. Edit the SQL dump file:
-
-In the .sql file:
-
-Remove line 2 (it should say "BEGIN TRANSACTION;")
-Remove last line of text (it should say "ROLLBACK; -- due to errors")
-Save and close
-
-Note: I recommend using commands like grep or sed to remove these on large files
+    
+    In the .sql file:
+    
+    - Remove line 2 (it should say "BEGIN TRANSACTION;")
+    - Remove last line of text (it should say "ROLLBACK; -- due to errors")
+    - Save and close
+    
+    Note: I recommend using commands like grep or sed to remove these on large files
 
 3. Create clean database from modified SQL file:
+    
+    sqlite3.exe client.mappings_recovered.db < client.mappings.db.sql
+    
+    That new file should be good, so swap it in like you would a clone, and try booting.
 
-sqlite3.exe client.mappings_recovered.db < client.mappings.db.sql
-
-That new file should be good, so swap it in like you would a clone, and try booting.
-
-
-*** help, nothing worked! ***
+#### help, nothing worked!
 
 If none of the operations can make a functional database, you may simply be fugged. I am sorry. Feel free to contact me and we'll see what the best way forward is.
 
@@ -220,13 +251,11 @@ Even if everything went great, you'll likely see a bad tag count here or there, 
 
 Check the contact page in the help (install_dir/help/contact.html in a built install) for ways to get me.
 
+## after fixing: recovering files
 
-*** after fixing: recovering files ***
+When recovering a database, you may lose some data or have to resync an older thing with a newer thing. If you need to tell your database to check for files it thinks it has but are now missing--and, conversely, to check for files it has but did not know about--check out 'Help my media files are broke', right beside this document.
 
-When recovering a database, you may lose some data or have to resync an older thing with a newer thing. If you need to tell your database to check for files it thinks it has but are now missing--and, conversely, to check for files it has but did not know about--check out 'help my media files are broke.txt', also in the db dir, right beside this document.
-
-
-*** after fixing: recovering mappings ***
+## after fixing: recovering mappings
 
 Since client.mappings.db is the file most often hit by disk problems, and since recovery operations often lose some original data, recovering lost tags is often the next job after cleanup. A clone will also compact your database, so just losing a few percent probably isn't a big deal. If your file is now half as big after a clone, you probably lost 40% of your tags. If it is 97% of the original size, you probably lost nothing.
 
@@ -236,22 +265,19 @@ If you sync with the PTR or a private repository, tell your client to reprocess 
 
 When your recovery is done, your tag counts or siblings may be incorrect. If so you probably want to run one or more of the tasks under _database->regenerate_. Be careful though, as these operations can take a very very long time to finish.
 
-
-*** if caches was hit ***
+## if caches was hit
 
 If client.caches.db was hit, and after cloning it seems to be significantly smaller, this is the best scenario, since everything in there is just a mirror of some other data and can be reprocessed. Run the main jobs under _database->regenerate_ in turn. Read the pre-run descriptions to make sure you aren't doing the same thing twice, since some of the mapping cache regen jobs there are big and do the work of other jobs too. That'll likely be enough for almost all cases, but if you still get screwy behaviour with the duplicate system or something, let me know and I'll see what I can do.
 
 An last-ditch alternate answer, if your client.caches.db is really truncated/broken, is just to delete the file and boot without it. The client's repair code is now good enough to try to regenerate the entire file on boot. It may give you more post-boot regen instructions.
 
-
-*** the database broke again ***
+## the database broke again
 
 If you are absolutely certain you restored your database files to the point where they passed "PRAGMA integrity_check;", and within a few days or weeks you get 'malformed' again out of the blue, you very likely have an ongoing problem. First off, pause all repository processing, or whatever you were doing that raised the error. Then do your CrystalDiskInfo job again, and absolutely make sure all your cables are plugged in solid and you have no power or cooling problems. You can try doing another clone/repair, but if your computer is quickly turning clean database files into corrupt ones, there is likely a hardware fault, whether that is a problem in the drive, cable, motherboard, power supply, drivers, cool air supply, or it could be something esoteric in software like a duff driver, or a cloud backup system or anti-virus forcing access into the database files while they are in use.
 
 If you are in this situation, I am happy to help you figure things out, but you know your system's hardware better than I do. As far as I know, I cannot create a 'malformed' error with my database access routines even if wanted to--it can only come from an external fault.
 
-
-*** a note on Write Caching and 'Delayed Write Failed' on NVMe drives ***
+## a note on Write Caching and 'Delayed Write Failed' on NVMe drives
 
 Some users encountered 'malformed' or 'disk I/O error' problems alongside Windows OS errors about 'Delayed Write Failed' on the hydrus directory, usually after sleeping and then waking the computer, but also after the database has finished a lot of work.
 
@@ -261,8 +287,7 @@ This seems to be something to do with Write Caching failing for certain very lar
 
 2) Disable Write Caching on the drive. This sucks, since write caching is normally really useful, but it seems to help/fix it completely, so it may be ok for a hydrus-exclusive drive.
 
-
-*** lastly, if you did not have any backup before this ***
+## lastly, if you did not have any backup before this
 
 I say this to everyone who goes through this: losing data sucks, I know. I lost a drive when I was younger and tens of thousands of cool files with it. It feels shit, but there is a valuable lesson to learn: almost all the pain would have been avoided if you had a backup. The memory of your current pain will be your motivation to correct the situation.
 
@@ -270,4 +295,4 @@ If you do not have a backup routine, this is the time to sort it out. If you can
 
 Check out the hydrus 'getting started with installing/updating/backing up' help for some more info about routines and programs like FreeFileSync.
 
-https://hydrusnetwork.github.io/hydrus/after_disaster.html
+[now you go here](after_disaster.md)

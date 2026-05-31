@@ -1,14 +1,18 @@
-*** The purpose of this document ***
+---
+title: Help My DB Is The Wrong Granularity
+---
 
-If you have had to restore an old client_files structure to a new database, or _vice versa_, and the client will not now boot or cannot load any files because it cannot find your media files storage locations, this document will guide you through what to do next.
+# Help My DB Is The Wrong Granularity
 
+## The purpose of this document
 
-*** What the problem is ***
+If you have had to restore an old granularity 2 client_files structure to a new granularity 3 database, or _vice versa_, and the client will not now boot or cannot load any files because it cannot find your media files storage locations, this document will guide you through what to do next.
+
+## What the problem is
 
 The database remembers what granularity it is expecting. When you migrate from 2 to 3, it records that and it remembers all 8192 expected locations for everything. If you only have 256, it isn't easy to rework the database to fix it.
 
-
-*** Fixing a 3 database that has a 2 storage structure ***
+## Fixing a 3 database that has a 2 storage structure
 
 If you get the 'repair missing locations' dialog on startup, the solution is:
 
@@ -17,8 +21,7 @@ If you get the 'repair missing locations' dialog on startup, the solution is:
 - Use the 'granularise offline folder 2 to 3' button to convert your original database's file storage from 2 to 3. If you use multiple locations or store your thumbnails elsewhere, repeat it for all.
 - You are now good.
 
-
-*** Fixing a 2 database that has a 3 storage structure ***
+## Fixing a 2 database that has a 3 storage structure
 
 If you can boot the client but none of your files load because they are in 0-f subdirs, the solution is:
 

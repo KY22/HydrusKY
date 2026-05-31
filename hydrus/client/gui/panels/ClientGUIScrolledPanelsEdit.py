@@ -1667,7 +1667,7 @@ class EditURLsPanel( CAC.ApplicationCommandProcessorMixin, ClientGUIScrolledPane
         self._urls_listbox.setSortingEnabled( False )
         self._urls_listbox.itemDoubleClicked.connect( self.ListDoubleClicked )
         
-        ( width, height ) = ClientGUIFunctions.ConvertTextToPixels( self._urls_listbox, ( 120, 10 ) )
+        ( width, height ) = ClientGUIFunctions.ConvertTextToPixels( self._urls_listbox, ( 100, 10 ) )
         
         self._urls_listbox.setMinimumWidth( width )
         self._urls_listbox.setMinimumHeight( height )

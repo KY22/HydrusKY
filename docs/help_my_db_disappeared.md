@@ -1,9 +1,14 @@
-*** The purpose of this document ***
+---
+title: Help My DB Disappeared
+---
+
+# Help My DB Disappeared
+
+## The purpose of this document
 
 This will teach you how to figure out what happened if your database seems to have disappeared or reset back to empty.
 
-
-*** This looks like the first time you have run the program ***
+## This looks like the first time you have run the program
 
 If you boot your normal client and it creates the "This looks like the first time you have run the program" popup, and/or all your files and settings seem to have disappeared, there are some common causes for this, usually hydrus looking in the wrong place.
 
@@ -13,8 +18,7 @@ A database consists of four files--client.db, client.caches.db, client.mappings.
 
 In the following scenarios, you may be uncertain where your real database actually is. Try simply searching your entire system for the fairly unusually named 'client.mappings.db' and/or the other filenames. Don't start with 'client.db', since several other programs use that filename too. Make sure to search your trash/recycle bin too!
 
-
-*** Scenario One: Hydrus is looking in the wrong place ***
+### Scenario One: Hydrus is looking in the wrong place
 
 When hydrus boots, it has a default database location. For Windows and Linux, this is "install_dir/db", the same folder where this document is typically located. If you launch the program with the --db_dir launch parameter, you change this.
 
@@ -26,8 +30,7 @@ How do we figure this out? First off, check "help->about" in the client. That wi
 
 For the old macOS App, the default location is "~/Library/Hydrus", and there are no fallbacks. You likely will not run into this problem unless you are messing around with the source version or the --db_dir launch parameter on the App.
 
-
-*** Scenario Two: The database has been overwritten ***
+### Scenario Two: The database has been overwritten
 
 Since hydrus stores its database directory inside itself, there is one dangerzone action you can take during an update, especially an unusual update that you want to test for some reason. Let's say you extract the program to your desktop and run it once, to test that it boots; once it works, you then drag that folder on top of your normal install to update. Can you predict what disaster will happen? If you run the program on your desktop, it will create new and empty database files (client.db etc...), and then when you do the overwrite, the empty database will overwrite your real one!
 
@@ -35,26 +38,22 @@ Thus, when you update manually, by overwriting your install with an extract, you
 
 There is no way to fix this problem unless you have a backup.
 
-
-*** Scenario Three: Hard drive failure ***
+### Scenario Three: Hard drive failure
 
 You can usually assume that an entirely missing database is not a hardware problem, but in odd cases, it might be. Failing hard drives tend to delete things at random, so you'd probably get a half-way boot and then lots of errors from one .db file disappearing, rather than all four at once. However you might, rarely, lose the whole 'db' directory in one go, or if you host on an external partition and that fails, then hydrus might fall back to "~/Hydrus". Same deal if your NAS goes weird, or if a drive gets a 'dirty bit' set and is now totally read-only. As before, check where you think the database should be and where it might have moved and figure out which is which and why the original is not available.
 
-
-*** Scenario Four: The database has been moved ***
+### Scenario Four: The database has been moved
 
 Hydrus will never move or delete your database, but a crazy anti-virus, live cloud backup, drive maintenance/error handling, or other third-party application may do it. Although it sounds stupid, you, the user, might have misclicked without realising or deleted the wrong copy of something as you were migrating something. Simply search your whole system for 'client.mappings.db', and don't forget to search your trash--it happens!
 
 If you can figure out what moved the db, add whatever 'exclude' directory to that software you need to to stop it happening again.
 
+## Repairing the database
 
-*** Repairing the database ***
+The ideal answer to your problem is you restore the database to where it should be, or fix your shortcut, or fix your permission problem, and everything works again. If your situation is more complicated, for instance you had hard drive damage and were able to recover a good client.db, client.caches.db, and client.master.db but not a good client.mappings.db, then you should check the 'Help my db is broke' document, which should be beside this one, and contact me, hydev, if that doesn't cover it!
 
-The ideal answer to your problem is you restore the database to where it should be, or fix your shortcut, or fix your permission problem, and everything works again. If your situation is more complicated, for instance you had hard drive damage and were able to recover a good client.db, client.caches.db, and client.master.db but not a good client.mappings.db, then you should check the 'help my db is broke.txt' document, which should be beside this one, and contact me, hydev, if that doesn't cover it!
-
-
-*** The importance of backups ***
+## The importance of backups
 
 I talk about backups a lot. It sounds silly to worry about overwriting something by accident until it happens to you. Hydrus databases are huge stores of information that contain hundreds or thousands of hours of work. Losing all that does not feel great, so it is worth putting the effort in. Do a backup before you update, every time. Do a backup every week regardless of whether you update, and not just your hydrus, but all your documents and photos and all else. What might have been wiping out years and years of work just becomes a 'Ah, damn, that was wrong, START RESTORE'.
 
-https://hydrusnetwork.github.io/hydrus/after_disaster.html
+[now you go here](after_disaster.md)

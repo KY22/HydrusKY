@@ -3707,7 +3707,7 @@ class EditAdvancedORPredicates( ClientGUIScrolledPanels.EditPanel ):
         self._result_preview = QW.QPlainTextEdit()
         self._result_preview.setReadOnly( True )
         
-        ( width, height ) = ClientGUIFunctions.ConvertTextToPixels( self._result_preview, ( 64, 6 ) )
+        ( width, height ) = ClientGUIFunctions.ConvertTextToPixels( self._result_preview, ( 60, 6 ) )
         
         self._result_preview.setMinimumWidth( width )
         self._result_preview.setMinimumHeight( height )

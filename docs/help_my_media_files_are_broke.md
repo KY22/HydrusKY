@@ -1,13 +1,18 @@
-*** The purpose of this document ***
+---
+title: Help My Media Files Are Broke
+---
+
+# Help My Media Files Are Broke
+
+## The purpose of this document
 
 If you have missing files or missing file records, either from files being deleted or having to restore a database file out of sync with its file storage, this document will walk you through the specific steps on how to resync. If you have encountered a related problem, such as losing entire 'fxx' sub-folder(s), it may also help as background reading.
 
-
-*** Missing Files ***
+## Missing Files
 
 If you have lost lots of media files due to a mistake or a drive failing, or if you have rolled back to an older backup and now your file structure is out of sync with your database record, there are several things to do.
 
-First off, make sure you are running on good hard drives now. Check the 'help my db is broke' help document for info here. If your .db files were also on a failing disk, you'll want to run through that whole document to make sure your database itself is ok--there's no point trying to fix the file record on a malformed database.
+First off, make sure you are running on good hard drives now. Check the 'Help my db is broke' document for info here. If your .db files were also on a failing disk, you'll want to run through that whole document to make sure your database itself is ok--there's no point trying to fix the file record on a malformed database.
 
 Next, boot into the client. If you lost whole media file directories, or they moved to a new location, your client will throw up a repair dialog during boot to help you find the right locations again. If you have truly lost some directories, it should be able to recreate empty ones for you.
 
@@ -19,8 +24,7 @@ If you needed to remap your file locations during pre-boot repair, then hit _dat
 
 Next, we have two classes of problem: files in the database but not in storage, and files in storage but not in the database.
 
-
-*** Files that the database thinks are in storage, but they are not ***
+### Files that the database thinks are in storage, but they are not
 
 These are the cause of the missing file errors. They could have been deleted or damaged, or they might have been imported after you made your file storage backup. The are not on disk any more, but the database doesn't know that, so any time it tries to access where they _were_, it is surprised and throws the error. We need to let it fix all those records.
 
@@ -34,27 +38,24 @@ Once the file maintenance is done, and the download page is done, we then need t
 
 You do not need to run the 'regenerate thumbnail' jobs--the client does that automatically as needed when you load a file, so it will fill in gaps no problem--but if you lost whole thumbnail folders and some or all are now empty, running this job will speed up future load by doing that work in the background now.
 
+### Files that are in storage, but the database does not know it
 
-*** Files that are in storage, but the database does not know it ***
-
-~If you only had drive errors or you restored a backup that included both file storage and database files made at the same time, you can ignore this step. You probably have a couple of extra orphan files, but everyone does, it isn't a big problem.~
+_If you only had drive errors or you restored a backup that included both file storage and database files made at the same time, you can ignore this step. You probably have a couple of extra orphan files, but everyone does; it isn't a big problem._
 
 If you restored an older file storage backup to a newer database, these would be files that were deleted after the backup was made. If you restored an older database backup to a newer file storage, then these would be files that were imported after the backup was made. In either case, they are files in your file structure that the database does not know about, and we want to collect them together to A) delete them or B) reimport them.
 
 Run _database->file maintenance->clear orphan files_. Choose a location for the files to go to, and then wait for it to finish. Browse through them to verify what you are looking at, and then either delete them or reimport them.
 
-
-*** Repository Update Files ***
+### Repository Update Files
 
 If you had missing files, that may include some update files for the PTR or another repo, which are stored outside the 'system:everything' search, but are still in your file storage. Don't worry about it too much--the next time repo processing happens, if there is a missing or damaged file, it will notice and run an automatic maintenance routine to fix things. It all happens through the same review file maintenance panel if you want to watch it. Once it has cleared records for the missing files, you can resume repo processing and it will redownload the missing files automatically and resume.
 
 Note these files do not have URLs, so if you are an advanced user and try to run this maintenance yourself with the 'and has URL' qualifier, they will not load up in a download page.
 
-
-*** OK ***
+## OK
 
 You should now be done! If you get weird file counts on autocomplete results or more missing file errors, let me know.
 
 I recommend you take a breath, pour yourself a drink, and make a job for tomorrow to think about your backup routine.
 
-https://hydrusnetwork.github.io/hydrus/after_disaster.html
+[now you go here](after_disaster.md)

@@ -690,7 +690,7 @@ class EditPairComparatorOneFileMetadataConditionalPanel( ClientGUIScrolledPanels
         
         self._metadata_conditional = ClientGUIMetadataConditional.EditMetadataConditionalPanel( self, pair_comparator.GetMetadataConditional() )
         
-        width = ClientGUIFunctions.ConvertTextToPixelWidth( self._metadata_conditional, 64 )
+        width = ClientGUIFunctions.ConvertTextToPixelWidth( self._metadata_conditional, 60 )
         
         self._metadata_conditional.setMinimumWidth( width )
         

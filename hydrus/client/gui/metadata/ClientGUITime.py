@@ -721,7 +721,7 @@ class DateTimesButton( ClientGUICommon.BetterButton ):
         self._has_user_changes = False
         
         # XXXX-XX-XX XX:XX:XX = 19 chars, so add a bit of padding
-        min_width = ClientGUIFunctions.ConvertTextToPixelWidth( self, 23 )
+        min_width = ClientGUIFunctions.ConvertTextToPixelWidth( self, 21 )
         
         self.setMinimumWidth( min_width )
         

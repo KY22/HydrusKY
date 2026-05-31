@@ -1476,16 +1476,32 @@ def OpenFileLocation( path ):
     thread.start()
     
 
-def PathIsFree( path ):
+def PathExistsAndIsDir( path: str ):
     
-    if not os.path.exists( path ):
+    try:
+        
+        path_stat = os.stat( path )
+        
+    except FileNotFoundError:
         
         return False
         
     
+    return stat_is_dir( path_stat )
+    
+
+def PathIsFree( path ):
+    
     try:
         
-        stat_result = os.stat( path )
+        try:
+            
+            stat_result = os.stat( path )
+            
+        except FileNotFoundError:
+            
+            return False
+            
         
         current_bits = stat_result.st_mode
         

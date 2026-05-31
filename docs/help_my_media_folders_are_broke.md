@@ -1,13 +1,18 @@
-*** The purpose of this document ***
+---
+title: Help My Media Folders Are Broke
+---
+
+# Help My Media Folders Are Broke
+
+## The purpose of this document
 
 If you have missing file storage subfolders and cannot boot the client, this walks you through what to do next.
 
-
-*** Expected Subfolders ***
+## Expected Subfolders
 
 The client expects you to have its media subfolders accessible at all times. The folders are in the format fxx or txx, where the xx is 00..ff in hexadecimal, and if you are granularity 3, they will be in the format fxx/x and txx/x.
 
-By default, these subfolders are in 'install_dir/db/client_files', but it does not really matter where they are, and there are a couple ways to tell hydrus to expect them to be somewhere else. The client checks all expected locations on boot, and if any are missing, it throws up the 'repair file locations' dialog. You may have come here from there.
+By default, these subfolders are in `install_dir/db/client_files`, but it does not really matter where they are, and there are a couple ways to tell hydrus to expect them to be somewhere else. The client checks all expected locations on boot, and if any are missing, it throws up the 'repair file locations' dialog. You may have come here from there.
 
 If you are not sure where the subfolders are, search your entire filesystem for whatever is missing, let's say the string 'f47'. If your file search interface allows you to specify only folders, all the better.
 
@@ -15,8 +20,7 @@ Tell the dialog where the folders are now, and it will stitch everything back to
 
 If you find everything, this is excellent. You have not lost any files. You will probably want to double-check 'database->move media files' once you boot to make sure things look correct.
 
-
-*** I Lost Some Of My Folders ***
+## I Lost Some Of My Folders
 
 If you are missing some thumbnail folders, the client can just create them for you and then boot. It is a ton of work, but thumbs can always be regenerated.
 

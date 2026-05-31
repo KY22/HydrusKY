@@ -2554,7 +2554,7 @@ class Controller( HydrusController.HydrusController ):
             
             if 'malformed' in trace:
                 
-                hell_message = 'Looking at it, it looks like your database may be malformed! This is a serious error. Please check "/install_dir/db/help my db is broke.txt" as soon as you can for the next steps. The specific error will now follow.'
+                hell_message = 'Looking at it, it looks like your database may be malformed! This is a serious error. Please check the \'Recovery->Help my db is broke\' document in the help as soon as you can for the next steps. The specific error will now follow.'
                 
                 HydrusData.DebugPrint( hell_message )
                 

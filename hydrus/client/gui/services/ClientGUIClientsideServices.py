@@ -1741,7 +1741,7 @@ class ReviewServicePanel( QW.QWidget ):
         self._id_button = ClientGUICommon.BetterButton( self, 'id', self._GetAndShowID )
         self._id_button.setToolTip( ClientGUIFunctions.WrapToolTip( 'Click to fetch your service\'s database id.' ) )
         
-        width = ClientGUIFunctions.ConvertTextToPixelWidth( self._id_button, 4 )
+        width = ClientGUIFunctions.ConvertTextToPixelWidth( self._id_button, 4.5 )
         
         self._id_button.setFixedWidth( width )
         
@@ -2149,6 +2149,17 @@ class ReviewServiceClientAPISubPanel( ClientGUICommon.StaticBox ):
                 
                 api_permissions = panel.GetValue()
                 
+                access_key = api_permissions.GetAccessKey()
+                
+                if CG.client_controller.client_api_manager.HasAccessKey( access_key ):
+                    
+                    message = 'You appear to have edited the API Access Key to something that already exists. Either something has gone technically wrong, or there has been a misunderstanding. I will not make any changes.'
+                    
+                    ClientGUIDialogsMessage.ShowCritical( self, 'key collision!', message )
+                    
+                    return
+                    
+                
                 CG.client_controller.client_api_manager.AddAccess( api_permissions )
                 
                 self._Refresh()
@@ -2200,32 +2211,44 @@ class ReviewServiceClientAPISubPanel( ClientGUICommon.StaticBox ):
     
     def _Edit( self ):
         
-        selected_api_permissions_objects = self._permissions_list.GetData( only_selected = True )
+        api_permissions = self._permissions_list.GetTopSelectedData()
         
-        for api_permissions in selected_api_permissions_objects:
+        if api_permissions is None:
             
-            title = 'edit api access permissions'
-            
-            with ClientGUITopLevelWindowsPanels.DialogEdit( self, title ) as dlg:
-                
-                panel = ClientGUIAPI.EditAPIPermissionsPanel( dlg, api_permissions )
-                
-                dlg.SetPanel( panel )
-                
-                if dlg.exec() == QW.QDialog.DialogCode.Accepted:
-                    
-                    api_permissions = panel.GetValue()
-                    
-                    CG.client_controller.client_api_manager.OverwriteAccess( api_permissions )
-                    
-                else:
-                    
-                    break
-                    
-                
+            return
             
         
-        self._Refresh()
+        title = 'edit api access permissions'
+        
+        with ClientGUITopLevelWindowsPanels.DialogEdit( self, title ) as dlg:
+            
+            panel = ClientGUIAPI.EditAPIPermissionsPanel( dlg, api_permissions )
+            
+            dlg.SetPanel( panel )
+            
+            if dlg.exec() == QW.QDialog.DialogCode.Accepted:
+                
+                edited_api_permissions = panel.GetValue()
+                
+                if edited_api_permissions.GetAccessKey() != api_permissions.GetAccessKey():
+                    
+                    new_access_key = edited_api_permissions.GetAccessKey()
+                    
+                    if CG.client_controller.client_api_manager.HasAccessKey( new_access_key ):
+                        
+                        message = 'You appear to have edited the API Access Key to something that already exists. Either something has gone technically wrong, or there has been a misunderstanding. I will not make any changes.'
+                        
+                        ClientGUIDialogsMessage.ShowCritical( self, 'key collision!', message )
+                        
+                        return
+                        
+                    
+                
+                CG.client_controller.client_api_manager.OverwriteAccess( api_permissions, edited_api_permissions )
+                
+                self._Refresh()
+                
+            
         
     
     def _OpenBaseURL( self ):

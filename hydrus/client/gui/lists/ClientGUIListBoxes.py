@@ -429,6 +429,7 @@ class BetterQListWidget( QW.QListWidget ):
             
         
     
+
 class AddEditDeleteListBox( QW.QWidget ):
     
     listBoxChanged = QC.Signal()

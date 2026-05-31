@@ -34,7 +34,7 @@ class ListBookList( ClientGUIListBoxes.BetterQListWidget ):
                 
             else:
                 
-                ( _, height ) = ClientGUIFunctions.ConvertTextToPixels( self, ( 20, self._list_chars_height ) )
+                height = ClientGUIFunctions.ConvertTextToPixelHeight( self, self._list_chars_height )
                 
             
             size.setHeight( height + ( 2 * self.frameWidth() ) )

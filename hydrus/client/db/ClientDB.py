@@ -4480,7 +4480,7 @@ class DB( HydrusDB.HydrusDB ):
         
         if 'malformed' in tb:
             
-            HydrusData.ShowText( 'A database exception looked like it could be a very serious \'database image is malformed\' error! Unless you know otherwise, please shut down the client immediately and check the \'help my db is broke.txt\' under install_dir/db.' )
+            HydrusData.ShowText( 'A database exception looked like it could be a very serious \'database image is malformed\' error! Unless you know otherwise, please shut down the client immediately and check the \'Recovery->Help my db is broke\' document in the help.' )
             
         
         if job.IsSynchronous():
@@ -6276,7 +6276,7 @@ class DB( HydrusDB.HydrusDB ):
             message += '\n' * 2
             message += 'If you wish, click ok on this message and the client will re-add fresh options with default values. But if you want to solve this problem otherwise, kill the hydrus process now.'
             message += '\n' * 2
-            message += 'If you do not already know what caused this, it was likely a hard drive fault--either due to a recent abrupt power cut or actual hardware failure. Check \'help my db is broke.txt\' in the install_dir/db directory as soon as you can.'
+            message += 'If you do not already know what caused this, it was likely a hard drive fault--either due to a recent abrupt power cut or actual hardware failure. Check the \'Recovery->Help my db is broke\' document in the help as soon as you can.'
             
             self._controller.BlockingSafeShowMessage( message )
             

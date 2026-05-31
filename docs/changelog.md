@@ -7,6 +7,58 @@ title: Changelog
 !!! note
     This is the new changelog, only the most recent builds. For all versions, see the [old changelog](old_changelog.html).
 
+## [Version 673](https://github.com/hydrusnetwork/hydrus/releases/tag/v673)
+
+### misc
+
+* the file history chart now has a custom y axis range. also, the chart now remembers if you have set either axis custom and new searches will auto-refit or maintain current dimensions as appropriate. hide/showing the lines will only recalculate the non-user-customised Y axis; let's see how that goes
+* added a sanity check to the new fast 'give me the average character width' calculation, which is used for some scaling-agnostic UI sizing. one user (on a monospaced font, no less) had extremely wide average character width; I guess the font has funny kerning or extended characters or something. if the average character width is more than twice the reported height (which appears to be more reliable), I now fall back to a slower but more accurate calculation
+* you can now edit the Access Key of a Client API permissions entry (a user mentioned they were migrating to a new client and updating every existing script to use new random keys was a pain). since you don't want to do this casually, it works through a button that gives a little spiel and tests the new key for validity and such, and the final ok will bail out if you paste something already in the system
+* updated some system predicate parsing to support `<=` and `>=` operators, along with some variants like 'less than or equal to'. the types now supporting this are: width, height, duration, number of frames, number of words (issue #2019)
+
+### new help docs for the recovery.txts
+
+* added a 'Recovery' headline section to the help and migrated the .txt recovery docs to basic markdown
+* the basedir 'help my client will not boot' is migrated to here
+* all the .txts in the db dir like 'help my db is broke.txt' are migrated to here
+* as planned, the `static/db_files` dir is removed. you no longer get a bunch of .txts in any new db folder. feel free to delete any old ones you have, but it isn't a big deal
+
+### local file parsing optimisation
+
+* when you drop a folder on the program, the main scan of that folder is a good bit faster than before and will scale a bit better
+* when you drop a folder on the program, symlink loops are now recognised and broken out of
+* when parsing import files from a folder, the main parse object now uses several fewer drive hits
+* checking for 'file is in use' requires one less drive hit
+
+### faster folder checking on startup
+
+* when hydrus boots, it checks for the presence of all file storage folders. on a normal client, this is 512 directory presence checks; on an advanced granularity 3 system, this is 8192. this time adds up on boot, particularly on a cold HDD. I have improved the regular test here to do just one hard drive hit per folder instead of two. also, especially for the bootup phase, these locations are now scanned for _en masse_ with a carefully efficient/failsafe top-level scan on the main storage locations, massively reducing the number of hard drive hits required here
+
+### optimised caching tech
+
+* a user identified that a hacky id-to-value lookup cache used in tag and hash database modules was not working great. under certain types of strain, it would churn, leading to memory bloat and fragmentation
+* I have tried several solutions and figured out a fairly decent replacement (LRU cache, nothing crazy) that will not churn so much and has less overhead. there's some additional long-term work that needs to be done to solve the bloat problem fully (full weakref tracking of tags/hashes), but I'm overall happy. tag and hash fetching when you load media or do various other heavy database jobs is now a little more optimised in several ways, and in most cases causes less memory duplication and fragmentation
+* while I was poking around here, I also overhauled the general LRU cache used by a bunch of UI-level guys. thumbnail refetch and image zooming back and forth may be a shave faster
+
+### source environment cleanup
+
+* as planned a few months ago, v673 cleans up the 'running from source' setup significantly. you shouldn't have to do anything unless you run from source and use a custom script to automatically recreate your venv. I delete some old redundant scripts today, so if you happened to set an executable permission on something a long time ago, git may moan at you about being unable to pull because of your pending changes. deleting the files and then pulling again should work
+* the pyproject.toml file no longer has any groups. there's one setup, nice and simple. the venue to test alternate library versions is now `setup_venv.py` exclusively
+* the old basedir requirements.txt is now removed
+* the manual 'running from source' help is updated. you now do just `pip install .` for a manual, pyproject.toml based pip install, with no groups needed
+* the .bat/.command/.sh versions of `setup_help` and `setup_venv` and `git_pull` are removed--use the multiplat .py files from now on
+* the `open_venv.bat/.ps1` scripts and `auto_update_installer.bat`, which were just fun experiments, are deleted. if you need some rinky-dink scripts to pull off a very custom thing like this, I recommend talking to an AI to get exactly what you need for your setup
+* to improve hydrus package security, all dependency versions in the pyproject.toml and setup_venv.py and the build requirement.txts are now pinned/capped to recent latest versions. anything that was `>=` is now `<=` for the version as of the 672 build. all library version updates will now be considered manually by human eyes in future builds
+* relatedly, the windows ffmpeg version is no longer latest but pinned at `8.1.1`
+* deduped the basedir license files and renamed to `LICENSE`
+* wrote a very basic `CONTRIBUTING.md` to mention that public pulls are closed right now
+* for KISS, I'll switch the builds from their requirements.txts over to the pyproject.toml in the next future build test
+
+### boring cleanup
+
+* moved some file parsing code out of `ClientGUILocalFileimports` to `ClientImportFileParse`
+* jiggled some 'make this panel x characters wide' numbers after last week's character-width update. this generally meant clearing out old +2 padding hacks and shaving some 64 to 60, that sort of thing, and I fixed a couple of things that were a little out of whack or sizing the wrong widget
+
 ## [Version 672](https://github.com/hydrusnetwork/hydrus/releases/tag/v672)
 
 ### misc
@@ -578,67 +630,3 @@ title: Changelog
 * wrote out failsafe url class type and name labelling into this
 * wrote most of a panel to edit a new `ImportOptionsContainer` object. I'm generally happy with it so far. it'll be a vertical listbook with the list of options types above switching edit panels below, and each line in the options list saying 'tag import options: does x' or 'tag import options: uses file posts default'. this is a complicated thing that I want to end up being clear and user-friendly, albeit sophisticated. I think we are getting there
 * next will be a dialog to handle the defaults, and some favourites management UI, and then updating the workflow. lots still to do
-
-## [Version 662](https://github.com/hydrusnetwork/hydrus/releases/tag/v662)
-
-### future build committed, clean install needed
-
-* This release commits the changes tested with the recent future build. The test went well but for the new mpv dll, which we will try again later.
-* **Windows and Linux users who extract must perform a 'clean install' this week!** https://hydrusnetwork.github.io/hydrus/getting_started_installing.html#clean_installs
-* Windows users who use the installer can update as normal
-* In this new build, we have--
-* build folder structure now tucks dlls and such into a 'lib' dir
-* the Docker packages are updated to Alpine 3.23
-* SQLite on Windows is updated to 3.51.2
-* thanks to the clean install, the Windows mpv dll is no longer renamed, but now `libmpv-2.dll`
-* and for the build scripts, the client and server specs are now merged into one, the gubbins in the spec is pushed to the new content_dir 'lib', Docker builds are cached better, and everything is cleaner
-
-### duplicates auto-resolution
-
-* I wrote a new Comparator type that does weird hardcoded jobs on just one file, debuting 'A/B/either is a progressive jpeg/is a non-progressive jpeg'
-* wrote an edit panel for these
-* added some unit tests for this new type
-
-### tag menu and inversion
-
-* the tag/active predicates list 'search' menu is now split into 'open' and 'search'
-* the 'invert' item in 'search' is updated for clarity--previously, it was trying to tapdance over some 'require/exclude' verbiage, but it wasn't clean. now it just says 'invert'
-* after talking with some people and looking at the code, I'm making `system:(like rating) is x` no longer invertible (this is a special state that acts as a perfect 'not' and feeds into some UI actions and menu labels, for instance system:inbox/archive are inverts of each other). previously it did a 'like/dislike' flip, but that doesn't include files not rated. 'has rating' and 'no rating' still flip as before
-* `system:rating less/greater than x` is now only invertible for inc/dec services, and it now does precise `>3/<4` switching
-* 'system:all/any x y z ratings rated' now invert correctly (they were previously just flipping the rated part, not the all/any too. the 'only' version is no longer invertible--I think we just don't support this with existing logic??
-
-### misc
-
-* the 'edit subscriptions' dialog now has an 'overwrite downloader' button to mass-set a new downloader for a selection of subs
-* if the media viewer has not had a slideshow yet, the 'pause/play slideshow' shortcut will now start a new slideshow at the first defined custom time (default 1.0 seconds)
-* if you stop a slideshow, the slideshow menu now provides 'resume at x seconds', firing off the 'pause/play' action
-* the `resize window to fit media at specified zoom and recenter it in the viewer` shortcut action now says that specified zoom in its text where it is set (e.g. in the edit shortcuts UI)
-
-### setup_venv.py updates
-
-* _only important to advanced source users_
-* after talking about it with several users, we are doing a bit more `pyproject.toml` and `setup_venv.py` work.
-* the `groups` stuff in `pyproject.toml` is not really working out nice. it breaks a simple `pip install .` and other managers' install lines that many users are going to default to. trying to maintain the `setup_venv.py` choices in a `pyproject.toml` file was a nice idea but is not proving a good fit
-* THEREFORE: I am planning to make the `pyproject.toml` nice and KISS so it works out the box, with only the `dev` group surviving. `setup_venv.py` will be the place to do weird/test venv setup
-* this will happen on v673, a little under three months from now. I was previously planning just some `new` to `normal` renaming, but instead we'll do a bigger clearout. if you use the groups in the current `pyproject.toml` in any way, migrate away before then, likely to `setup_venv.py`
-* I did the `setup_venv.py` stuff for today though; it now hardcodes all its decisions, entirely within the .py. no more relying on some other requirements definition standard; I just hack it with code for whatever I need, pipe it all to a pip install call, and it all installs in one clean step
-* also brushed up the `setup_venv.py` code and prompts and all that a bit
-* I wrote a `setup_help.py` for building the help and a `git_pull.py` convenience script to multiplat-replace the other .bat/.command/.sh stuff in the base dir. all the old scripts will be deleted on v673
-
-### boring stuff
-
-* fixed an issue hitting 'cancel' on note import options via the subscription or duplicate merge import options dialogs
-* all temp files that hydrus makes in its tempdir now have a job-respective prefix rather than always `hydrus`, for instance `file_download_`
-* updated the Linux install help regarding Wayland/X11 environment variables. both `unset WAYLAND_DISPLAY` and `export QT_QPA_PLATFORM=xcb` seem to be the trick to run in X11
-* misc 'running from source' help brush-up
-* updated some stuff in the 'installing' help about clean installs
-
-### boring import options overhaul progress
-
-* rewrote my new container and manager to have a stricter swiss-cheese/full dichotomy. rather than navigating layers of swiss cheese over and over, for every request, the manager now compresses the slices into a 'full' import options container that can answer any questions further down the file import chain
-* moved `FilenameTaggingOptions` out of the legacy `TagImportOptions` stuff to its own file
-* moved `ServiceTagImportOptions` out of the legacy `TagImportOptions` stuff to a new file that holds the new `TagImportOptions` object
-* updated the legacy `TagImportOptions` to now hold the new `TagFilteringImportOptions` and`TagImportOptions` in prep for the big migration, just like I've done for `FileImportOptions`. the whole import pipeline is updated to talk to these two guys as appropriate
-* wrote specific edit panels for the new objects
-* also updated the unit tests for all this
-* all the options objects are now ready to migrate. next I need to write a bunch of UI to handle the new edit panels I've written and manage my 'swiss cheese' defaults model in a user-friendly way. all the defaults setup and the 'import options' buttons in all downloaders need a rework. then I need to rejigger the file import path to pass around one container object rather than the current scatter. I feel pretty good about it. two more pushes on this, I think, and I can flip the switch

@@ -4984,7 +4984,7 @@ ATTACH "client.mappings.db" as external_mappings;'''
                 text += '\n' * 2
                 text += 'If you continue, the client will now create and save empty file/search logs for those queries, essentially resetting them, but if you know you need to exit and fix your database in a different way, cancel out now.'
                 text += '\n' * 2
-                text += 'If you do not know why this happened, you may have had a hard drive fault. Please consult "install_dir/db/help my db is broke.txt", and you may want to contact hydrus dev.'
+                text += 'If you do not know why this happened, you may have had a hard drive fault. Please check the \'Recovery->Help my db is broke\' document in the help, and you may want to contact hydrus dev.'
                 
                 result = ClientGUIDialogsQuick.GetYesNo( self, text, title = 'Missing Query Logs!', yes_label = 'continue', no_label = 'back out' )
                 

@@ -819,6 +819,8 @@ class ClientFilesManager( object ):
                 
             
         
+        # ruh roh, we cannot find the file
+        
         subfolders = self._GetPossibleSubfoldersForFile( hash, 'f' )
         
         for subfolder in subfolders:
@@ -853,9 +855,7 @@ class ClientFilesManager( object ):
     
     def _RepopulateMissingLocationsReference( self ):
         
-        # this would be faster if we did a scandir on the shared parents, but I tried it and it has bad worst case scenarios if we hit a granularity 2 with granularity 3 expectations
-        
-        self._missing_subfolders = { subfolder for subfolders in self._prefixes_to_client_files_subfolders.values() for subfolder in subfolders if not subfolder.PathExists() }
+        self._missing_subfolders = { subfolder for subfolders in self._prefixes_to_client_files_subfolders.values() for subfolder in subfolders if not subfolder.PathExists( lazy_check_ok = True ) }
         
     
     def _WaitOnWakeup( self ):

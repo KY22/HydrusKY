@@ -1597,7 +1597,7 @@ class EditSubscriptionQueryPanel( ClientGUIScrolledPanels.EditPanel ):
         
         self._status_st = ClientGUICommon.BetterStaticText( status_panel )
         
-        st_width = ClientGUIFunctions.ConvertTextToPixelWidth( self._status_st, 50 )
+        st_width = ClientGUIFunctions.ConvertTextToPixelWidth( self._status_st, 60 )
         
         self._status_st.setMinimumWidth( st_width )
         

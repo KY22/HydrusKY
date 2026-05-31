@@ -53,7 +53,7 @@ if BASE_DIR == '':
 BIN_DIR = os.path.join( CONTENT_BASE_DIR, 'bin' )
 HELP_DIR = os.path.join( CONTENT_BASE_DIR, 'help' )
 
-LICENSE_PATH = os.path.join( CONTENT_BASE_DIR, 'license.txt' )
+LICENSE_PATH = os.path.join( CONTENT_BASE_DIR, 'LICENSE' )
 
 DEFAULT_DB_DIR = os.path.join( BASE_DIR, 'db' )
 
@@ -127,7 +127,7 @@ options = {}
 # Misc
 
 NETWORK_VERSION = 20
-SOFTWARE_VERSION = 672
+SOFTWARE_VERSION = 673
 CLIENT_API_VERSION = 92
 
 SERVER_THUMBNAIL_DIMENSIONS = ( 200, 200 )
