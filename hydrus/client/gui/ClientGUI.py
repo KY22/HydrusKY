@@ -1577,6 +1577,38 @@ class FrameGUI( CAC.ApplicationCommandProcessorMixin, ClientGUITopLevelWindows.M
         self._controller.column_list_manager.ResetToDefaults()
         
     
+    def _DebugScanStorage( self ):
+        
+        try:
+            
+            path = ClientGUIDialogsQuick.PickDirectory( self, 'Select directory', CG.client_controller.GetDBDir() )
+            
+        except HydrusExceptions.CancelledException:
+            
+            return
+            
+        
+        from hydrus.client.db import ClientDBFilesPhysicalStorage
+        from hydrus.client.files import ClientFilesPhysical
+        
+        ( current_granularity, subfolders ) = self._controller.Read( 'client_files_subfolders' )
+        
+        location = ClientFilesPhysical.FilesStorageBaseLocation( path, 1, None )
+        
+        time_started = HydrusTime.GetNowFloat()
+        
+        try:
+            
+            result = ClientDBFilesPhysicalStorage.TryToGetPresumptiveSubfolderPathsBeneathLocation( location, current_granularity )
+            
+            HydrusData.ShowText( f'It found {HydrusNumbers.ToHumanInt(len( result ))} subfolders and took {HydrusTime.TimeDeltaToPrettyTimeDelta( HydrusTime.GetNowFloat() - time_started)}' )
+            
+        except HydrusExceptions.CancelledException as e:
+            
+            HydrusData.ShowText( f'It cancelled: {e}' )
+            
+        
+    
     def _DebugShowMemoryUseDifferences( self ):
         
         if not HydrusMemory.PYMPLER_OK:
@@ -1974,50 +2006,6 @@ QMenuBar::item { padding: 2px 8px; margin: 0px; }'''
             
             HydrusData.ShowText( 'DO NOT PLAY ANYTHING WITH MPV WHILE CRASH REPORTING IS ON--IT WILL CAUSE A FAKE CRASH!' )
             
-        
-    
-    def _FlipCurlCFFITestMode( self ):
-        
-        from hydrus.client.networking import ClientNetworkingCurlCFFI
-        from hydrus.client.networking import ClientNetworkingSessions
-        
-        if not ClientNetworkingCurlCFFI.CURL_CFFI_OK:
-            
-            ClientGUIDialogsMessage.ShowWarning( self, 'Sorry, you do not seem to have curl_cffi! Check the _help->about_ window!' )
-            
-            return
-            
-        
-        if not ClientNetworkingSessions.DOING_CURL_CFFI_TEST:
-            
-            try:
-                
-                choice = ClientGUIDialogsQuick.EnterText( self, 'Enter a browser name as curl_cffi supports.', default = ClientNetworkingSessions.CURL_CFFI_DEFINITION, suggestions = [ 'chrome', 'edge', 'firefox', 'safari' ] )
-                
-                ClientNetworkingSessions.CURL_CFFI_DEFINITION = choice
-                
-            except HydrusExceptions.CancelledException:
-                
-                return
-                
-            
-            try:
-                
-                choice_tuples = [ ( text, data, text ) for ( data, text ) in sorted( ClientNetworkingCurlCFFI.curl_cffi_http_versions_to_str_lookup.items() ) ]
-                
-                choice = ClientGUIDialogsQuick.SelectFromListButtons( self, 'Select http version', choice_tuples )
-                
-                ClientNetworkingSessions.CURL_CFFI_HTTP_VERSION = choice
-                
-            except HydrusExceptions.CancelledException:
-                
-                return
-                
-            
-        
-        ClientNetworkingSessions.DOING_CURL_CFFI_TEST = not ClientNetworkingSessions.DOING_CURL_CFFI_TEST
-        
-        CG.client_controller.network_engine.session_manager.ReinitialiseSessions()
         
     
     def _FlipMinimiseRestore( self ):
@@ -3676,6 +3664,7 @@ ATTACH "client.mappings.db" as external_mappings;'''
         ClientGUIMenus.AppendMenuCheckItem( report_modes, 'pubsub report mode', 'Report info about every pubsub processed.', HG.pubsub_report_mode, self._SwitchBoolean, 'pubsub_report_mode' )
         ClientGUIMenus.AppendMenuCheckItem( report_modes, 'similar files metadata generation report mode', 'Have the perceptual_hash generation routine report its progress.', HG.phash_generation_report_mode, self._SwitchBoolean, 'phash_generation_report_mode' )
         ClientGUIMenus.AppendMenuCheckItem( report_modes, 'shortcut report mode', 'Have the new shortcut system report what shortcuts it catches and whether it matches an action.', HG.shortcut_report_mode, self._SwitchBoolean, 'shortcut_report_mode' )
+        ClientGUIMenus.AppendMenuCheckItem( report_modes, 'shutdown report mode', 'Report as threads shut down so we can catch what is not checking in properly.', HG.shutdown_report_mode, self._SwitchBoolean, 'shutdown_report_mode' )
         ClientGUIMenus.AppendMenuCheckItem( report_modes, 'subprocess report mode', 'Report whenever an external process is called.', HG.subprocess_report_mode, self._SwitchBoolean, 'subprocess_report_mode' )
         ClientGUIMenus.AppendMenuCheckItem( report_modes, 'subscription report mode', 'Have the subscription system report what it is doing.', HG.subscription_report_mode, self._SwitchBoolean, 'subscription_report_mode' )
         
@@ -3727,6 +3716,7 @@ ATTACH "client.mappings.db" as external_mappings;'''
         ClientGUIMenus.AppendMenuItem( data_actions, 'flush log', 'Command the log to write any buffered contents to hard drive.', HydrusData.DebugPrint, 'Flushing log' )
         ClientGUIMenus.AppendMenuItem( data_actions, 'force database commit', 'Command the database to flush all pending changes to disk.', CG.client_controller.ForceDatabaseCommit )
         ClientGUIMenus.AppendMenuItem( data_actions, 'review threads', 'Show current threads and what they are doing.', self._ReviewThreads )
+        ClientGUIMenus.AppendMenuItem( data_actions, 'scan file storage folders', 'Test out that thing.', self._DebugScanStorage )
         ClientGUIMenus.AppendMenuItem( data_actions, 'show env', 'Print your current environment variables.', HydrusEnvironment.DumpEnv )
         ClientGUIMenus.AppendMenuItem( data_actions, 'show scheduled jobs', 'Print some information about the currently scheduled jobs log.', self._DebugShowScheduledJobs )
         ClientGUIMenus.AppendMenuItem( data_actions, 'subscription manager snapshot', 'Have the subscription system show what it is doing.', self._controller.subscriptions_manager.ShowSnapshot )
@@ -3756,11 +3746,6 @@ ATTACH "client.mappings.db" as external_mappings;'''
         
         ClientGUIMenus.AppendMenuItem( network_actions, 'review current network jobs', 'Review the jobs currently running in the network engine.', self._ReviewNetworkJobs )
         ClientGUIMenus.AppendMenuItem( network_actions, 'fetch a url', 'Fetch a URL using the network engine as per normal.', self._DebugFetchAURL )
-        ClientGUIMenus.AppendSeparator( network_actions )
-        
-        from hydrus.client.networking import ClientNetworkingSessions
-        
-        ClientGUIMenus.AppendMenuCheckItem( network_actions, 'curl_cffi test mode', 'Turn on the curl_cffi test mode!', ClientNetworkingSessions.DOING_CURL_CFFI_TEST, self._FlipCurlCFFITestMode )
         
         ClientGUIMenus.AppendMenu( debug_menu, network_actions, 'network actions' )
         
@@ -7041,6 +7026,10 @@ The password is cleartext here but obscured in the entry dialog. Enter a blank p
         elif name == 'shortcut_report_mode':
             
             HG.shortcut_report_mode = not HG.shortcut_report_mode
+            
+        elif name == 'shutdown_report_mode':
+            
+            HG.shutdown_report_mode = not HG.shutdown_report_mode
             
         elif name == 'subprocess_report_mode':
             

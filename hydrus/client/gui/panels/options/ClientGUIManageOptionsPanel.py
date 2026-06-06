@@ -234,6 +234,13 @@ class ManageOptionsPanel( ClientGUIScrolledPanels.ManagePanel ):
                 CG.client_controller.pub( 'clear_thumbnail_cache' )
                 
             
+            curl_cffi_changes = self._original_new_options.GetNoneableString( 'curl_cffi_definition' ) != test_new_options.GetNoneableString( 'curl_cffi_definition' )
+            
+            if curl_cffi_changes:
+                
+                CG.client_controller.network_engine.session_manager.ReinitialiseSessions()
+                
+            
         except Exception as e:
             
             HydrusData.PrintException( e )

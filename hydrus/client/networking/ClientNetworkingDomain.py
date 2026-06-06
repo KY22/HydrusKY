@@ -53,6 +53,8 @@ class NetworkDomainManager( HydrusSerialisable.SerialisableBase ):
         self._gugs = HydrusSerialisable.SerialisableList()
         self._url_classes = HydrusSerialisable.SerialisableList()
         self._parsers = HydrusSerialisable.SerialisableList()
+        
+        # TODO: Move this guy to DomainSettings
         self._network_contexts_to_custom_header_dicts = collections.defaultdict( dict )
         
         self._parser_namespaces = []
@@ -65,7 +67,7 @@ class NetworkDomainManager( HydrusSerialisable.SerialisableBase ):
         self._url_domain_masks_to_url_classes = collections.defaultdict( list )
         
         # TODO: Replace this with DomainStatus and do Cleanse/IsStub clearing on load
-        # one question is whether to store by domains or networkcontexts. consider this, but perhaps not a big deal for now
+        # We will be converting to Network Context as we do!
         self._domains_to_network_infrastructure_errors = collections.defaultdict( list )
         
         from hydrus.client.importing.options import TagImportOptionsLegacy

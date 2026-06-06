@@ -585,6 +585,7 @@ class ClientOptions( HydrusSerialisable.SerialisableBase ):
             'thread_slots_watcher_files' : 15,
             'thread_slots_watcher_check' : 5,
             'ffmpeg_subprocess_timeout' : 15,
+            'media_viewer_tags_scrolling_behaviour' : CC.MEDIA_VIEWER_TAGS_SCROLLING_BEHAVIOUR_ONLY_PROPAGATE_AFTER_DELAY,
         }
         
         self._dictionary[ 'floats' ] = {
@@ -670,6 +671,7 @@ class ClientOptions( HydrusSerialisable.SerialisableBase ):
             'qt_media_player_preferred_audio_device_name' : None,
             'qt_media_player_preferred_audio_device_id_hex' : None,
             'mpv_preferred_audio_device' : None,
+            'curl_cffi_definition' : None, # this guy is going to end up in the new network context settings for 'global' 
         }
         
         self._dictionary[ 'strings' ] = {
@@ -1632,7 +1634,7 @@ class ClientOptions( HydrusSerialisable.SerialisableBase ):
             
         
     
-    def GetNoneableString( self, name ):
+    def GetNoneableString( self, name ) -> str | None:
         
         with self._lock:
             

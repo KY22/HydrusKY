@@ -71,6 +71,17 @@ class LocalFileParse( object ):
             
             pass
             
+        except OSError as e:
+            
+            if HydrusPaths.oserror_is_device_access_trouble( e ):
+                
+                pass
+                
+            else:
+                
+                raise
+                
+            
         
         self._have_done_stat_check = True
         

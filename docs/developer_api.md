@@ -3339,7 +3339,7 @@ Arguments (in JSON):
 
 You can set 'value' to be null, which will clear any existing cookie with the corresponding name, domain, and path (acting essentially as a delete).
 
-Expires can be null, but session cookies will time-out in hydrus after 60 minutes of non-use.
+Expires can be null, to make a session cookie. Hydrus does not purge session cookies very aggressively, so they may hang around for a long time.
 
 ## Managing HTTP Headers
 

@@ -1755,14 +1755,13 @@ class ReviewServicePanel( QW.QWidget ):
         
         subpanels.append( ( ReviewServiceSubPanel( self, service ), CC.FLAGS_EXPAND_PERPENDICULAR ) )
         
-        if service_type in HC.REMOTE_SERVICES:
-            
-            subpanels.append( ( ReviewServiceRemoteSubPanel( self, service ), CC.FLAGS_EXPAND_PERPENDICULAR ) )
-            
-        
         if service_type in HC.RESTRICTED_SERVICES:
             
             subpanels.append( ( ReviewServiceRestrictedSubPanel( self, service ), CC.FLAGS_EXPAND_PERPENDICULAR ) )
+            
+        elif service_type in HC.REMOTE_SERVICES:
+            
+            subpanels.append( ( ReviewServiceRemoteSubPanel( self, service ), CC.FLAGS_EXPAND_PERPENDICULAR ) )
             
         
         if service_type in HC.REAL_FILE_SERVICES:
@@ -2463,9 +2462,12 @@ class ReviewServiceFileSubPanel( ClientGUICommon.StaticBox ):
     
 class ReviewServiceRemoteSubPanel( ClientGUICommon.StaticBox ):
     
-    def __init__( self, parent, service ):
+    def __init__( self, parent, service, allow_expand_stuff = True ):
         
-        super().__init__( parent, 'this client\'s network use', can_expand = True, start_expanded = False )
+        can_expand = allow_expand_stuff
+        start_expanded = not allow_expand_stuff
+        
+        super().__init__( parent, 'network use', can_expand = can_expand, start_expanded = start_expanded )
         
         self._service = service
         
@@ -2562,11 +2564,14 @@ class ReviewServiceRemoteSubPanel( ClientGUICommon.StaticBox ):
         
     
 
-class ReviewServiceRestrictedSubPanel( ClientGUICommon.StaticBox ):
+class ReviewServiceHydrusAccountSubPanel( ClientGUICommon.StaticBox ):
     
-    def __init__( self, parent, service ):
+    def __init__( self, parent, service, allow_expand_stuff = True ):
         
-        super().__init__( parent, 'hydrus service account - shared by all clients using the same access key', can_expand = True, start_expanded = False )
+        can_expand = allow_expand_stuff
+        start_expanded = not allow_expand_stuff
+        
+        super().__init__( parent, 'account', can_expand = can_expand, start_expanded = start_expanded )
         
         self._service = service
         
@@ -2595,6 +2600,7 @@ class ReviewServiceRestrictedSubPanel( ClientGUICommon.StaticBox ):
         self._refresh_account_button = ClientGUICommon.BetterButton( self, 'refresh account', self._RefreshAccount )
         self._copy_account_key_button = ClientGUICommon.BetterButton( self, 'copy account id', self._CopyAccountKey )
         self._permissions_button = ClientGUIMenuButton.MenuButton( self, 'see account permissions', [] )
+        self._tag_filter_button = ClientGUICommon.BetterButton( self, 'tag filter', self._ReviewTagFilter )
         
         #
         
@@ -2602,12 +2608,18 @@ class ReviewServiceRestrictedSubPanel( ClientGUICommon.StaticBox ):
         
         #
         
+        if not self._service.GetServiceType() == HC.TAG_REPOSITORY:
+            
+            self._tag_filter_button.hide()
+            
+        
         hbox = QP.HBoxLayout()
         
         QP.AddToLayout( hbox, self._network_sync_paused_button, CC.FLAGS_CENTER_PERPENDICULAR )
         QP.AddToLayout( hbox, self._refresh_account_button, CC.FLAGS_CENTER_PERPENDICULAR )
         QP.AddToLayout( hbox, self._copy_account_key_button, CC.FLAGS_CENTER_PERPENDICULAR )
         QP.AddToLayout( hbox, self._permissions_button, CC.FLAGS_CENTER_PERPENDICULAR )
+        QP.AddToLayout( hbox, self._tag_filter_button, CC.FLAGS_CENTER_PERPENDICULAR )
         
         self.Add( self._title_and_expires_st, CC.FLAGS_EXPAND_PERPENDICULAR )
         self.Add( self._status_st, CC.FLAGS_EXPAND_PERPENDICULAR )
@@ -2665,12 +2677,18 @@ class ReviewServiceRestrictedSubPanel( ClientGUICommon.StaticBox ):
         
         ( message, message_created ) = account.GetMessageAndTimestamp()
         
-        if message != '':
+        if message == '':
+            
+            self._message_st.setVisible( False )
+            
+        else:
+            
+            self._message_st.setVisible( True )
             
             message = 'Message from server: {}'.format( message )
             
-        
-        self._message_st.setText( message )
+            self._message_st.setText( message )
+            
         
         next_sync_status = self._service.GetNextAccountSyncStatus()
         
@@ -2719,17 +2737,6 @@ class ReviewServiceRestrictedSubPanel( ClientGUICommon.StaticBox ):
         
         #
         
-        self._refresh_account_button.setText( 'refresh account' )
-        
-        if self._service.CanSyncAccount( including_external_communication = False ):
-            
-            self._refresh_account_button.setEnabled( True )
-            
-        else:
-            
-            self._refresh_account_button.setEnabled( False )
-            
-        
         account_key = account.GetAccountKey()
         
         if account_key is None or account_key == '':
@@ -2759,6 +2766,25 @@ class ReviewServiceRestrictedSubPanel( ClientGUICommon.StaticBox ):
         
         self._permissions_button.SetMenuItems( menu_template_items )
         
+        if self._service.GetServiceType() == HC.TAG_REPOSITORY:
+            
+            try:
+                
+                tag_filter = self._service.GetTagFilter()
+                
+                self._tag_filter_button.setEnabled( True )
+                
+                tt = 'See which tags this repository accepts. Summary:{}{}'.format( '\n' * 2, tag_filter.ToPermittedString() )
+                
+                self._tag_filter_button.setToolTip( ClientGUIFunctions.WrapToolTip( tt ) )
+                
+            except HydrusExceptions.DataMissing:
+                
+                self._tag_filter_button.setEnabled( False )
+                self._tag_filter_button.setToolTip( ClientGUIFunctions.WrapToolTip( 'Do not have a tag filter for this repository. Try refreshing your account, or, if your client is old, update it.' ) )
+                
+            
+        
     
     def _RefreshAccount( self ):
         
@@ -2778,9 +2804,9 @@ class ReviewServiceRestrictedSubPanel( ClientGUICommon.StaticBox ):
         
         def errback_callable( etype, value, tb ):
             
-            if not isinstance( etype, HydrusExceptions.ServerBusyException ):
+            if not isinstance( etype, ( HydrusExceptions.ServerBusyException, HydrusExceptions.CancelledException ) ):
                 
-                HydrusData.ShowExceptionTuple( etype, value, tb, do_wait = False )
+                HydrusData.PrintExceptionTuple( etype, value, tb, do_wait = False )
                 
             
             ClientGUIDialogsMessage.ShowCritical( self, 'Problem!', str( value ) )
@@ -2788,21 +2814,10 @@ class ReviewServiceRestrictedSubPanel( ClientGUICommon.StaticBox ):
         
         def ui_restoration_callable():
             
+            self._refresh_account_button.setText( 'refresh account' )
+            self._refresh_account_button.setEnabled( True )
+            
             self._my_updater.Update()
-            
-        
-        if CG.client_controller.new_options.GetBoolean( 'pause_repo_sync' ):
-            
-            ClientGUIDialogsMessage.ShowWarning( self, 'All repositories are currently paused under the services->pause menu! Please unpause them and then try again!' )
-            
-            return
-            
-        
-        if self._service.IsPausedNetworkSync():
-            
-            ClientGUIDialogsMessage.ShowWarning( self, 'Account sync is paused for this service! Please unpause it to refresh its account.' )
-            
-            return
             
         
         self._refresh_account_button.setEnabled( False )
@@ -2811,6 +2826,28 @@ class ReviewServiceRestrictedSubPanel( ClientGUICommon.StaticBox ):
         job = ClientGUIAsync.AsyncQtJob( self, work_callable, publish_callable, errback_callable = errback_callable, ui_restoration_callable = ui_restoration_callable )
         
         job.start()
+        
+    
+    def _ReviewTagFilter( self ):
+        
+        try:
+            
+            tag_filter = self._service.GetTagFilter()
+            
+        except HydrusExceptions.DataMissing:
+            
+            return
+            
+        
+        frame = ClientGUITopLevelWindowsPanels.FrameThatTakesScrollablePanel( self, 'review tag filter' )
+        
+        message = 'The Tag Repository applies this to all new pending tag mapping uploads. If you upload a mapping that this filter denies, it will be silently discarded serverside. Siblings and parents are not affected.'
+        
+        namespaces = CG.client_controller.network_engine.domain_manager.GetParserNamespaces()
+        
+        panel = ClientGUITagFilter.EditTagFilterPanel( frame, tag_filter, namespaces = namespaces, message = message, read_only = True )
+        
+        frame.SetPanel( panel )
         
     
     def ServiceUpdated( self, service ):
@@ -2823,6 +2860,23 @@ class ReviewServiceRestrictedSubPanel( ClientGUICommon.StaticBox ):
             
         
     
+
+class ReviewServiceRestrictedSubPanel( ClientGUICommon.StaticBox ):
+    
+    def __init__( self, parent, service ):
+        
+        super().__init__( parent, 'hydrus service', can_expand = True, start_expanded = False )
+        
+        self._remote_panel = ReviewServiceRemoteSubPanel( self, service, allow_expand_stuff = False )
+        self._account_panel = ReviewServiceHydrusAccountSubPanel( self, service, allow_expand_stuff = False )
+        
+        #
+        
+        self.Add( self._remote_panel, CC.FLAGS_EXPAND_PERPENDICULAR )
+        self.Add( self._account_panel, CC.FLAGS_EXPAND_PERPENDICULAR )
+        
+    
+
 class ReviewServiceRepositorySubPanel( QW.QWidget ):
     
     def __init__( self, parent, service ):
@@ -2844,9 +2898,6 @@ class ReviewServiceRepositorySubPanel( QW.QWidget ):
         self._repo_options_st.setToolTip( ClientGUIFunctions.WrapToolTip( tt ) )
         
         self._metadata_st = ClientGUICommon.BetterStaticText( self._network_panel )
-        
-        self._tag_filter_button = ClientGUICommon.BetterButton( self._network_panel, 'tag filter', self._ReviewTagFilter )
-        self._tag_filter_button.setEnabled( False )
         
         self._download_progress = ClientGUICommon.TextAndGauge( self._network_panel )
         
@@ -2921,11 +2972,6 @@ class ReviewServiceRepositorySubPanel( QW.QWidget ):
             self._reset_processing_button.hide()
             
         
-        if not self._service.GetServiceType() == HC.TAG_REPOSITORY:
-            
-            self._tag_filter_button.hide()
-            
-        
         self._network_panel.Add( self._repo_options_st, CC.FLAGS_EXPAND_PERPENDICULAR )
         self._network_panel.Add( self._metadata_st, CC.FLAGS_EXPAND_PERPENDICULAR )
         self._network_panel.Add( self._download_progress, CC.FLAGS_EXPAND_PERPENDICULAR )
@@ -2934,7 +2980,6 @@ class ReviewServiceRepositorySubPanel( QW.QWidget ):
         hbox = QP.HBoxLayout()
         
         QP.AddToLayout( hbox, self._service_info_button, CC.FLAGS_CENTER_PERPENDICULAR )
-        QP.AddToLayout( hbox, self._tag_filter_button, CC.FLAGS_CENTER_PERPENDICULAR )
         QP.AddToLayout( hbox, self._sync_remote_now_button, CC.FLAGS_CENTER_PERPENDICULAR )
         QP.AddToLayout( hbox, self._reset_downloading_button, CC.FLAGS_CENTER_PERPENDICULAR )
         QP.AddToLayout( hbox, self._export_updates_button, CC.FLAGS_CENTER_PERPENDICULAR )
@@ -3249,25 +3294,6 @@ class ReviewServiceRepositorySubPanel( QW.QWidget ):
         
         self._repo_options_st.setText( ', '.join( repo_options_text_components ) )
         
-        if self._service.GetServiceType() == HC.TAG_REPOSITORY:
-            
-            try:
-                
-                tag_filter = self._service.GetTagFilter()
-                
-                self._tag_filter_button.setEnabled( True )
-                
-                tt = 'See which tags this repository accepts. Summary:{}{}'.format( '\n' * 2, tag_filter.ToPermittedString() )
-                
-                self._tag_filter_button.setToolTip( ClientGUIFunctions.WrapToolTip( tt ) )
-                
-            except HydrusExceptions.DataMissing:
-                
-                self._tag_filter_button.setEnabled( False )
-                self._tag_filter_button.setToolTip( ClientGUIFunctions.WrapToolTip( 'Do not have a tag filter for this repository. Try refreshing your account, or, if your client is old, update it.' ) )
-                
-            
-        
         self._metadata_st.setText( self._service.GetNextUpdateDueString() )
         
         CG.client_controller.CallToThread( self.THREADFetchInfo, self._service )
@@ -3381,28 +3407,6 @@ class ReviewServiceRepositorySubPanel( QW.QWidget ):
             
             CG.client_controller.CallToThread( do_it, self._service, self._my_updater, content_types )
             
-        
-    
-    def _ReviewTagFilter( self ):
-        
-        try:
-            
-            tag_filter = self._service.GetTagFilter()
-            
-        except HydrusExceptions.DataMissing:
-            
-            return
-            
-        
-        frame = ClientGUITopLevelWindowsPanels.FrameThatTakesScrollablePanel( self, 'review tag filter' )
-        
-        message = 'The Tag Repository applies this to all new pending tag mapping uploads. If you upload a mapping that this filter denies, it will be silently discarded serverside. Siblings and parents are not affected.'
-        
-        namespaces = CG.client_controller.network_engine.domain_manager.GetParserNamespaces()
-        
-        panel = ClientGUITagFilter.EditTagFilterPanel( frame, tag_filter, namespaces = namespaces, message = message, read_only = True )
-        
-        frame.SetPanel( panel )
         
     
     def _SelectContentTypes( self ):

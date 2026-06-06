@@ -183,4 +183,3 @@ markdown_extensions:
 
 plugins:
   - search
-  - offline

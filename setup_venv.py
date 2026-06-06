@@ -220,18 +220,18 @@ def process_advanced_options( requirements_dict: dict[ str, str | None ] ):
         requirements_dict[ 'opencv-python-headless' ] = '==4.13.0.92'
         requirements_dict[ 'numpy' ] = '==2.4.1'
         
-    '''
+    
     # Future libraries
     print()
     print( 'Future Libraries' )
-    print( 'There is a test for a new domain parsing library. Want to try it?' )
+    print( 'There is a test for curl_cffi. Want to try it?' )
     future = get_user_choice( 'Future libraries (y/n)', ( 'y', 'n' ), 'n' )
     
     if future == 'y':
         
-        requirements_dict[ 'tldextract' ] = '==5.3.1'
+        requirements_dict[ 'curl-cffi' ] = '==0.15.0'
         
-    '''
+    
     # Dev mode
     print()
     print( 'Development Tools' )
@@ -245,7 +245,7 @@ def process_advanced_options( requirements_dict: dict[ str, str | None ] ):
         
     
 
-def create_venv(venv_path):
+def create_venv( venv_path ):
     
     print( '--------' )
     print( 'Creating new venv...' )

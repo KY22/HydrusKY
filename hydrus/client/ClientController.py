@@ -2409,7 +2409,14 @@ class Controller( HydrusController.HydrusController ):
             
             service = typing.cast( ClientServices.ServiceRestricted, service )
             
-            service.SyncAccount()
+            try:
+                
+                service.SyncAccount()
+                
+            except HydrusExceptions.CancelledException:
+                
+                continue
+                
             
         
     

@@ -1,4 +1,3 @@
-import collections
 import functools
 import os
 import sqlite3
@@ -13,6 +12,7 @@ from hydrus.client import ClientThreading
 from hydrus.client.db import ClientDBModule
 from hydrus.client.files import ClientFilesPhysical
 
+# TODO: In an IRL situation, this guy took ages, far longer than just hitting up every dir with os.isdir and such. Why would that be?
 def TryToGetPresumptiveSubfolderPathsBeneathLocation( location: ClientFilesPhysical.FilesStorageBaseLocation, granularity: int ) -> set[ str ]:
     """
     Given a Location, what subfolder paths does it seem to have?
@@ -20,6 +20,7 @@ def TryToGetPresumptiveSubfolderPathsBeneathLocation( location: ClientFilesPhysi
     """
     
     subfolder_paths = set()
+    subdirs_to_scan = []
     
     with os.scandir( location.path ) as scan:
         
@@ -43,35 +44,7 @@ def TryToGetPresumptiveSubfolderPathsBeneathLocation( location: ClientFilesPhysi
                     
                 elif granularity == 3:
                     
-                    with os.scandir( entry.path ) as scan_2:
-                        
-                        num_second_level_files = 0
-                        num_second_level_dirs = 0
-                        
-                        for entry2 in scan_2:
-                            
-                            if entry2.is_dir():
-                                
-                                num_second_level_dirs += 1
-                                
-                                if num_second_level_dirs > 20: # 16 is strict max
-                                    
-                                    raise HydrusExceptions.CancelledException( 'Too many subdirs!' )
-                                    
-                                
-                                subfolder_paths.add( entry2.path )
-                                
-                            else:
-                                
-                                num_second_level_files += 1
-                                
-                                if num_second_level_files > 16:
-                                    
-                                    raise HydrusExceptions.CancelledException( 'Too many files!' )
-                                    
-                                
-                            
-                        
+                    subdirs_to_scan.append( entry.path )
                     
                 
             else:
@@ -81,6 +54,40 @@ def TryToGetPresumptiveSubfolderPathsBeneathLocation( location: ClientFilesPhysi
                 if num_top_level_files > 16:
                     
                     raise HydrusExceptions.CancelledException( 'Too many files!' )
+                    
+                
+            
+        
+    
+    for subdir_path in subdirs_to_scan:
+        # we must be granularity 3
+        
+        with os.scandir( subdir_path ) as scan:
+            
+            num_second_level_files = 0
+            num_second_level_dirs = 0
+            
+            for entry in scan:
+                
+                if entry.is_dir():
+                    
+                    num_second_level_dirs += 1
+                    
+                    if num_second_level_dirs > 20: # 16 is strict max
+                        
+                        raise HydrusExceptions.CancelledException( 'Too many subdirs!' )
+                        
+                    
+                    subfolder_paths.add( entry.path )
+                    
+                else:
+                    
+                    num_second_level_files += 1
+                    
+                    if num_second_level_files > 16:
+                        
+                        raise HydrusExceptions.CancelledException( 'Too many files!' )
+                        
                     
                 
             

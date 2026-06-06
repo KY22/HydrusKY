@@ -1619,6 +1619,7 @@ class ReviewNetworkSessionsPanel( ClientGUIScrolledPanels.ReviewPanel ):
             
             try:
                 
+                # ignore discard allows load of session cookies
                 cj.load( path, ignore_discard = True, ignore_expires = True )
                 
             except UnicodeDecodeError as e:
@@ -1669,9 +1670,17 @@ class ReviewNetworkSessionsPanel( ClientGUIScrolledPanels.ReviewPanel ):
             
             for cookie in cj:
                 
+                if cookie.expires == 0:
+                    
+                    cookie.expires = None
+                    cookie.discard = True
+                    
+                
                 session = self._session_manager.GetSessionForDomain( cookie.domain )
                 
                 ClientNetworkingSessions.AddCookieToSessionActualCookie( session, cookie )
+                
+                self._session_manager.SetSessionDirtyForDomain( cookie.domain )
                 
                 num_added += 1
                 
@@ -1734,9 +1743,16 @@ class ReviewNetworkSessionsPanel( ClientGUIScrolledPanels.ReviewPanel ):
             
             for ( name, value, domain, path, expires ) in cookie_data_flat:
                 
+                if expires == 0:
+                    
+                    expires = None
+                    
+                
                 session = self._session_manager.GetSessionForDomain( domain )
                 
                 ClientNetworkingSessions.AddCookieToSession( session, name, value, domain, path, expires )
+                
+                self._session_manager.SetSessionDirtyForDomain( domain )
                 
                 num_added += 1
                 
@@ -1983,8 +1999,6 @@ class ReviewNetworkSessionPanel( ClientGUIScrolledPanels.ReviewPanel ):
                     
                     self._SetCookie( name, value, domain, path, expires )
                     
-                    self._session_manager.SetSessionDirty( self._network_context )
-                    
                 else:
                     
                     break
@@ -2035,6 +2049,7 @@ class ReviewNetworkSessionPanel( ClientGUIScrolledPanels.ReviewPanel ):
             
             try:
                 
+                # ignore discard allows load of session cookies
                 cj.load( path, ignore_discard = True, ignore_expires = True )
                 
             except Exception as e:
@@ -2048,7 +2063,15 @@ class ReviewNetworkSessionPanel( ClientGUIScrolledPanels.ReviewPanel ):
             
             for cookie in cj:
                 
+                if cookie.expires == 0:
+                    
+                    cookie.expires = None
+                    cookie.discard = True
+                    
+                
                 ClientNetworkingSessions.AddCookieToSessionActualCookie( self._session, cookie )
+                
+                self._session_manager.SetSessionDirty( self._network_context )
                 
                 num_added += 1
                 
@@ -2151,6 +2174,11 @@ class ReviewNetworkSessionPanel( ClientGUIScrolledPanels.ReviewPanel ):
             
             for ( name, value, domain, path, expires ) in cookie_data_flat:
                 
+                if expires == 0:
+                    
+                    expires = None
+                    
+                
                 self._SetCookie( name, value, domain, path, expires )
                 
                 num_added += 1
@@ -2173,6 +2201,8 @@ class ReviewNetworkSessionPanel( ClientGUIScrolledPanels.ReviewPanel ):
     def _SetCookie( self, name, value, domain, path, expires ):
         
         ClientNetworkingSessions.AddCookieToSession( self._session, name, value, domain, path, expires )
+        
+        self._session_manager.SetSessionDirty( self._network_context )
         
     
     def _Update( self ):
