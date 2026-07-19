@@ -51,9 +51,17 @@ class SystemTrayPanel( ClientGUIOptionsPanelBase.OptionsPagePanel ):
             self._close_client_to_system_tray.setEnabled( False )
             self._start_client_in_system_tray.setEnabled( False )
             
-        elif not HC.PLATFORM_WINDOWS:
+        else:
             
-            label = 'This can be buggy/crashy on non-Windows, so test things out carefully.'
+            label = ''
+            
+            if not HC.PLATFORM_WINDOWS:
+                
+                label += 'This can be buggy/crashy on non-Windows, so test things out carefully.'
+                label += '\n\n'
+                
+            
+            label += 'Left-click system tray to minimise the window or raise it to the front. Middle-click to hide/show completely.'
             
             QP.AddToLayout( vbox, ClientGUICommon.BetterStaticText( self, label ), CC.FLAGS_EXPAND_PERPENDICULAR )
             

@@ -136,12 +136,22 @@ def render_key_value( indent_depth, key, value, keys_to_put_at_the_top = None ) 
     return row_text
     
 
-# we parse exif, icc profile, and jpeg progressive separately
+# we parse and display this stuff in other places
 PIL_INFO_KEYS_THAT_ARE_NOT_CONSIDERED_HUMAN_READABLE_STUFF = {
     'exif',
     'icc_profile',
     'progression',
-    'progressive'
+    'progressive',
+    'srgb',
+    'gamma',
+    'chromaticity',
+    'dpi',
+    'jfif',
+    'jfif_unit',
+    'jfif_density',
+    'jfif_version',
+    'compression',
+    'resolution',
 }
 
 def GetEmbeddedFileText( pil_image: PILImage.Image ) -> str | None:

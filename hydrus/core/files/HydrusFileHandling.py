@@ -838,6 +838,8 @@ def passes_offsets_and_headers( offsets_and_headers, first_bytes_of_file ) -> bo
     return True
     
 
+ALLOW_COMIC_BOOK_ARCHIVE_INSPECTION = True
+
 def GetMime( path, ok_to_look_for_hydrus_updates = False ):
     
     size = os.path.getsize( path )
@@ -920,7 +922,7 @@ def GetMime( path, ok_to_look_for_hydrus_updates = False ):
                     return HC.ANIMATION_UGOIRA
                     
                 
-                if HydrusArchiveHandling.ZipLooksLikeCBZ( path ):
+                if ALLOW_COMIC_BOOK_ARCHIVE_INSPECTION and HydrusArchiveHandling.ZipLooksLikeCBZ( path ):
                     
                     return HC.APPLICATION_CBZ
                     

@@ -652,11 +652,29 @@ def FigureOutDBDir( arg_db_dir: str ):
             
         else:
             
-            raise Exception( f'The chosen db path "{db_dir}" is not writeable-to!' )
+            raise Exception( f'The chosen db dir path "{arg_db_dir}", which resolved to "{db_dir}", did not appear to be writeable-to!' )
             
         
     
     return db_dir
+    
+
+def FigureOutTempDir( temp_dir: str ) -> str:
+    
+    original_temp_dir = temp_dir
+    
+    temp_dir = os.path.expanduser( temp_dir )
+    
+    temp_dir = ConvertPortablePathToAbsPath( temp_dir, base_dir_override = HC.BASE_DIR )
+    
+    if DirectoryIsWriteable( temp_dir ):
+        
+        return str( temp_dir )
+        
+    else:
+        
+        raise Exception( f'The chosen temp dir path "{original_temp_dir}", which resolved to "{temp_dir}", did not appear to be writeable-to!' )
+        
     
 
 def FileisWriteable( path: str ):

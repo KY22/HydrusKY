@@ -375,6 +375,7 @@ class ClientOptions( HydrusSerialisable.SerialisableBase ):
             'treeview_collapse_all_children_upon_parent_closed' : False,
             'treeview_animate_current_node' : True,
             'treeview_history_box_pinned' : False,
+            'allow_comic_book_archive_detection' : True,
         }
         
         #

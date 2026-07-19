@@ -4386,7 +4386,18 @@ class DB( HydrusDB.HydrusDB ):
         
         #
         
-        self.modules_files_maintenance = ClientDBFilesMaintenance.ClientDBFilesMaintenance( self._c, self.modules_files_maintenance_queue, self.modules_hashes, self.modules_hashes_local_cache, self.modules_files_metadata_basic, self.modules_files_timestamps, self.modules_similar_files, self.modules_repositories, self.modules_media_results )
+        self.modules_files_maintenance = ClientDBFilesMaintenance.ClientDBFilesMaintenance(
+            self._c,
+            self.modules_files_maintenance_queue,
+            self.modules_hashes,
+            self.modules_hashes_local_cache,
+            self.modules_files_metadata_basic,
+            self.modules_files_timestamps,
+            self.modules_similar_files,
+            self.modules_repositories,
+            self.modules_media_results,
+            self.modules_files_duplicates_auto_resolution_storage
+        )
         
         self._modules.append( self.modules_files_maintenance )
         
@@ -8308,6 +8319,55 @@ class DB( HydrusDB.HydrusDB ):
                     self.modules_files_maintenance_queue.AddJobs( hash_ids, ClientFilesMaintenance.REGENERATE_FILE_DATA_JOB_FORCE_THUMBNAIL )
                     
                     hash_ids = self._STS( self._Execute( 'SELECT hash_id FROM {} CROSS JOIN files_info USING ( hash_id ) WHERE mime IN {};'.format( temp_hash_ids_table_name, HydrusLists.SplayListForDB( [ HC.APPLICATION_PDF ] ) ) ) )
+                    
+                    self.modules_files_maintenance_queue.AddJobs( hash_ids, ClientFilesMaintenance.REGENERATE_FILE_DATA_JOB_FILE_HAS_HUMAN_READABLE_EMBEDDED_METADATA )
+                    
+                
+            except Exception as e:
+                
+                HydrusData.PrintException( e )
+                
+                message = 'Some file maintenance failed to schedule! This is not super important, but hydev would be interested in seeing the error that was printed to the log.'
+                
+                self.pub_initial_message( message )
+                
+            
+        
+        if version == 678:
+            
+            try:
+                
+                table_name = 'main.confirmed_alternate_pairs'
+                columns = [ 'larger_media_id', 'smaller_media_id' ]
+                
+                if not self._IdealIndexExists( table_name, columns ):
+                    
+                    self._CreateIndex( table_name, columns, unique = True )
+                    
+                    self.modules_db_maintenance.AnalyzeTable( 'confirmed_alternate_pairs' )
+                    
+                
+            except Exception as e:
+                
+                HydrusData.PrintException( e )
+                
+                message = 'Failed to create a new index!  This is not super important, but hydev would be interested in seeing the error that was printed to the log.'
+                
+                self.pub_initial_message( message )
+                
+            
+        
+        if False: # on version where we are happy with human-readable file metadata. do not want to pull the trigger on this big job until we are content
+            
+            try:
+                
+                self._controller.frame_splash_status.SetSubtext( f'scheduling embedded text maintenance' )
+                
+                all_local_hash_ids = self.modules_files_storage.GetCurrentHashIdsList( self.modules_services.hydrus_local_file_storage_service_id )
+                
+                with self._MakeTemporaryIntegerTable( all_local_hash_ids, 'hash_id' ) as temp_hash_ids_table_name:
+                    
+                    hash_ids = self._STS( self._Execute( 'SELECT hash_id FROM {} CROSS JOIN has_human_readable_embedded_metadata USING ( hash_id ) CROSS JOIN files_info USING ( hash_id ) WHERE mime IN {};'.format( temp_hash_ids_table_name, HydrusLists.SplayListForDB( HC.IMAGES ) ) ) )
                     
                     self.modules_files_maintenance_queue.AddJobs( hash_ids, ClientFilesMaintenance.REGENERATE_FILE_DATA_JOB_FILE_HAS_HUMAN_READABLE_EMBEDDED_METADATA )
                     
