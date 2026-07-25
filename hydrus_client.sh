@@ -1,5 +1,4 @@
 #!/bin/bash
-
 pushd "$(dirname "$0")" || exit 1
 
 if [ ! -d "venv" ]; then
@@ -30,8 +29,13 @@ fi
 # export QT_QPA_PLATFORM=xcb
 # unset WAYLAND_DISPLAY
 #
+source .env
+echo "$carpeta"
+if [ -d $carpeta ]; then
+  python hydrus_client.py -d="$carpeta" "$@"
+fi
 
-python hydrus_client.py -d="/home/lan/Datos/data/hydrus/db/" "$@"
+# python hydrus_client.py -d="/home/lan/Datos/data/hydrus/db/" "$@"
 
 deactivate
 
