@@ -15,7 +15,7 @@ if typing.TYPE_CHECKING:
     from hydrus.core import HydrusController
     
 
-controller: "HydrusController.HydrusController | None" = None
+controller: "HydrusController.HydrusController" = None
 
 # TODO: move the client, server, and any test-specific garbage to the new module Globals mate, and/or the controller objects themselves
 
@@ -54,7 +54,6 @@ macos_antiflicker_test = False
 
 canvas_tile_outline_mode = False
 
-db_ui_hang_relief_mode = False
 callto_report_mode = False
 db_report_mode = False
 file_report_mode = False

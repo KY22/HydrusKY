@@ -584,9 +584,9 @@ class FrameGUI( CAC.ApplicationCommandProcessorMixin, ClientGUITopLevelWindows.M
         self._clipboard_watcher_destination_page_watcher = None
         self._clipboard_watcher_destination_page_urls = None
         
-        drop_target = ClientGUIDragDrop.FileDropTarget( self, self.ImportFiles, self.ImportURLFromDragAndDrop, self._notebook.MediaDragAndDropDropped )
+        self._drop_target = ClientGUIDragDrop.FileDropTarget( self, self.ImportFiles, self.ImportURLFromDragAndDrop, self._notebook.MediaDragAndDropDropped )
         self.installEventFilter( ClientGUIDragDrop.FileDropTarget( self, self.ImportFiles, self.ImportURLFromDragAndDrop, self._notebook.MediaDragAndDropDropped ) )
-        self._notebook.AddSupplementaryTabBarDropTarget( drop_target ) # ugly hack to make the case of files/media dropped onto a tab work
+        self._notebook.AddSupplementaryTabBarDropTarget( self._drop_target ) # ugly hack to make the case of files/media dropped onto a tab work
         
         self._message_manager = ClientGUIPopupMessages.PopupMessageManager( self, self._controller.job_status_popup_queue )
         
@@ -3643,7 +3643,6 @@ ATTACH "client.mappings.db" as external_mappings;'''
         
         data_actions = ClientGUIMenus.GenerateMenu( debug_menu )
         
-        ClientGUIMenus.AppendMenuCheckItem( data_actions, 'db ui-hang relief mode', 'Have UI-synchronised database jobs process pending Qt events while they wait.', HG.db_ui_hang_relief_mode, self._SwitchBoolean, 'db_ui_hang_relief_mode' )
         ClientGUIMenus.AppendMenuItem( data_actions, 'flush log', 'Command the log to write any buffered contents to hard drive.', HydrusData.DebugPrint, 'Flushing log' )
         ClientGUIMenus.AppendMenuItem( data_actions, 'force database commit', 'Command the database to flush all pending changes to disk.', CG.client_controller.ForceDatabaseCommit )
         ClientGUIMenus.AppendMenuItem( data_actions, 'review threads', 'Show current threads and what they are doing.', self._ReviewThreads )
@@ -5393,10 +5392,9 @@ ATTACH "client.mappings.db" as external_mappings;'''
             
             idle_status = ''
             idle_tooltip = None
-            
-        
-        hydrus_busy_status = self._controller.GetThreadPoolBusyStatus()
-        hydrus_busy_tooltip = 'just a simple measure of how much hydrus wants to do atm'
+
+
+        ( hydrus_busy_status, hydrus_busy_tooltip ) = self._controller.GetThreadPoolBusyStatus()
         
         if self._controller.SystemBusy():
             
@@ -6959,10 +6957,6 @@ The password is cleartext here but obscured in the entry dialog. Enter a blank p
             
             HG.db_report_mode = not HG.db_report_mode
             
-        elif name == 'db_ui_hang_relief_mode':
-            
-            HG.db_ui_hang_relief_mode = not HG.db_ui_hang_relief_mode
-            
         elif name == 'fake_petition_mode':
             
             HG.fake_petition_mode = not HG.fake_petition_mode
@@ -7908,6 +7902,11 @@ The password is cleartext here but obscured in the entry dialog. Enter a blank p
     def GetCurrentSessionPageAPIInfoDict( self ):
         
         return self._notebook.GetSessionAPIInfoDict( is_selected = True )
+        
+    
+    def GetDropTarget( self ) -> "ClientGUIDragDrop.FileDropTarget":
+        
+        return self._drop_target
         
     
     def GetMPVWidget( self, parent ):

@@ -9,13 +9,9 @@ import time
 import traceback
 import typing
 
-from qtpy import QtCore as QC
-from qtpy import QtWidgets as QW
-
 from hydrus.core import HydrusConstants as HC
 from hydrus.core import HydrusData
 from hydrus.core import HydrusDB
-from hydrus.core import HydrusDBBase
 from hydrus.core import HydrusExceptions
 from hydrus.core import HydrusGlobals as HG
 from hydrus.core import HydrusLists
@@ -220,22 +216,6 @@ def report_speed_to_log( precise_timestamp, num_rows, row_name ):
     summary = 'processed ' + HydrusNumbers.ToHumanInt( num_rows ) + ' ' + row_name + ' at ' + rows_s + ' rows/s'
     
     HydrusData.Print( summary )
-    
-
-class JobDatabaseClient( HydrusDBBase.JobDatabase ):
-    
-    def _DoDelayedResultRelief( self ):
-        
-        if HG.db_ui_hang_relief_mode:
-            
-            if QC.QThread.currentThread() == CG.client_controller.main_qt_thread:
-                
-                HydrusData.Print( 'ui-hang event processing: begin' )
-                QW.QApplication.instance().processEvents()
-                HydrusData.Print( 'ui-hang event processing: end' )
-                
-            
-        
     
 
 class DB( HydrusDB.HydrusDB ):
@@ -1668,11 +1648,6 @@ class DB( HydrusDB.HydrusDB ):
             
         
         self.modules_media_results.ForceRefreshFileInfoManagers( hash_ids_to_hashes )
-        
-    
-    def _GenerateDBJob( self, job_type, synchronous, action, *args, **kwargs ):
-        
-        return JobDatabaseClient( job_type, synchronous, action, *args, **kwargs )
         
     
     def _GetBonedStats( self, file_search_context: ClientSearchFileSearchContext.FileSearchContext = None, job_status = None ):
@@ -3748,7 +3723,10 @@ class DB( HydrusDB.HydrusDB ):
             
             self.modules_files_metadata_basic.SetHasTransparency( hash_id, file_import_job.HasTransparency() )
             self.modules_files_metadata_basic.SetHasEXIF( hash_id, file_import_job.HasEXIF() )
+            self.modules_files_metadata_basic.SetHasXMP( hash_id, file_import_job.HasXMP() )
+            self.modules_files_metadata_basic.SetHasIPTC( hash_id, file_import_job.HasIPTC() )
             self.modules_files_metadata_basic.SetHasHumanReadableEmbeddedMetadata( hash_id, file_import_job.HasHumanReadableEmbeddedMetadata() )
+            self.modules_files_metadata_basic.SetHasSoftwareSource( hash_id, file_import_job.HasSoftwareSource() )
             self.modules_files_metadata_basic.SetHasICCProfile( hash_id, file_import_job.HasICCProfile() )
             self.modules_files_metadata_basic.SetBlurhash( hash_id, file_import_job.GetBlurhash() )
             
@@ -6537,11 +6515,6 @@ class DB( HydrusDB.HydrusDB ):
             
             file_service_ids = self.modules_services.GetServiceIds( HC.FILE_SERVICES_WITH_SPECIFIC_TAG_LOOKUP_CACHES )
             
-            def status_hook( s ):
-                
-                job_status.SetStatusText( s, 2 )
-                
-            
             for ( file_service_id, tag_service_id ) in itertools.product( file_service_ids, tag_service_ids ):
                 
                 if job_status.IsCancelled():
@@ -7596,13 +7569,14 @@ class DB( HydrusDB.HydrusDB ):
         
         if version == 643:
             
-            def ask_what_to_do_transparency_recheck_644( num_transparent_files ):
+            def ask_what_to_do_transparency_recheck_644( num_transparent_files: int ):
                 
                 message = f'Hey, I have changed how I detect transparency in files. Files that only have a barely-noticeable handful of 98% opaque pixels are now considered non-transparent. You have {HydrusNumbers.ToHumanInt(num_transparent_files)} images and animations that are currently considered as having transparency. Do you want to schedule a transparency-rescan for all of them to clear out the previous false positives?'
                 message += '\n' * 2
                 message += 'I recommend you say yes unless the number here is truly huge and you do not want hydrus to be eventually loading all those files (e.g. if your files are stored in the cloud and you need to keep bandwidth usage down).'
                 
                 from hydrus.client.gui import ClientGUIDialogsQuick
+                from qtpy import QtWidgets as QW
                 
                 result = ClientGUIDialogsQuick.GetYesNo( CG.client_controller.GetMainTLW(), message, title = 'Re-do transparency check?', yes_label = 'yes, re-scan these files', no_label = 'no, do not do it' )
                 
@@ -8200,7 +8174,41 @@ class DB( HydrusDB.HydrusDB ):
                 
             
         
+        if version == 681:
+            
+            if not self._TableExists( 'has_xmp' ):
+                
+                self._Execute( 'CREATE TABLE IF NOT EXISTS main.has_xmp ( hash_id INTEGER PRIMARY KEY );' )
+                
+            
+            if not self._TableExists( 'has_iptc' ):
+                
+                self._Execute( 'CREATE TABLE IF NOT EXISTS main.has_iptc ( hash_id INTEGER PRIMARY KEY );' )
+                
+            
+            if not self._TableExists( 'has_software_source' ):
+                
+                self._Execute( 'CREATE TABLE IF NOT EXISTS main.has_software_source ( hash_id INTEGER PRIMARY KEY );' )
+                
+            
+            try:
+                
+                self._controller.frame_splash_status.SetSubtext( f'clearing out location-orphaned potential duplicate pairs' )
+                
+                self.modules_files_duplicates_updates.ResyncPotentialPairsToHydrusLocalFileStorage()
+                
+            except Exception as e:
+                
+                HydrusData.PrintException( e )
+                
+                message = 'Some duplicate maintenance failed to work on update! This is not super important, but hydev would be interested in seeing the error that was printed to the log.'
+                
+                self.pub_initial_message( message )
+                
+            
+        
         if False: # on version where we are happy with human-readable file metadata. do not want to pull the trigger on this big job until we are content
+            # actually yeah now we want to do it for 'has xmp', 'has iptc', and 'has software/source', and we MUST make it optional through a yes/no dialog
             
             try:
                 
@@ -8233,7 +8241,7 @@ class DB( HydrusDB.HydrusDB ):
         
         self._Execute( 'UPDATE version SET version = ?;', ( current_version, ) )
         
-        versions_that_could_do_with_a_new_venv = { 670 }
+        versions_that_could_do_with_a_new_venv = { 670, 681 }
         
         if HC.RUNNING_FROM_SOURCE and HC.GOT_A_NORMAL_LOOKING_VENV and current_version in versions_that_could_do_with_a_new_venv:
             
