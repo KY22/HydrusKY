@@ -21,28 +21,51 @@ class ClientExecutableCallable( HydrusSerialisable.SerialisableBaseNamed ):
         
         if actual_call is None:
             
-            actual_call = ClientExecutableActualCall.ExecutableLocalProcessCall()
+            actual_call = ClientExecutableActualCall.ExecutableLocalProcessCallTemplate()
             
         
         self._callable_key = HydrusData.GenerateKey()
         self._pipeline_type = pipeline_type
         self._actual_call = actual_call
-        # may have validity, availability, set up/tear down stuff
         
     
     def _GetSerialisableInfo( self ):
         
-        pass # TODO: do this
+        serialisable_callable_key = self._callable_key.hex()
+        serialisable_actual_call = self._actual_call.GetSerialisableTuple()
+        
+        return (
+            serialisable_callable_key,
+            self._pipeline_type,
+            serialisable_actual_call,
+        )
         
     
     def _InitialiseFromSerialisableInfo( self, serialisable_info ):
         
-        pass # TODO: do this
+        (
+            serialisable_callable_key,
+            self._pipeline_type,
+            serialisable_actual_call,
+        ) = serialisable_info
+        
+        self._callable_key = bytes.fromhex( serialisable_callable_key )
+        self._actual_call = HydrusSerialisable.CreateFromSerialisableTuple( serialisable_actual_call )
         
     
     def Call( self, input_params ):
         
         return self._actual_call.Call( input_params )
+        
+    
+    def GenerateNewCallableKey( self ):
+        
+        self._callable_key = HydrusData.GenerateKey()
+        
+    
+    def GetCall( self ):
+        
+        return self._actual_call
         
     
     def GetCallableKey( self ):

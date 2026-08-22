@@ -746,6 +746,8 @@ class EditComparatorList( ClientGUIListBoxes.AddEditDeleteListBox ):
             ( ClientDuplicatesAutoResolutionComparators.PairComparatorRelativeHardcoded( hardcoded_type = ClientDuplicatesAutoResolutionComparators.HARDCODED_COMPARATOR_TYPE_TWO_FILES_FILETYPE_SAME ), 'A comparator that tests if the two files share the same filetype.' ),
             ( ClientDuplicatesAutoResolutionComparators.PairComparatorRelativeHardcoded( hardcoded_type = ClientDuplicatesAutoResolutionComparators.HARDCODED_COMPARATOR_TYPE_TWO_FILES_FILETYPE_DIFFERS ), 'A comparator that tests if the two files have different filetype.' ),
             ( ClientDuplicatesAutoResolutionComparators.PairComparatorRelativeHardcoded( hardcoded_type = ClientDuplicatesAutoResolutionComparators.HARDCODED_COMPARATOR_TYPE_TWO_FILES_A_HAS_CLEARLY_BETTER_JPEG_QUALITY ), 'A comparator that tests if A has a non-trivially higher apparent jpeg quality than B. The difference corresponds to about one label-step of quality as you see in the duplicate filter. If either file is not a jpeg, it fails.' ),
+            ( ClientDuplicatesAutoResolutionComparators.PairComparatorRelativeHardcoded( hardcoded_type = ClientDuplicatesAutoResolutionComparators.HARDCODED_COMPARATOR_TYPE_TWO_FILES_A_HAS_SAME_OR_BETTER_METADATA_FLAGS_TO_B ), 'Easy one-shot comparator that wants to preserve rich metadata in A. If B has a "has_x" flag, A must have it too. The flags tested are: EXIF, XMP, IPTC, software/source, human-readable. The actual contents are not compared, only the presence.' ),
+            ( ClientDuplicatesAutoResolutionComparators.PairComparatorRelativeHardcoded( hardcoded_type = ClientDuplicatesAutoResolutionComparators.HARDCODED_COMPARATOR_TYPE_TWO_FILES_A_HAS_SAME_OR_BETTER_ICC_FLAG_TO_B ), 'Easy one-shot comparator that wants to keep ICC Profiles in A. If B has an ICC Profile, A must have one too. The actual contents are not compared, only the presence.' ),
             ( ClientDuplicatesAutoResolutionComparators.PairComparatorRelativeHardcoded( hardcoded_type = ClientDuplicatesAutoResolutionComparators.HARDCODED_COMPARATOR_TYPE_TWO_FILES_HAS_EXIF_SAME ), 'A comparator that tests if the two files either both have or both do not have some amount of EXIF data.' ),
             ( ClientDuplicatesAutoResolutionComparators.PairComparatorRelativeHardcoded( hardcoded_type = ClientDuplicatesAutoResolutionComparators.HARDCODED_COMPARATOR_TYPE_TWO_FILES_HAS_ICC_PROFILE_SAME ), 'A comparator that tests if the two files either both have or both do not have some amount of ICC Profile data.' ),
         ]
@@ -1597,7 +1599,7 @@ class ReviewDuplicatesAutoResolutionPanel( QW.QWidget ):
     
     def _DeleteOrphanPotentialPairs( self ):
         
-        text = f'This will scan the primary potential pairs table. If any are missing from the auto-resolution rule potential pair cache, they will be added. Orphans will be deleted.'
+        text = f'This will scan your database to ensure that rules are synced with the primary pair store. If any rule is missing pairs it should have, they will be added. If any rule has pairs it should not have, they will be removed.'
         
         result = ClientGUIDialogsQuick.GetYesNo( self, text )
         

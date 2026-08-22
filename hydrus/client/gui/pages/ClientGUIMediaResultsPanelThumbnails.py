@@ -39,7 +39,6 @@ from hydrus.client.media import ClientMedia
 from hydrus.client.media import ClientMediaFileFilter
 from hydrus.client.media import ClientMediaList
 from hydrus.client.media import ClientMediaResult
-from hydrus.client.media import ClientMediaResultPrettyInfo
 from hydrus.client.media import ClientMediaSingle
 from hydrus.client.metadata import ClientTags
 from hydrus.client.metadata import ClientRatings
@@ -1304,9 +1303,7 @@ class MediaResultsPanelThumbnails( ClientGUIMediaResultsPanel.MediaResultsPanel 
                 
                 focus_singleton = self._GetFocusSingleton()
                 
-                pretty_info_lines = ClientMediaResultPrettyInfo.GetPrettyMediaResultInfoLines( focus_singleton.GetMediaResult() )
-                
-                ClientGUIMediaMenus.AddPrettyMediaResultInfoLines( selection_info_menu, pretty_info_lines )
+                ClientGUIMediaMenus.AddPrettyMediaResultInfoLines( self, selection_info_menu, focus_singleton.GetMediaResult() )
                 
             
         
@@ -3590,9 +3587,7 @@ class MediaResultsPanelThumbnailsGraphicsViewTest( ClientGUIMediaResultsPanel.Me
                 
                 focus_singleton = self._GetFocusSingleton()
                 
-                pretty_info_lines = ClientMediaResultPrettyInfo.GetPrettyMediaResultInfoLines( focus_singleton.GetMediaResult() )
-                
-                ClientGUIMediaMenus.AddPrettyMediaResultInfoLines( selection_info_menu, pretty_info_lines )
+                ClientGUIMediaMenus.AddPrettyMediaResultInfoLines( self, selection_info_menu, focus_singleton.GetMediaResult() )
                 
             
         

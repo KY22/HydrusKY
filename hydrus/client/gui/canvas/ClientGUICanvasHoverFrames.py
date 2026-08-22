@@ -1154,7 +1154,7 @@ class CanvasHoverFrameTop( CanvasHoverFrame ):
             return
             
         
-        ClientGUIMediaModalActions.ShowFileEmbeddedMetadata( self, self._current_media )
+        ClientGUIMediaModalActions.ShowFileEmbeddedMetadata( self, self._current_media.GetMediaResult() )
         
     
     def _ShowShortcutMenu( self ):
@@ -1223,13 +1223,22 @@ class CanvasHoverFrameTop( CanvasHoverFrame ):
             window_menu = menu
             
         
+        if HC.PLATFORM_LINUX:
+            
+            ClientGUIMenus.AppendMenuLabel( window_menu, 'MAY BE BUGGY/CRASHY ON LINUX', 'Be careful with always-on-top with Linux. Switching while mpv is loaded is disabled since it proved too crashy.' )
+            
+        
         ClientGUIMenus.AppendMenuCheckItem( window_menu, 'always on top', 'Toggle whether this window is always on top.', self._my_canvas.IsAlwaysOnTop(), self.sendApplicationCommand.emit, CAC.ApplicationCommand.STATICCreateSimpleCommand( CAC.SIMPLE_WINDOW_ALWAYS_ON_TOP_FLIP ) )
+        ClientGUIMenus.AppendMenuCheckItem( window_menu, 'always on top (while playing)', 'Tie the window always on top state to the Play/Pause state of media.', self._my_canvas.IsAlwaysOnTopWhilePlaying(), self.sendApplicationCommand.emit, CAC.ApplicationCommand.STATICCreateSimpleCommand( CAC.SIMPLE_WINDOW_ALWAYS_ON_TOP_WHILE_PLAYING_FLIP ) )
         ClientGUIMenus.AppendMenuCheckItem( window_menu, 'remove titlebar/frame', 'Toggle the OS frame of this window.', self._my_canvas.IsHidingWindowFrame(), self.sendApplicationCommand.emit, CAC.ApplicationCommand.STATICCreateSimpleCommand( CAC.SIMPLE_WINDOW_FRAMELESS_FLIP ) )
         
         ClientGUIMenus.AppendSeparator( window_menu )
         
         checkbox_manager = ClientGUICommon.CheckboxManagerOptions( 'always_start_media_viewers_always_on_top' )
         ClientGUIMenus.AppendMenuCheckItem( window_menu, 'always start new media viewers always on top', 'Set whether all new media viewers should start in this state.', checkbox_manager.GetCurrentValue(), checkbox_manager.Invert )
+        
+        checkbox_manager = ClientGUICommon.CheckboxManagerOptions( 'always_start_media_windows_tied_to_pauseplay_state' )
+        ClientGUIMenus.AppendMenuCheckItem( window_menu, 'always start new media viewers on top while playing', 'Tie the window always on top state to the Play/Pause state of media, for all newly created media viewers.', checkbox_manager.GetCurrentValue(), checkbox_manager.Invert )
         
         checkbox_manager = ClientGUICommon.CheckboxManagerOptions( 'always_start_media_viewers_frameless' )
         ClientGUIMenus.AppendMenuCheckItem( window_menu, 'always start new media viewers without titlebar/frame', 'Set whether all new media viewers should start in this state.', checkbox_manager.GetCurrentValue(), checkbox_manager.Invert )
@@ -2085,9 +2094,16 @@ class NotePanel( QW.QWidget ):
         self.setToolTip( ClientGUIFunctions.WrapToolTip( 'Left-click to edit, Middle-click to copy, Right-click to hide/show.' ) )
         
     
-    def _CopyNote( self ):
+    def _CopyNoteFromClick( self ):
         
-        copy_text = self._name + '\n\n' + self._note
+        if CG.client_controller.new_options.GetBoolean( 'copy_notes_quick_click_only_copies_text' ):
+            
+            copy_text = self._note
+            
+        else:
+            
+            copy_text = self._name + '\n\n' + self._note
+            
         
         CG.client_controller.pub( 'clipboard', 'text', copy_text )
         
@@ -2106,7 +2122,7 @@ class NotePanel( QW.QWidget ):
                     
                 elif event.button() == QC.Qt.MouseButton.MiddleButton:
                     
-                    self._CopyNote()
+                    self._CopyNoteFromClick()
                     
                 else:
                     

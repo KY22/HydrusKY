@@ -344,7 +344,7 @@ def GetSoftwareSourceFromCommentInfoField( value ) -> str | None:
         
         patterns = [
             r'^(Created|Converted|Cropped|Compressed|Edited) with (?P<software>.+)',
-            r'^... (created|converted|cropped|compressed|edited) with (?P<software>.+)',
+            r'^(created|converted|cropped|compressed|edited) with (?P<software>.+)',
         ]
         
         for pattern in patterns:
@@ -413,6 +413,9 @@ def GetSoftwareSourceFromPilInfo( pil_image: PILImage.Image ) -> str | None:
         
         components.append( info_dict[ 'Source' ] )
         
+    
+    components = [ c.strip() for c in components ]
+    components = [ c for c in components if c != '' ]
     
     if len( components ) == 0:
         
@@ -593,7 +596,7 @@ PIL_INFO_KEYS_THAT_ARE_NOT_CONSIDERED_HUMAN_READABLE_STUFF = {
     'source',
     'mpoffset',
     'Creation Time', # TODO: Woop woop, pull this for a noice modified time with like 'file metadata' as the 'domain'
-    'create-date',
+    'create-date', # TODO: Also, IPTC has some date fields! So does XMP.
     'modify-date',
     'date:create',
     'date:modify',
