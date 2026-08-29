@@ -220,6 +220,8 @@ class TestPanel( QW.QWidget ):
             
             self._SetExampleData( raw_text, example_bytes = raw_bytes )
             
+            self._paste_button.ShowMicroNotification( f'Pasted!' )
+            
         except Exception as e:
             
             ClientGUIDialogsQuick.PresentClipboardParseError( self, raw_text, 'UTF-8 text', e )
@@ -514,6 +516,8 @@ class TestPanelPageParser( TestPanel ):
         
         CG.client_controller.pub( 'clipboard', 'text', self._example_data_post_conversion )
         
+        self._copy_button_post_conversion.ShowMicroNotification( 'Copied!' )
+        
     
     def _RefreshDataPreviews( self ):
         
@@ -658,6 +662,8 @@ class TestPanelPageParserSubsidiary( TestPanelPageParser ):
         joiner = '\n' * 2
         
         CG.client_controller.pub( 'clipboard', 'text', joiner.join( self._example_data_post_separation ) )
+        
+        self._copy_button_post_separation.ShowMicroNotification( 'Copied!' )
         
     
     def _SetExampleData( self, example_data, example_bytes = None ):

@@ -1066,16 +1066,22 @@ class EditFileNotesPanel( CAC.ApplicationCommandProcessorMixin, ClientGUIScrolle
             
             text = json.dumps( names_to_notes )
             
+            note_type_desc = 'encoded '
+            
         else:
             
             names_and_notes = sorted( names_to_notes.items(), key = lambda x : HydrusText.HumanTextSortKey( x[0] ) )
             
             text = '\n\n\n\n'.join( ( name + '\n\n' + note_text for ( name, note_text ) in names_and_notes ) )
             
+            note_type_desc = ''
+            
         
         if len( text ) > 0:
             
             CG.client_controller.pub( 'clipboard', 'text', text )
+            
+            self._copy_button.ShowMicroNotification( f'Copied {HydrusNumbers.ToHumanInt( len( names_to_notes ) ) } {note_type_desc}notes!' )
             
         
     
@@ -1101,13 +1107,7 @@ class EditFileNotesPanel( CAC.ApplicationCommandProcessorMixin, ClientGUIScrolle
             CG.client_controller.pub( 'clipboard', 'text', urls_text )
             
         
-        QW.QToolTip.showText(
-            self._copy_urls_button.mapToGlobal( self._copy_urls_button.rect().bottomLeft() ),
-            f'{HydrusNumbers.ToHumanInt( len( urls ) )} URLs!',
-            self._copy_urls_button,
-            self._copy_urls_button.rect(),
-            3000
-        )
+        self._copy_urls_button.ShowMicroNotification( f'Copied {HydrusNumbers.ToHumanInt( len( urls ) )} URLs!' )
         
     
     def _CurrentNoteChanged( self ):
@@ -1209,6 +1209,8 @@ class EditFileNotesPanel( CAC.ApplicationCommandProcessorMixin, ClientGUIScrolle
                 self._AddNotePanel( name, note )
                 
             
+        
+        self._paste_button.ShowMicroNotification( f'Pasted {HydrusNumbers.ToHumanInt(len(new_names_to_notes))} new notes!' )
         
     
     def _DeleteNote( self ):
@@ -1830,6 +1832,8 @@ class EditURLsPanel( CAC.ApplicationCommandProcessorMixin, ClientGUIScrolledPane
         
         CG.client_controller.pub( 'clipboard', 'text', text )
         
+        self._copy_button.ShowMicroNotification( f'Copied {HydrusNumbers.ToHumanInt(len(urls))} URLs!' )
+        
     
     def _EnterURLs( self, urls, only_add = False ):
         
@@ -1924,6 +1928,8 @@ class EditURLsPanel( CAC.ApplicationCommandProcessorMixin, ClientGUIScrolledPane
             urls = HydrusText.DeserialiseNewlinedTexts( raw_text )
             
             self._EnterURLs( urls, only_add = True )
+            
+            self._paste_button.ShowMicroNotification( f'Pasted {HydrusNumbers.ToHumanInt(len(urls))} URLs!' )
             
         except Exception as e:
             

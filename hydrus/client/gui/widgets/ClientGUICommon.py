@@ -378,6 +378,11 @@ class BetterButton( ShortcutAwareToolTipMixin, QW.QPushButton ):
         QW.QPushButton.setText( self, button_label )
         
     
+    def ShowMicroNotification( self, text ):
+        
+        ClientGUIFunctions.ShowMicroNotification( self, text )
+        
+    
 
 class ExpandCollapseArrowButton( BetterButton ):
     
@@ -1431,6 +1436,11 @@ class IconButton( ShortcutAwareToolTipMixin, QW.QPushButton ):
         self.setIcon( icon )
         
         self.last_icon_set = icon
+        
+    
+    def ShowMicroNotification( self, text ):
+        
+        ClientGUIFunctions.ShowMicroNotification( self, text )
         
     
 
