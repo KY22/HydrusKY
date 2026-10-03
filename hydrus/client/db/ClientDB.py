@@ -3995,6 +3995,7 @@ class DB( HydrusDB.HydrusDB ):
                 'import_file' : self._ImportFile,
                 'import_update' : self._ImportUpdate,
                 'maintain_similar_files_search_for_potential_duplicates' : self._PerceptualHashesSearchForPotentialDuplicates,
+                'maintain_trash' : self._MaintainTrash,
                 'migration_clear_job' : self._MigrationClearJob,
                 'migration_start_mappings_job' : self._MigrationStartMappingsJob,
                 'migration_start_pairs_job' : self._MigrationStartPairsJob,
@@ -4494,6 +4495,75 @@ class DB( HydrusDB.HydrusDB ):
         )
         
         self._modules.append( self.modules_files_duplicates_auto_resolution_search )
+        
+    
+    def _MaintainTrash( self, expected_work_time: float ):
+        
+        def get_current_total_trash_size():
+            
+            service_info = self._GetServiceInfoSpecific( self.modules_services.trash_service_id, HC.LOCAL_FILE_TRASH_DOMAIN, { HC.SERVICE_INFO_TOTAL_SIZE } )
+            
+            return service_info[ HC.SERVICE_INFO_TOTAL_SIZE ]
+            
+        
+        time_to_stop = HydrusTime.GetNowFloat() + expected_work_time
+        
+        still_work_to_do = False
+        
+        if HC.options[ 'trash_max_size' ] is not None:
+            
+            max_size = HC.options[ 'trash_max_size' ] * 1048576
+            
+            while get_current_total_trash_size() > max_size:
+                
+                hashes = self._GetTrashHashes( limit = 1 )
+                
+                if len( hashes ) > 0:
+                    
+                    content_update = ClientContentUpdates.ContentUpdate( HC.CONTENT_TYPE_FILES, HC.CONTENT_UPDATE_DELETE, hashes )
+                    
+                    content_update_package = ClientContentUpdates.ContentUpdatePackage.STATICCreateFromContentUpdate( CC.HYDRUS_LOCAL_FILE_STORAGE_SERVICE_KEY, content_update )
+                    
+                    self.modules_content_updates.ProcessContentUpdatePackage( content_update_package )
+                    
+                    still_work_to_do = True
+                    
+                else:
+                    
+                    self._DeleteServiceInfo( CC.TRASH_SERVICE_KEY, [ HC.SERVICE_INFO_TOTAL_SIZE ] )
+                    
+                
+                if HydrusTime.TimeHasPassedFloat( time_to_stop ):
+                    
+                    return still_work_to_do
+                    
+                
+            
+        
+        if HC.options[ 'trash_max_age' ] is not None:
+            
+            max_age = HC.options[ 'trash_max_age' ] * 3600
+            
+            hashes = self._GetTrashHashes( limit = 1, minimum_age = max_age )
+            
+            while len( hashes ) > 0:
+                
+                content_update = ClientContentUpdates.ContentUpdate( HC.CONTENT_TYPE_FILES, HC.CONTENT_UPDATE_DELETE, hashes )
+                
+                content_update_package = ClientContentUpdates.ContentUpdatePackage.STATICCreateFromContentUpdate( CC.HYDRUS_LOCAL_FILE_STORAGE_SERVICE_KEY, content_update )
+                
+                self.modules_content_updates.ProcessContentUpdatePackage( content_update_package )
+                
+                still_work_to_do = True
+                
+                if HydrusTime.TimeHasPassedFloat( time_to_stop ):
+                    
+                    return still_work_to_do
+                    
+                
+            
+        
+        return still_work_to_do
         
     
     def _ManageDBError( self, job, e ):
@@ -7633,7 +7703,14 @@ class DB( HydrusDB.HydrusDB ):
                     
                     if len( hash_ids ) > 0:
                         
-                        do_transparency_recheck = self._controller.CallBlockingToQtTLW( ask_what_to_do_transparency_recheck_644, len( hash_ids ) )
+                        if HG.non_interactive_update:
+                            
+                            do_transparency_recheck = True
+                            
+                        else:
+                            
+                            do_transparency_recheck = self._controller.CallBlockingToQtTLW( ask_what_to_do_transparency_recheck_644, len( hash_ids ) )
+                            
                         
                         if do_transparency_recheck:
                             
@@ -7849,7 +7926,14 @@ class DB( HydrusDB.HydrusDB ):
                         message += '\n\n'
                         message += 'If you close this dialog, I will continue with the update but insert the default "db/client_files" location for this entry, and you will get the repair file locations dialog after the update. If you know you need to fix this by a different method, kill the hydrus process now.'
                         
-                        CG.client_controller.BlockingSafeShowCriticalMessage( 'Problem updating!', message )
+                        if HG.non_interactive_update:
+                            
+                            HydrusData.Print( message )
+                            
+                        else:
+                            
+                            CG.client_controller.BlockingSafeShowCriticalMessage( 'Problem updating!', message )
+                            
                         
                         problem_locations.add( absolute_location )
                         
@@ -8265,7 +8349,14 @@ class DB( HydrusDB.HydrusDB ):
                 
                 self._controller.frame_splash_status.SetSubtext( f'scheduling file metadata regen maintenance' )
                 
-                do_it = self._controller.CallBlockingToQtTLW( ask_what_to_do_metadata_regen_682 )
+                if HG.non_interactive_update:
+                    
+                    do_it = True
+                    
+                else:
+                    
+                    do_it = self._controller.CallBlockingToQtTLW( ask_what_to_do_metadata_regen_682 )
+                    
                 
                 if do_it:
                     
@@ -8531,6 +8622,27 @@ class DB( HydrusDB.HydrusDB ):
                 
             
         
+        if version == 687:
+            
+            try:
+                
+                import_options_manager = self.modules_serialisable.GetJSONDump( HydrusSerialisable.SERIALISABLE_TYPE_IMPORT_OPTIONS_MANAGER )
+                
+                from hydrus.client.importing.options import ImportOptionsConstants as IOC
+                
+                global_import_options_container = import_options_manager.GetDefaultImportOptionsContainerForCallerType( IOC.IMPORT_OPTIONS_CALLER_TYPE_GLOBAL )
+                
+                from hydrus.client.importing.options import ExternalProgramsImportOptions
+                
+                global_import_options_container.SetImportOptions( ExternalProgramsImportOptions.ExternalProgramsImportOptions() )
+                
+                self.modules_serialisable.SetJSONDump( import_options_manager )
+                
+            except Exception as e:
+                
+                raise Exception( 'Hey, unfortunately I could not update your import options. Something is wrong. Roll back to v687 and tell hydev about this. There should be more info in the log.' ) from e
+                
+            
         #
         
         self._controller.frame_splash_status.SetTitleText( 'updated db to v{}'.format( HydrusNumbers.ToHumanInt( version + 1 ) ) )
