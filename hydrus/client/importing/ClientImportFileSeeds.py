@@ -20,7 +20,7 @@ from hydrus.core import HydrusTags
 from hydrus.core import HydrusTemp
 from hydrus.core import HydrusText
 from hydrus.core import HydrusTime
-from hydrus.core.files import HydrusFileHandling
+from hydrus.core.files import HydrusFileTypeDetermination
 
 from hydrus.client import ClientConstants as CC
 from hydrus.client import ClientGlobals as CG
@@ -1299,8 +1299,15 @@ class FileSeed( HydrusSerialisable.SerialisableBase ):
             
             self.SetStatus( CC.STATUS_ERROR, exception = e )
             
-        
-        file_seed_cache.NotifyFileSeedsUpdated( ( self, ) )
+        finally:
+            
+            if self.status == CC.STATUS_UNKNOWN:
+                
+                self.SetStatus( CC.STATUS_ERROR, note = 'problem: import status was never set!' )
+                
+            
+            file_seed_cache.NotifyFileSeedsUpdated( ( self, ) )
+            
         
     
     def IsAPostURL( self ):
@@ -1659,7 +1666,7 @@ class FileSeed( HydrusSerialisable.SerialisableBase ):
                             
                             network_job.WriteContentBytesToPath( temp_path )
                             
-                            mime = HydrusFileHandling.GetMime( temp_path )
+                            mime = HydrusFileTypeDetermination.GetMime( temp_path )
                             
                             if mime in HC.ALLOWED_MIMES:
                                 
@@ -1803,7 +1810,7 @@ class FileSeed( HydrusSerialisable.SerialisableBase ):
                 raise HydrusExceptions.VetoException( 'Managed to work this job without getting a result! Please report to hydrus_dev!' )
                 
             
-        except HydrusExceptions.ShutdownException:
+        except HydrusExceptions.ProgramShutdownException:
             
             return False
             
@@ -1874,6 +1881,11 @@ class FileSeed( HydrusSerialisable.SerialisableBase ):
             time.sleep( 3 )
             
         finally:
+            
+            if self.status == CC.STATUS_UNKNOWN:
+                
+                self.SetStatus( CC.STATUS_ERROR, note = 'problem: import status was never set!' )
+                
             
             file_seed_cache.NotifyFileSeedsUpdated( ( self, ) )
             

@@ -481,9 +481,9 @@ class HydrusController( object ):
             HydrusData.Print( 'Failed to initialise temp folder.' )
             
         
-        from hydrus.core.files import HydrusFileHandling
+        from hydrus.core.files.images import HydrusImageThumbnails
         
-        HydrusFileHandling.InitialiseMimesToDefaultThumbnailPaths()
+        HydrusImageThumbnails.InitialiseMimesToDefaultThumbnailPaths()
         
         self._fast_job_scheduler = HydrusThreading.JobScheduler( self )
         self._slow_job_scheduler = HydrusThreading.JobScheduler( self )
@@ -620,13 +620,6 @@ class HydrusController( object ):
         if maintenance_mode == HC.MAINTENANCE_IDLE:
             
             if not self.CurrentlyIdle():
-                
-                return True
-                
-            
-        elif maintenance_mode == HC.MAINTENANCE_SHUTDOWN:
-            
-            if not HG.do_idle_shutdown_work:
                 
                 return True
                 
