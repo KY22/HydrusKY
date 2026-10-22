@@ -922,6 +922,22 @@ class Controller( HydrusController.HydrusController ):
         thread.start()
         
     
+    def DoSessionShutdownSave( self ):
+        
+        if not CG.client_controller.new_options.GetBoolean( 'test_session_exit_signal' ):
+            
+            return
+            
+        
+        # The OS has just informed us that the user is logging off. We have to save RIGHT NOW
+        # we do NOT call app.quit in here
+        
+        self._doing_fast_exit = True
+        self._doing_session_based_exit = True
+        
+        self.Exit()
+        
+    
     def Exit( self ):
         
         # this is idempotent and does not stop. we are shutting down now or in the very near future
@@ -989,7 +1005,16 @@ class Controller( HydrusController.HydrusController ):
                 
                 self._program_is_shut_down = True
                 
-                self.CallAfterQtSafe( qapp, QW.QApplication.exit )
+                if self._doing_session_based_exit:
+                    
+                    # we aren't supposed to quit in the 'commitdatarequest' guy, but since our save routine hides all windows and unwinds database etc, it is unrecoverable
+                    # if user cancels the logout job before the OS tells hydrus to stop, we never get a nice actual exit, so let's just queue it up mate
+                    QC.QTimer.singleShot( 0, qapp.quit )
+                    
+                else:
+                    
+                    self.CallAfterQtSafe( qapp, QW.QApplication.quit )
+                    
                 
             
         
@@ -1019,7 +1044,14 @@ class Controller( HydrusController.HydrusController ):
         
         if self._doing_fast_exit:
             
-            HydrusData.DebugPrint( 'doing fast shutdown' + HC.UNICODE_ELLIPSIS )
+            if self._doing_session_based_exit:
+                
+                HydrusData.DebugPrint( 'doing fast session shutdown' + HC.UNICODE_ELLIPSIS )
+                
+            else:
+                
+                HydrusData.DebugPrint( 'doing fast shutdown' + HC.UNICODE_ELLIPSIS )
+                
             
             save_objects_and_exit()
             
@@ -1191,6 +1223,10 @@ class Controller( HydrusController.HydrusController ):
         from hydrus.core.files import HydrusFileTypeDetermination
         
         HydrusFileTypeDetermination.ALLOW_COMIC_BOOK_ARCHIVE_INSPECTION = self.new_options.GetBoolean( 'allow_comic_book_archive_detection' )
+        
+        from hydrus.core.processes import HydrusSubprocess
+        
+        HydrusSubprocess.DO_HIDE_TERMINAL_TEST = self.new_options.GetBoolean( 'do_new_hide_terminal_subprocess_tech_on_windows' )
         
         from hydrus.core.files.images import HydrusImageHandling
         from hydrus.core.files.images import HydrusImageNormalisation
@@ -1960,6 +1996,8 @@ class Controller( HydrusController.HydrusController ):
         
         self.app = App( self._pubsub, sys.argv )
         
+        self.app.commitDataRequest.connect( self.DoSessionShutdownSave )
+        
         self.main_qt_thread = self.app.thread()
         
         HydrusData.Print( 'booting controller' + HC.UNICODE_ELLIPSIS )
@@ -2496,7 +2534,7 @@ class Controller( HydrusController.HydrusController ):
             
             self._DestroySplash()
             
-            self.CallAfterQtSafe( qapp, QW.QApplication.exit )
+            self.CallAfterQtSafe( qapp, QW.QApplication.quit )
             
             return
             

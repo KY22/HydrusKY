@@ -65,6 +65,7 @@ class HydrusController( object ):
         self._system_busy = False
         
         self._doing_fast_exit = False
+        self._doing_session_based_exit = False
         
         self.TouchTime( 'boot' )
         self.TouchTime( 'last_sleep_check' )
@@ -553,6 +554,7 @@ class HydrusController( object ):
         self._fast_job_scheduler.ClearOutDead()
         self._slow_job_scheduler.ClearOutDead()
         
+        HydrusSubprocess.MaintainRegularProcesses()
         HydrusSubprocess.ReapDeadLongLivedExternalProcesses()
         
     
