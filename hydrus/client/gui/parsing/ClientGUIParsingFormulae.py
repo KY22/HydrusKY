@@ -151,6 +151,15 @@ class EditFormulaPanel( ClientGUIScrolledPanels.EditPanel ):
         
         super().__init__( parent )
         
+        self._serialisable_type_whitelist = {
+            HydrusSerialisable.SERIALISABLE_TYPE_PARSE_FORMULA_STATIC,
+            HydrusSerialisable.SERIALISABLE_TYPE_PARSE_FORMULA_NESTED,
+            HydrusSerialisable.SERIALISABLE_TYPE_PARSE_FORMULA_JSON,
+            HydrusSerialisable.SERIALISABLE_TYPE_PARSE_FORMULA_HTML,
+            HydrusSerialisable.SERIALISABLE_TYPE_PARSE_FORMULA_CONTEXT_VARIABLE,
+            HydrusSerialisable.SERIALISABLE_TYPE_PARSE_FORMULA_ZIPPER,
+        }
+        
         self._current_formula = formula
         self._test_data_callable = test_data_callable
         
@@ -391,7 +400,7 @@ class EditFormulaPanel( ClientGUIScrolledPanels.EditPanel ):
         
         try:
             
-            obj = HydrusSerialisable.CreateFromString( raw_text )
+            obj = HydrusSerialisable.CreateFromString( raw_text, False, self._serialisable_type_whitelist )
             
             self._ImportObject( obj )
             
@@ -424,7 +433,16 @@ class EditFormulaPanel( ClientGUIScrolledPanels.EditPanel ):
                 
                 try:
                     
-                    obj = HydrusSerialisable.CreateFromNetworkBytes( payload )
+                    try:
+                        
+                        obj = HydrusSerialisable.CreateFromNetworkBytes( payload, False, self._serialisable_type_whitelist )
+                        
+                    except HydrusExceptions.SerialisationWhitelistException as e:
+                        
+                        ClientGUIDialogsMessage.ShowWarning( self, f'That was not a parsing formula! It looked like a {e.wrong_object_name}!' )
+                        
+                        return
+                        
                     
                     self._ImportObject( obj )
                     
@@ -1456,7 +1474,7 @@ class EditZipperFormulaPanel( EditSpecificFormulaPanel ):
         
         self._formulae = ClientGUIListBoxes.QueueListBox( edit_panel, 6, self._ConvertFormulaToListString, add_callable = self._Add, edit_callable = self._Edit )
         
-        self._formulae.AddImportExportButtons( ( ClientParsing.ParseFormula, ) )
+        self._formulae.AddImportExportButtons( ( ClientParsing.ParseFormula, ), tuple() )
         
         self._sub_phrase = QW.QLineEdit( edit_panel )
         

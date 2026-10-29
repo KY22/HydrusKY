@@ -76,7 +76,7 @@ class PairComparatorOneFileHardcoded( PairComparator ):
         return ( self._looking_at, self._comparator_type )
         
     
-    def _InitialiseFromSerialisableInfo( self, serialisable_info ):
+    def _InitialiseFromSerialisableInfo( self, serialisable_info: object, trusted: bool, serialisable_type_whitelist: set[ int ] ):
         
         ( self._looking_at, self._comparator_type ) = serialisable_info
         
@@ -220,11 +220,11 @@ class PairComparatorOneFileMetadataConditional( PairComparator ):
         return ( self._looking_at, serialisable_metadata_conditional )
         
     
-    def _InitialiseFromSerialisableInfo( self, serialisable_info ):
+    def _InitialiseFromSerialisableInfo( self, serialisable_info: object, trusted: bool, serialisable_type_whitelist: set[ int ] ):
         
         ( self._looking_at, serialisable_metadata_conditional ) = serialisable_info
         
-        self._metadata_conditional = HydrusSerialisable.CreateFromSerialisableTuple( serialisable_metadata_conditional )
+        self._metadata_conditional = HydrusSerialisable.CreateFromSerialisableTuple( serialisable_metadata_conditional, trusted, { HydrusSerialisable.SERIALISABLE_TYPE_METADATA_CONDITIONAL } )
         
     
     def CanDetermineBetter( self ) -> bool:
@@ -332,12 +332,12 @@ class PairComparatorRelativeFileInfo( PairComparator ):
         return ( serialisable_system_predicate, serialisable_number_test, self._multiplier, self._delta )
         
     
-    def _InitialiseFromSerialisableInfo( self, serialisable_info ):
+    def _InitialiseFromSerialisableInfo( self, serialisable_info: object, trusted: bool, serialisable_type_whitelist: set[ int ] ):
         
         ( serialisable_system_predicate, serialisable_number_test, self._multiplier, self._delta ) = serialisable_info
         
-        self._system_predicate = HydrusSerialisable.CreateFromSerialisableTuple( serialisable_system_predicate )
-        self._number_test = HydrusSerialisable.CreateFromSerialisableTuple( serialisable_number_test )
+        self._system_predicate = HydrusSerialisable.CreateFromSerialisableTuple( serialisable_system_predicate, trusted, { HydrusSerialisable.SERIALISABLE_TYPE_PREDICATE } )
+        self._number_test = HydrusSerialisable.CreateFromSerialisableTuple( serialisable_number_test, trusted, { HydrusSerialisable.SERIALISABLE_TYPE_NUMBER_TEST } )
         
     
     def CanDetermineBetter( self ) -> bool:
@@ -505,7 +505,7 @@ class PairComparatorRelativeHardcoded( PairComparator ):
         return self._hardcoded_type
         
     
-    def _InitialiseFromSerialisableInfo( self, serialisable_info ):
+    def _InitialiseFromSerialisableInfo( self, serialisable_info: object, trusted: bool, serialisable_type_whitelist: set[ int ] ):
         
         self._hardcoded_type = serialisable_info
         
@@ -671,7 +671,7 @@ class PairComparatorRelativeVisualDuplicates( PairComparator ):
         return self._acceptable_confidence
         
     
-    def _InitialiseFromSerialisableInfo( self, serialisable_info ):
+    def _InitialiseFromSerialisableInfo( self, serialisable_info: object, trusted: bool, serialisable_type_whitelist: set[ int ] ):
         
         self._acceptable_confidence = serialisable_info
         
@@ -771,9 +771,22 @@ class PairComparatorOR( PairComparator ):
         return self._sub_comparators.GetSerialisableTuple()
         
     
-    def _InitialiseFromSerialisableInfo( self, serialisable_info ):
+    def _InitialiseFromSerialisableInfo( self, serialisable_info: object, trusted: bool, serialisable_type_whitelist: set[ int ] ):
         
-        self._sub_comparators = HydrusSerialisable.CreateFromSerialisableTuple( serialisable_info )
+        self._sub_comparators = HydrusSerialisable.CreateFromSerialisableTuple(
+            serialisable_info,
+            trusted,
+            {
+                HydrusSerialisable.SERIALISABLE_TYPE_LIST,
+                HydrusSerialisable.SERIALISABLE_TYPE_DUPLICATES_AUTO_RESOLUTION_PAIR_COMPARATOR_OR,
+                HydrusSerialisable.SERIALISABLE_TYPE_DUPLICATES_AUTO_RESOLUTION_PAIR_COMPARATOR_AND,
+                HydrusSerialisable.SERIALISABLE_TYPE_DUPLICATES_AUTO_RESOLUTION_PAIR_COMPARATOR_TWO_FILES_RELATIVE_HARDCODED,
+                HydrusSerialisable.SERIALISABLE_TYPE_DUPLICATES_AUTO_RESOLUTION_PAIR_COMPARATOR_TWO_FILES_RELATIVE_VISUAL_DUPLICATES,
+                HydrusSerialisable.SERIALISABLE_TYPE_DUPLICATES_AUTO_RESOLUTION_PAIR_COMPARATOR_ONE_FILE_METADATA_CONDITIONAL,
+                HydrusSerialisable.SERIALISABLE_TYPE_DUPLICATES_AUTO_RESOLUTION_PAIR_COMPARATOR_TWO_FILES_RELATIVE_FILE_INFO,
+                HydrusSerialisable.SERIALISABLE_TYPE_DUPLICATES_AUTO_RESOLUTION_PAIR_COMPARATOR_ONE_FILE_HARDCODED
+            }
+        )
         
         self._SortComparators()
         
@@ -862,9 +875,22 @@ class PairComparatorAND( PairComparator ):
         return self._sub_comparators.GetSerialisableTuple()
         
     
-    def _InitialiseFromSerialisableInfo( self, serialisable_info ):
+    def _InitialiseFromSerialisableInfo( self, serialisable_info: object, trusted: bool, serialisable_type_whitelist: set[ int ] ):
         
-        self._sub_comparators = HydrusSerialisable.CreateFromSerialisableTuple( serialisable_info )
+        self._sub_comparators = HydrusSerialisable.CreateFromSerialisableTuple(
+            serialisable_info,
+            trusted,
+            {
+                HydrusSerialisable.SERIALISABLE_TYPE_LIST,
+                HydrusSerialisable.SERIALISABLE_TYPE_DUPLICATES_AUTO_RESOLUTION_PAIR_COMPARATOR_OR,
+                HydrusSerialisable.SERIALISABLE_TYPE_DUPLICATES_AUTO_RESOLUTION_PAIR_COMPARATOR_AND,
+                HydrusSerialisable.SERIALISABLE_TYPE_DUPLICATES_AUTO_RESOLUTION_PAIR_COMPARATOR_TWO_FILES_RELATIVE_HARDCODED,
+                HydrusSerialisable.SERIALISABLE_TYPE_DUPLICATES_AUTO_RESOLUTION_PAIR_COMPARATOR_TWO_FILES_RELATIVE_VISUAL_DUPLICATES,
+                HydrusSerialisable.SERIALISABLE_TYPE_DUPLICATES_AUTO_RESOLUTION_PAIR_COMPARATOR_ONE_FILE_METADATA_CONDITIONAL,
+                HydrusSerialisable.SERIALISABLE_TYPE_DUPLICATES_AUTO_RESOLUTION_PAIR_COMPARATOR_TWO_FILES_RELATIVE_FILE_INFO,
+                HydrusSerialisable.SERIALISABLE_TYPE_DUPLICATES_AUTO_RESOLUTION_PAIR_COMPARATOR_ONE_FILE_HARDCODED
+            }
+        )
         
         self._SortComparators()
         
@@ -957,11 +983,24 @@ class PairSelector( HydrusSerialisable.SerialisableBase ):
         return serialisable_comparators
         
     
-    def _InitialiseFromSerialisableInfo( self, serialisable_info ):
+    def _InitialiseFromSerialisableInfo( self, serialisable_info: object, trusted: bool, serialisable_type_whitelist: set[ int ] ):
         
         serialisable_comparators = serialisable_info
         
-        self._comparators = HydrusSerialisable.CreateFromSerialisableTuple( serialisable_comparators )
+        self._comparators = HydrusSerialisable.CreateFromSerialisableTuple(
+            serialisable_comparators,
+            trusted,
+            {
+                HydrusSerialisable.SERIALISABLE_TYPE_LIST,
+                HydrusSerialisable.SERIALISABLE_TYPE_DUPLICATES_AUTO_RESOLUTION_PAIR_COMPARATOR_OR,
+                HydrusSerialisable.SERIALISABLE_TYPE_DUPLICATES_AUTO_RESOLUTION_PAIR_COMPARATOR_AND,
+                HydrusSerialisable.SERIALISABLE_TYPE_DUPLICATES_AUTO_RESOLUTION_PAIR_COMPARATOR_TWO_FILES_RELATIVE_HARDCODED,
+                HydrusSerialisable.SERIALISABLE_TYPE_DUPLICATES_AUTO_RESOLUTION_PAIR_COMPARATOR_TWO_FILES_RELATIVE_VISUAL_DUPLICATES,
+                HydrusSerialisable.SERIALISABLE_TYPE_DUPLICATES_AUTO_RESOLUTION_PAIR_COMPARATOR_ONE_FILE_METADATA_CONDITIONAL,
+                HydrusSerialisable.SERIALISABLE_TYPE_DUPLICATES_AUTO_RESOLUTION_PAIR_COMPARATOR_TWO_FILES_RELATIVE_FILE_INFO,
+                HydrusSerialisable.SERIALISABLE_TYPE_DUPLICATES_AUTO_RESOLUTION_PAIR_COMPARATOR_ONE_FILE_HARDCODED
+            }
+        )
         
     
     def CanDetermineBetter( self ):

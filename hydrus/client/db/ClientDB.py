@@ -1660,7 +1660,7 @@ class DB( HydrusDB.HydrusDB ):
         self.modules_media_results.ForceRefreshFileInfoManagers( hash_ids_to_hashes )
         
     
-    def _GetBonedStats( self, file_search_context: ClientSearchFileSearchContext.FileSearchContext = None, job_status = None ):
+    def _GetBonedStats( self, file_search_context: ClientSearchFileSearchContext.FileSearchContext | None = None, job_status = None ):
         
         if job_status is None:
             
@@ -1987,7 +1987,7 @@ class DB( HydrusDB.HydrusDB ):
         return boned_stats
         
     
-    def _GetFileHistory( self, num_steps: int, file_search_context: ClientSearchFileSearchContext.FileSearchContext = None, job_status = None ):
+    def _GetFileHistory( self, num_steps: int, file_search_context: ClientSearchFileSearchContext.FileSearchContext | None = None, job_status = None ):
         
         # TODO: clean this up. it is a mess cribbed from the boned work, and I'm piping similar nonsense down to the db tables
         # don't supply deleted timestamps for 'all files deleted' and all that gubbins, it is a mess
@@ -3847,7 +3847,20 @@ class DB( HydrusDB.HydrusDB ):
         
         try:
             
-            HydrusSerialisable.CreateFromNetworkBytes( update_network_bytes )
+            if mime == HC.APPLICATION_HYDRUS_UPDATE_DEFINITIONS:
+                
+                serialisable_type_whitelist = { HydrusSerialisable.SERIALISABLE_TYPE_DEFINITIONS_UPDATE }
+                
+            elif mime == HC.APPLICATION_HYDRUS_UPDATE_CONTENT:
+                
+                serialisable_type_whitelist = { HydrusSerialisable.SERIALISABLE_TYPE_CONTENT_UPDATE }
+                
+            else:
+                
+                raise NotImplementedError( 'Unknown incoming update mime!' )
+                
+            
+            HydrusSerialisable.CreateFromNetworkBytes( update_network_bytes, False, serialisable_type_whitelist )
             
         except Exception as e:
             
@@ -8493,7 +8506,8 @@ class DB( HydrusDB.HydrusDB ):
         
         self._Execute( 'UPDATE version SET version = ?;', ( current_version, ) )
         
-        versions_that_could_do_with_a_new_venv = { 670, 681 }
+        # careful; since we just incremented, this is the _current_ version we are testing
+        versions_that_could_do_with_a_new_venv = { 670, 681, 693 }
         
         if HC.RUNNING_FROM_SOURCE and HC.GOT_A_NORMAL_LOOKING_VENV and current_version in versions_that_could_do_with_a_new_venv:
             

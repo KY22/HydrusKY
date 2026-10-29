@@ -289,7 +289,7 @@ class EditNodes( QW.QWidget ):
         
         try:
             
-            obj = HydrusSerialisable.CreateFromString( raw_text )
+            obj = HydrusSerialisable.CreateFromString( raw_text, False, { HydrusSerialisable.SERIALISABLE_TYPE_LIST, HydrusSerialisable.SERIALISABLE_TYPE_CONTENT_PARSER, HydrusSerialisable.SERIALISABLE_TYPE_PARSE_NODE_CONTENT_LINK } )
             
             self._ImportObject( obj )
             
@@ -299,6 +299,7 @@ class EditNodes( QW.QWidget ):
             
         
     
+
 class EditParseNodeContentLinkPanel( ClientGUIScrolledPanels.EditPanel ):
     
     def __init__( self, parent, node, referral_url = None, example_data = None ):
@@ -1147,7 +1148,7 @@ class ManageParsingScriptsPanel( ClientGUIScrolledPanels.ManagePanel ):
         
         try:
             
-            obj = HydrusSerialisable.CreateFromString( raw_text )
+            obj = HydrusSerialisable.CreateFromString( raw_text, False, { HydrusSerialisable.SERIALISABLE_TYPE_LIST, HydrusSerialisable.SERIALISABLE_TYPE_PARSE_ROOT_FILE_LOOKUP } )
             
             self._ImportObject( obj )
             
@@ -1180,7 +1181,16 @@ class ManageParsingScriptsPanel( ClientGUIScrolledPanels.ManagePanel ):
                 
                 try:
                     
-                    obj = HydrusSerialisable.CreateFromNetworkBytes( payload )
+                    try:
+                        
+                        obj = HydrusSerialisable.CreateFromNetworkBytes( payload, False, { HydrusSerialisable.SERIALISABLE_TYPE_LIST, HydrusSerialisable.SERIALISABLE_TYPE_PARSE_ROOT_FILE_LOOKUP } )
+                        
+                    except HydrusExceptions.SerialisationWhitelistException as e:
+                        
+                        ClientGUIDialogsMessage.ShowWarning( self, f'That was not a script! It looked like a {e.wrong_object_name}!' )
+                        
+                        return
+                        
                     
                     self._ImportObject( obj )
                     

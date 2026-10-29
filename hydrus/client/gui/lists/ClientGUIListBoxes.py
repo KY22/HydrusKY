@@ -456,6 +456,8 @@ class AddEditDeleteListBox( QW.QWidget ):
         self._enabled_only_on_selection_buttons = []
         
         self._permitted_object_types = tuple()
+        self._forgivable_object_types = tuple()
+        self._serialisable_type_whitelist = set()
         
         #
         
@@ -739,7 +741,7 @@ class AddEditDeleteListBox( QW.QWidget ):
         
         try:
             
-            obj = HydrusSerialisable.CreateFromString( raw_text )
+            obj = HydrusSerialisable.CreateFromString( raw_text, False, self._serialisable_type_whitelist )
             
             self._ImportObject( obj )
             
@@ -774,7 +776,22 @@ class AddEditDeleteListBox( QW.QWidget ):
                     
                     try:
                         
-                        obj = HydrusSerialisable.CreateFromNetworkBytes( payload )
+                        try:
+                            
+                            obj = HydrusSerialisable.CreateFromNetworkBytes( payload, False, self._serialisable_type_whitelist )
+                            
+                        except HydrusExceptions.SerialisationWhitelistException as e:
+                            
+                            message = 'The imported objects were the wrong type! This control only allows:'
+                            message += '\n' * 2
+                            message += '\n'.join( ( HydrusData.GetTypeName( o ) for o in self._permitted_object_types ) )
+                            message += '\n' * 2
+                            message += f'But what you entered seemed to be a {e.wrong_object_name}!'
+                            
+                            ClientGUIDialogsMessage.ShowWarning( self, message )
+                            
+                            return
+                            
                         
                         self._ImportObject( obj )
                         
@@ -972,9 +989,11 @@ class AddEditDeleteListBox( QW.QWidget ):
         QP.AddToLayout( self._buttons_hbox, button, CC.FLAGS_CENTER_PERPENDICULAR )
         
     
-    def AddImportExportButtons( self, permitted_object_types ):
+    def AddImportExportButtons( self, permitted_object_types, forgivable_object_types ):
         
         self._permitted_object_types = tuple( permitted_object_types )
+        self._forgivable_object_types = forgivable_object_types
+        self._serialisable_type_whitelist = HydrusSerialisable.DetermineRestrictedSerialisableTypes( set( self._permitted_object_types ).union( self._forgivable_object_types ), True )
         
         export_menu_template_items = []
         
@@ -1062,6 +1081,8 @@ class QueueListBox( QW.QWidget ):
         super().__init__( parent )
         
         self._permitted_object_types = tuple()
+        self._forgivable_object_types = tuple()
+        self._serialisable_type_whitelist = set()
         
         self._listbox = BetterQListWidget( self, delete_callable = self._Delete )
         self._listbox.setSelectionMode( QW.QAbstractItemView.SelectionMode.ExtendedSelection )
@@ -1347,7 +1368,7 @@ class QueueListBox( QW.QWidget ):
         
         try:
             
-            obj = HydrusSerialisable.CreateFromString( raw_text )
+            obj = HydrusSerialisable.CreateFromString( raw_text, False, self._serialisable_type_whitelist )
             
             self._ImportObject( obj )
             
@@ -1382,7 +1403,22 @@ class QueueListBox( QW.QWidget ):
                     
                     try:
                         
-                        obj = HydrusSerialisable.CreateFromNetworkBytes( payload )
+                        try:
+                            
+                            obj = HydrusSerialisable.CreateFromNetworkBytes( payload, False, self._serialisable_type_whitelist )
+                            
+                        except HydrusExceptions.SerialisationWhitelistException as e:
+                            
+                            message = 'The imported objects were the wrong type! This control only allows:'
+                            message += '\n' * 2
+                            message += '\n'.join( ( HydrusData.GetTypeName( o ) for o in self._permitted_object_types ) )
+                            message += '\n' * 2
+                            message += f'But what you entered seemed to be a {e.wrong_object_name}!'
+                            
+                            ClientGUIDialogsMessage.ShowWarning( self, message )
+                            
+                            return
+                            
                         
                         self._ImportObject( obj )
                         
@@ -1541,9 +1577,11 @@ class QueueListBox( QW.QWidget ):
         self.listBoxChanged.emit()
         
     
-    def AddImportExportButtons( self, permitted_object_types ):
+    def AddImportExportButtons( self, permitted_object_types, forgivable_object_types ):
         
         self._permitted_object_types = tuple( permitted_object_types )
+        self._forgivable_object_types = tuple( forgivable_object_types )
+        self._serialisable_type_whitelist = HydrusSerialisable.DetermineRestrictedSerialisableTypes( set( self._permitted_object_types ).union( self._forgivable_object_types ), True )
         
         export_menu_template_items = []
         

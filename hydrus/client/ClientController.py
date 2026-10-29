@@ -1449,11 +1449,11 @@ class Controller( HydrusController.HydrusController ):
         
         #
         
+        from hydrus.client.importing.options import ImportOptionsManager
+        
         import_options_manager = self.Read( 'serialisable', HydrusSerialisable.SERIALISABLE_TYPE_IMPORT_OPTIONS_MANAGER )
         
         if import_options_manager is None:
-            
-            from hydrus.client.importing.options import ImportOptionsManager
             
             import_options_manager = ImportOptionsManager.ImportOptionsManager.STATICGetDefaultInitialisedManager()
             
@@ -2383,6 +2383,9 @@ class Controller( HydrusController.HydrusController ):
             
             self.frame_splash_status.SetText( 'waiting for managers to exit' )
             
+        
+        # do this early so managers that are waiting on stuff get their jobs shutdown-cancelled now
+        self.network_engine.Shutdown()
         
         self._ShutdownManagers()
         
