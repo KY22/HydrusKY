@@ -3860,7 +3860,9 @@ class DB( HydrusDB.HydrusDB ):
                 raise NotImplementedError( 'Unknown incoming update mime!' )
                 
             
-            HydrusSerialisable.CreateFromNetworkBytes( update_network_bytes, False, serialisable_type_whitelist )
+            deserialisation_context = HydrusSerialisable.DeserialisationContext( False, serialisable_type_whitelist )
+            
+            HydrusSerialisable.CreateFromNetworkBytes( update_network_bytes, deserialisation_context )
             
         except Exception as e:
             
@@ -4532,8 +4534,6 @@ class DB( HydrusDB.HydrusDB ):
                     
                     self.modules_content_updates.ProcessContentUpdatePackage( content_update_package )
                     
-                    still_work_to_do = True
-                    
                 else:
                     
                     self._DeleteServiceInfo( CC.TRASH_SERVICE_KEY, [ HC.SERVICE_INFO_TOTAL_SIZE ] )
@@ -4541,9 +4541,12 @@ class DB( HydrusDB.HydrusDB ):
                 
                 if HydrusTime.TimeHasPassedFloat( time_to_stop ):
                     
+                    still_work_to_do = True
+                    
                     return still_work_to_do
                     
                 
+            
             
         
         if HC.options[ 'trash_max_age' ] is not None:
@@ -4552,7 +4555,7 @@ class DB( HydrusDB.HydrusDB ):
             
             hashes = self._GetTrashHashes( limit = 1, minimum_age = max_age )
             
-            if len( hashes ) > 0:
+            while len( hashes ) > 0:
                 
                 content_update = ClientContentUpdates.ContentUpdate( HC.CONTENT_TYPE_FILES, HC.CONTENT_UPDATE_DELETE, hashes )
                 
@@ -4560,9 +4563,17 @@ class DB( HydrusDB.HydrusDB ):
                 
                 self.modules_content_updates.ProcessContentUpdatePackage( content_update_package )
                 
-                still_work_to_do = True
+                old_hashes = set( hashes )
+                hashes = self._GetTrashHashes( limit = 1, minimum_age = max_age )
+                
+                if old_hashes == set( hashes ):
+                    
+                    raise Exception( f'The trash maintenance system seems to have failed to delete a to-be-physically-deleted file. You likely have gaps or confusions in your file store. Please let hydev know about this. The hash involved is: {old_hashes}' )
+                    
                 
                 if HydrusTime.TimeHasPassedFloat( time_to_stop ):
+                    
+                    still_work_to_do = True
                     
                     return still_work_to_do
                     
@@ -8495,6 +8506,29 @@ class DB( HydrusDB.HydrusDB ):
                 HydrusData.PrintException( e )
                 
                 message = 'Some network data failed to update! You may have lost some site cookies! Hydev would be interested in seeing the error that was printed to the log.'
+                
+                self.pub_initial_message( message )
+                
+            
+        
+        if version == 693:
+            
+            try:
+                
+                from hydrus.client import ClientOptions
+                
+                new_options: ClientOptions.ClientOptions = self.modules_serialisable.GetJSONDump( HydrusSerialisable.SERIALISABLE_TYPE_CLIENT_OPTIONS )
+                
+                # making this test real across the board
+                new_options.SetBoolean( 'do_new_hide_terminal_subprocess_tech_on_windows', True )
+                
+                self.modules_serialisable.SetJSONDump( new_options )
+                
+            except Exception as e:
+                
+                HydrusData.PrintException( e )
+                
+                message = 'Trying to update your options failed! Please let hydrus dev know!'
                 
                 self.pub_initial_message( message )
                 
