@@ -2,6 +2,7 @@ import random
 
 from hydrus.core import HydrusConstants as HC
 from hydrus.core import HydrusData
+from hydrus.core import HydrusExceptions
 from hydrus.core import HydrusNumbers
 from hydrus.core import HydrusSerialisable
 from hydrus.core import HydrusTemp
@@ -99,6 +100,11 @@ class QuickDownloadManager( ClientDaemons.ManagerWithMainLoop ):
         super().__init__( controller, 5 )
         
     
+    def _GetDesiredWorkPeriod( self ) -> float:
+        
+        return 10.0
+        
+    
     def DownloadFiles( self, hashes ):
         
         with self._lock:
@@ -114,11 +120,11 @@ class QuickDownloadManager( ClientDaemons.ManagerWithMainLoop ):
         return 'quick downloader'
         
     
-    def _DoSingleLoop( self ):
+    def _DoSingleLoop( self, desired_work_period: float ) -> bool:
+        
+        still_work_to_do = False
         
         with self._lock:
-            
-            self._CheckShutdown()
             
             if len( self._pending_hashes ) > 0:
                 
@@ -150,19 +156,14 @@ class QuickDownloadManager( ClientDaemons.ManagerWithMainLoop ):
             self._total_hashes_in_this_run = 0
             self._total_successful_hashes_in_this_run = 0
             
-            self._wake_from_idle_sleep_event.wait( 5 )
-            
-            self._wake_from_work_sleep_event.clear()
-            self._wake_from_idle_sleep_event.clear()
-            
-            return
+            return still_work_to_do
             
         
         if job_status.IsCancelled():
             
             self._hashes_still_to_download_in_this_run = set()
             
-            return
+            return still_work_to_do
             
         
         hash = random.sample( list( self._hashes_still_to_download_in_this_run ), 1 )[0]
@@ -189,7 +190,9 @@ class QuickDownloadManager( ClientDaemons.ManagerWithMainLoop ):
                 
                 self._total_successful_hashes_in_this_run += 1
                 
-                return
+                still_work_to_do = True
+                
+                return still_work_to_do
                 
             
             for service_key in service_keys:
@@ -198,7 +201,7 @@ class QuickDownloadManager( ClientDaemons.ManagerWithMainLoop ):
                     
                     service = self._controller.services_manager.GetService( service_key )
                     
-                except Exception as e:
+                except HydrusExceptions.DataMissing:
                     
                     continue
                     
@@ -292,5 +295,9 @@ class QuickDownloadManager( ClientDaemons.ManagerWithMainLoop ):
                 job_status.FinishAndDismiss( 1 )
                 
             
+        
+        still_work_to_do = True
+        
+        return still_work_to_do
         
     

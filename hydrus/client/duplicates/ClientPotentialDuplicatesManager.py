@@ -74,22 +74,23 @@ class PotentialDuplicatesMaintenanceManager( ClientDaemons.ManagerWithMainLoop )
         CG.client_controller.sub( self, 'WakeIfNotWorking', 'notify_file_potential_search_reset' )
         
     
-    def _DoSingleLoop( self ):
+    def _DoSingleLoop( self, desired_work_period: float ) -> bool:
         
-        with self._lock:
-            
-            self._CheckShutdown()
-            
+        still_work_to_do = False
         
         self._controller.WaitUntilViewFree()
         
         if self._need_to_rebalance_tree.is_set():
             
-            expected_work_period = 0.1
+            desired_tree_work_period = 0.1
             
-            still_maintenance_work_to_do = CG.client_controller.WriteSynchronous( 'maintain_similar_files_tree', work_period = expected_work_period )
+            still_maintenance_work_to_do = CG.client_controller.WriteSynchronous( 'maintain_similar_files_tree', work_period = desired_tree_work_period )
             
-            if not still_maintenance_work_to_do:
+            if still_maintenance_work_to_do:
+                
+                still_work_to_do = True
+                
+            else:
                 
                 self._need_to_rebalance_tree.clear()
                 
@@ -105,17 +106,14 @@ class PotentialDuplicatesMaintenanceManager( ClientDaemons.ManagerWithMainLoop )
         
         if work_permitted and work_to_do:
             
-            expected_work_period = self._GetWorkPeriod()
-            
-            start_time = HydrusTime.GetNowPrecise()
-            
             search_distance = CG.client_controller.new_options.GetInteger( 'similar_files_duplicate_pairs_search_distance' )
             
-            ( still_search_work_to_do, num_done ) = CG.client_controller.WriteSynchronous( 'maintain_similar_files_search_for_potential_duplicates', search_distance, work_period = expected_work_period )
+            ( still_search_work_to_do, num_done ) = CG.client_controller.WriteSynchronous( 'maintain_similar_files_search_for_potential_duplicates', search_distance, work_period = desired_work_period )
             
-            total_time_took = HydrusTime.GetNowPrecise() - start_time
-            
-            wait_time = self._GetRestTime( expected_work_period, total_time_took )
+            if still_search_work_to_do:
+                
+                still_work_to_do = True
+                
             
             if num_done > 0:
                 
@@ -146,27 +144,33 @@ class PotentialDuplicatesMaintenanceManager( ClientDaemons.ManagerWithMainLoop )
                     
                 
             
-            wake_event = self._wake_from_work_sleep_event
+        
+        return still_work_to_do
+        
+    
+    def _GetDesiredWorkPeriod( self ) -> float:
+        
+        if self._work_hard.is_set():
+            
+            return 0.5
+            
+        
+        if self._controller.CurrentlyIdle():
+            
+            return HydrusTime.SecondiseMSFloat( CG.client_controller.new_options.GetInteger( 'potential_duplicates_search_work_time_ms_idle' ) )
             
         else:
             
-            wait_time = 30
+            return HydrusTime.SecondiseMSFloat( CG.client_controller.new_options.GetInteger( 'potential_duplicates_search_work_time_ms_active' ) )
             
-            wake_event = self._wake_from_idle_sleep_event
-            
-        
-        with self._lock:
-            
-            self._CheckShutdown()
-            
-        
-        wake_event.wait( wait_time )
-        
-        self._wake_from_work_sleep_event.clear()
-        self._wake_from_idle_sleep_event.clear()
         
     
-    def _GetRestTime( self, expected_work_period, actual_work_period ):
+    def _GetWaitPeriod( self, expected_work_period, actual_work_period, still_work_to_do ):
+        
+        if not still_work_to_do:
+            
+            return 600.0
+            
         
         if self._work_hard.is_set():
             
@@ -185,23 +189,6 @@ class PotentialDuplicatesMaintenanceManager( ClientDaemons.ManagerWithMainLoop )
         reasonable_work_period = min( 5 * expected_work_period, actual_work_period )
         
         return reasonable_work_period * rest_ratio
-        
-    
-    def _GetWorkPeriod( self ):
-        
-        if self._work_hard.is_set():
-            
-            return 0.5
-            
-        
-        if self._controller.CurrentlyIdle():
-            
-            return HydrusTime.SecondiseMSFloat( CG.client_controller.new_options.GetInteger( 'potential_duplicates_search_work_time_ms_idle' ) )
-            
-        else:
-            
-            return HydrusTime.SecondiseMSFloat( CG.client_controller.new_options.GetInteger( 'potential_duplicates_search_work_time_ms_active' ) )
-            
         
     
     def _WorkPermitted( self ):
